@@ -1,6 +1,6 @@
-# 步骤一：项目分析
+# 步骤一：环境检测与准备编译环境
 
-本步骤收集项目的全面信息，为后续迁移提供输入。执行本步骤前，请确认已满足 SKILL.md 中的前置条件。
+本步骤用于检测 arm64 目标环境的编译器、构建工具和基础依赖，准备编译环境，确保项目在 arm64 上具备编译条件。执行本步骤前，请确认已满足 SKILL.md 中的前置条件。
 
 ## 1.1 收集系统环境信息
 
@@ -61,7 +61,7 @@ find . -name "blade*.zip" -o -name "blade-*.zip"
 
 - **Make**：`yum install make` 或 `apt install make`
 - **CMake**：从 https://cmake.org/download/ 下载或通过包管理器安装
-- **Bazel**：从 https://github.com/bazelbuild/bazel/releases 下载 arm64 二进制文件
+- **Bazel**：参见 1.5 节的 Bazel 版本检测与安装流程
 - **SCons**：`pip install scons` 或 `yum install scons`
 
 ## 1.4 处理 Blade 构建系统（特殊情况）
@@ -109,9 +109,75 @@ find . -name "blade.py"
    ```
    如果 blade 需要 Python3 但系统默认使用 Python2，确保构建脚本使用 `python3` 调用 blade。
 
-## 1.5 识别 Protobuf 版本
+## 1.5 处理 Bazel 构建系统（特殊情况）
 
-### 1.5.1 确定项目使用的 Protobuf 版本
+如果项目使用 Bazel 作为构建系统，需要检测项目依赖的 Bazel 版本与系统安装的版本是否一致，不一致时需要安装匹配版本。
+
+### 1.5.1 确定项目所需的 Bazel 版本
+
+在项目中搜索 Bazel 版本约束：
+
+```bash
+# 搜索 .bazelversion 文件（Bazel 版本管理标准方式）
+cat .bazelversion
+
+# 搜索 WORKSPACE/MODULE.bazel 中的版本约束
+grep -r "bazel_version\|minimum_bazel\|BAZEL_VERSION" WORKSPACE MODULE.bazel .bazelversion 2>/dev/null
+
+# 搜索 .bazelrc 中的版本相关配置
+grep -r "bazel_version" .bazelrc 2>/dev/null
+
+# 搜索 CI/CD 配置中的 Bazel 版本
+grep -r "bazel" --include="*.yml" --include="*.yaml" --include="Jenkinsfile" --include="Dockerfile" .
+```
+
+版本确定优先级：
+1. `.bazelversion` 文件中指定的版本（最高优先级）
+2. WORKSPACE/MODULE.bazel 中声明的版本约束
+3. CI/CD 配置中使用的版本
+4. 如果以上均未找到，使用系统当前安装的 Bazel 版本
+
+### 1.5.2 检查系统 Bazel 版本
+
+在 **arm64 目标环境** 上：
+
+```bash
+bazel --version
+```
+
+如果 Bazel 未安装，输出类似 `bazel: command not found`，需要安装。
+
+### 1.5.3 安装或切换 Bazel 版本
+
+如果项目所需的 Bazel 版本与系统安装的版本不一致，或系统未安装 Bazel，需要安装匹配版本：
+
+1. 从 Bazel GitHub Releases 下载对应版本的 arm64 二进制文件：
+   ```bash
+   # 以安装 Bazel 6.4.0 为例
+   BAZEL_VERSION="6.4.0"
+   wget https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-arm64
+   chmod +x bazel-${BAZEL_VERSION}-linux-arm64
+   sudo mv bazel-${BAZEL_VERSION}-linux-arm64 /usr/local/bin/bazel
+   ```
+
+2. 如果需要多版本共存，可以将不同版本安装到不同路径并创建符号链接：
+   ```bash
+   # 安装到版本化路径
+   sudo mv bazel-${BAZEL_VERSION}-linux-arm64 /usr/local/bin/bazel-${BAZEL_VERSION}
+   # 创建符号链接指向所需版本
+   sudo ln -sf /usr/local/bin/bazel-${BAZEL_VERSION} /usr/local/bin/bazel
+   ```
+
+3. 验证安装版本是否匹配：
+   ```bash
+   bazel --version
+   ```
+
+**注意**：Bazel 版本不一致可能导致构建规则不兼容、远程缓存失效等问题，必须确保项目使用的 Bazel 版本与 arm64 环境安装的版本一致。
+
+## 1.6 识别 Protobuf 版本
+
+### 1.6.1 确定项目使用的 Protobuf 版本
 
 在项目中搜索 protobuf 版本标识：
 
@@ -136,7 +202,7 @@ find . -name "*.proto" | head -20
 - Bazel：WORKSPACE/MODULE.bazel 中的 `protobuf` 依赖版本
 - Make：`pkg-config --modversion protobuf`
 
-### 1.5.2 检查系统 protoc 版本
+### 1.6.2 检查系统 protoc 版本
 
 在 **arm64 目标环境** 上：
 
@@ -144,7 +210,7 @@ find . -name "*.proto" | head -20
 protoc --version
 ```
 
-### 1.5.3 处理 Protobuf 版本不一致
+### 1.6.3 处理 Protobuf 版本不一致
 
 如果系统 protoc 版本与项目所需的 protobuf 版本不一致：
 
@@ -172,12 +238,12 @@ protoc --version
 
 **重要**：即使 arm64 系统安装了更高版本的 protobuf，也**绝不能**升级项目使用的 protobuf 版本。项目必须使用其原始 protobuf 版本以保持兼容性。只需为 arm64 编译安装匹配版本的 protoc 二进制文件即可。
 
-## 1.6 生成项目分析报告
+## 1.7 生成环境检测报告
 
 完成以上所有检查后，生成汇总报告：
 
 ```
-=== 项目迁移分析报告 ===
+=== 环境检测报告 ===
 
 --- 系统环境 ---
 源环境（x86_64）：
@@ -201,6 +267,12 @@ protoc --version
   - Python3 支持：<是/否>
   - 需要的操作：<无/需升级>
   - Zip 包位置：<路径>
+
+--- Bazel 相关（如适用）---
+  - 项目所需 Bazel 版本：<版本>
+  - 系统 Bazel 版本：<版本/未安装>
+  - 是否匹配：<是/否>
+  - 需要的操作：<无/需安装指定版本>
 
 --- Protobuf ---
   - 项目 protobuf 版本：<版本>
