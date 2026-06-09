@@ -552,7 +552,7 @@ graph TD
 
 ## 输出模板
 
-报告模板见 [report-template-example.md](report-template-example.md)。
+报告模板见 [dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md)。
 
 > ⚠️ **输出方式提醒**：完成分析后，将整个报告内容**直接以 Markdown 格式输出到对话界面**，不调用任何文件写入工具（不使用 write/create file 等操作）。
 
