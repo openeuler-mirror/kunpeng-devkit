@@ -56,11 +56,11 @@ echo "工作目录: $WORK_DIR"
 
 ## 阶段 A：环境检测与准备
 
-> 详细执行步骤见 [setup.md](setup.md)
+> 详细执行步骤见 [environment-prepare.md](environment-prepare.md)
 
 **本阶段目标：确认 ARM 环境具备编译条件，输出环境检测报告。**
 
-执行步骤（详见 setup.md）：
+执行步骤（详见 environment-prepare.md）：
 
 1. **A.1 收集系统环境信息**：获取 x86 和 ARM 环境的 gcc/glibc/OS 版本
 2. **A.2 识别构建系统**：扫描项目根目录，确认 Make/CMake/Bazel/Blade/SCons
@@ -284,7 +284,7 @@ if attempt > MAX:
 
 ## 附加资源
 
-- **阶段 A：环境检测与准备**：[setup.md](setup.md)
+- **阶段 A：环境检测与准备**：[environment-prepare.md](environment-prepare.md)
 - **阶段 B：依赖分析与兼容性探测**：[dependency-analysis.md](dependency-analysis.md)
 - **依赖分析报告模板**：[dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md)
 - **ARM 兼容性已确认清单**：[arm_confirmed.md](arm_confirmed.md)
