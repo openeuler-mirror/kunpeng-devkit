@@ -307,6 +307,7 @@ if attempt > MAX:
 ## 附加资源
 
 - **阶段 A：环境检测与准备**：[environment-prepare.md](environment-prepare.md)
+- **构建工具下载链接参考**：[build-tools-reference.md](build-tools-reference.md)
 - **阶段 B：依赖分析与兼容性探测**：[dependency-analysis.md](dependency-analysis.md)
 - **依赖分析报告模板**：[dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md)
 - **ARM 兼容性已确认清单**：[arm_confirmed.md](arm_confirmed.md)
