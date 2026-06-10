@@ -1,0 +1,129 @@
+# ============================================================
+# ARM64 镜像迁移配置  —  IMAGE_MIG_SKILLSET 模式
+# ============================================================
+# 使用说明：
+#   1. 将所有 <...> 占位符替换为你的实际值
+#   2. 其余字段有默认值，按需调整
+#   3. § 3 内网隔离开关：普通环境保持 false；安全合规/离网环境改为 true
+# ============================================================
+
+
+# -----------------------------------------------------------
+# § 0  Agent 并发编排
+# -----------------------------------------------------------
+# 主 Agent 负责任务分发、进度监控和卡住干预；
+# 子 Agent 各自独立执行单个镜像的完整迁移流程（PHASE 1-5）。
+#
+# WORKER_COUNT：并发子 Agent 数量。
+#   默认 3，适合大多数环境；资源极度紧张时改为 1。
+#   上限 5，超过此值无收益且会加大镜像仓/网络争用。
+#
+# WORKER_STALL_TIMEOUT_MIN：子 Agent 无进展的最长等待时间（分钟）。
+#   超出后主 Agent 主动干预：查看日志、注入修复建议或重启该子 Agent。
+#   建议设置为 BUILD_TIMEOUT_MIN 的 1/3 左右。
+
+WORKER_COUNT:              3
+WORKER_STALL_TIMEOUT_MIN:  20
+
+
+# -----------------------------------------------------------
+# § 1  构建输出
+# -----------------------------------------------------------
+
+OUTPUT_TAG_PREFIX:     "arm64"
+# 生成镜像的 tag 前缀，最终格式：<prefix>-<project>:latest
+
+OUTPUT_DOCKERFILE_DIR: "arm_builds_{date}/dockerfiles/{project}"
+# 生成 Dockerfile 的目录，{date} 自动替换为 YYYYMMDD，{project} 替换为项目名
+
+REPORT_DIR:            "arm_builds_{date}/build_reports"
+# 构建报告输出目录
+
+MAX_RETRY:             5
+# 单次构建最大重试次数，超出后标记 FAILED(EXCEEDED_ATTEMPTS)
+
+BUILD_TIMEOUT_MIN:     60
+# 单次构建超时分钟数，超出后标记 FAILED(TIMEOUT)
+
+
+# -----------------------------------------------------------
+# § 2  内网仓库地址  ← 必填
+# -----------------------------------------------------------
+# 填写 ARM 执行机可直连的内网域名/地址。
+# 含这些地址的命令将被直接保留，不替换为公开源。
+
+GIT_HOSTS:
+  - <your-internal-git-host>        # 示例：git.yourcompany.com
+
+INTERNAL_REGISTRIES:
+  - <your-internal-registry>        # 示例：registry.yourcompany.com
+
+INTERNAL_PYPI_HOSTS:
+  - <your-internal-pypi-host>       # 示例：pypi.yourcompany.com
+  # 无内网 PyPI 则改为空列表：[]
+
+
+# -----------------------------------------------------------
+# § 3  内网隔离模式
+# -----------------------------------------------------------
+# false（默认）：公网镜像源可作为兜底，正常使用。
+# true          ：启用后所有依赖必须走内网，效果如下：
+#   - § 2 三项地址必须全部填写，否则启动校验失败
+#   - § 4 的 PIP_INDEX_URL 自动替换为 INTERNAL_PYPI_HOSTS[0]，手填值不生效
+#   - Dockerfile 中若仍出现公网域名（pypi.org / github.com / docker.io 等），
+#     自动标注 [WARN-PUBLIC-URL] 并在构建前提示二次确认
+
+AIRGAP_MODE: false
+
+
+# -----------------------------------------------------------
+# § 4  pip 镜像源（AIRGAP_MODE=true 时自动由内网 PyPI 覆盖）
+# -----------------------------------------------------------
+# 默认使用阿里云。若不通，可按以下备选顺序手动切换：
+#   清华 TUNA  https://pypi.tuna.tsinghua.edu.cn/simple/      mirrors.tuna.tsinghua.edu.cn
+#   腾讯云     https://mirrors.cloud.tencent.com/pypi/simple/  mirrors.cloud.tencent.com
+#   华为云     https://repo.huaweicloud.com/repository/pypi/simple/  repo.huaweicloud.com
+
+PIP_INDEX_URL:    "https://mirrors.aliyun.com/pypi/simple/"
+PIP_TRUSTED_HOST: "mirrors.aliyun.com"
+
+
+# -----------------------------------------------------------
+# § 5  CUDA / GPU 包处理
+# -----------------------------------------------------------
+# ARM64 无 NVIDIA GPU，以下前缀的 pip 包将在迁移时自动删除。
+# 如有误删需要保留的包，在此列表中移除对应前缀。
+
+CUDA_PACKAGES_SKIP:
+  - "nvidia-"
+  - "triton"
+  - "cuda-"
+  - "cudnn"
+  - "nccl"
+
+# torch 的 CUDA 版本 → CPU-only 版本映射。
+# 未命中时自动去掉 +cuXXX 后缀并保留主版本号。
+# 如需锁定特定版本，在此补充映射关系。
+
+TORCH_VERSION_MAP:
+  "2.8.0+cu124": "2.6.0"
+  "2.7.0+cu124": "2.6.0"
+  "2.6.0+cu124": "2.6.0"
+  "2.5.0+cu121": "2.4.1"
+  "2.4.0+cu121": "2.4.1"
+  "2.3.0+cu121": "2.3.1"
+  "2.2.0+cu121": "2.2.2"
+  "2.1.0+cu118": "2.1.2"
+  "2.0.0+cu118": "2.0.1"
+
+
+# -----------------------------------------------------------
+# § 6  版本强制覆盖
+# -----------------------------------------------------------
+# 在生成的 Dockerfile 末尾追加一层 pip install 覆盖指定包的版本。
+# 用于修复已知的 ARM64 / Python 版本兼容性问题。
+# 留空 {} 则不追加任何内容。
+
+FORCE_VERSION_OVERRIDES:
+  networkx: ">=2.6"       # networkx 2.2 在 Python 3.10 不兼容（collections.Mapping 已移除）
+  # gym: "==0.26.2"       # 原版本为 gym<=0.19 时取消此注释
