@@ -165,7 +165,45 @@ config.yaml REPORT_DIR（默认：arm_builds_<YYYYMMDD>/build_reports/）
 
 ---
 
-## 场景 5：config.yaml 初始化向导
+## 场景 5：纯镜像重构（无 Dockerfile，逆向分析）
+
+```
+将一批 x86_64 镜像逆向重建为 linux/arm64，没有 Dockerfile 源文件，需要通过 docker history + layout + manifest 分析镜像结构后重建。
+
+【必读文件】执行任何操作前，先读取以下文件：
+1. <工作目录>/IMAGE_MIG_SKILLSET/IMAGE_RECONSTRUCTION.md   ← 完整执行流程（六阶段）
+2. <工作目录>/IMAGE_MIG_SKILLSET/config.yaml               ← 环境参数 ★ 启动前确认已填写
+3. <工作目录>/IMAGE_MIG_SKILLSET/BUILD_KNOWLEDGE.md         ← 构建/修复知识库
+
+【输入文件】
+- 待迁移镜像列表：<migration_list.txt 路径>
+
+【执行方式】
+严格按 IMAGE_RECONSTRUCTION.md 六阶段执行：
+  PHASE 0: 逆向信息采集（docker history + layout + manifest）
+  PHASE 1: 分析结论汇总（决策矩阵）
+  PHASE 2: 离线资源提取（docker cp）
+  PHASE 3: 重建 ARM64 Dockerfile
+  PHASE 4: 构建验证
+  PHASE 5: 运行时测试 + 固化报告
+
+按 config.yaml § 0 WORKER_COUNT 决定并发度：
+  WORKER_COUNT = 1：逐一迁移，每项完成后立即写报告
+  WORKER_COUNT ≥ 2：主 Agent 调度，并发执行迁移任务
+
+【通用规则】
+- 每个镜像完成后立即写报告，不等全部完成
+- 已有 build_reports/<project>.json 的镜像直接跳过
+- 不透明层（/bin/bash，Size > 0）必须运行 layout --mode full 补齐
+
+【报告路径】
+config.yaml REPORT_DIR（默认：arm_builds_<YYYYMMDD>/build_reports/）
+并发模式还会生成总览报告：_summary.json
+```
+
+---
+
+## 场景 6：config.yaml 初始化向导
 
 ```
 初始化 IMAGE_MIG_SKILLSET 的 config.yaml 配置文件。
