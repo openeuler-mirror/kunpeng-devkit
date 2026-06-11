@@ -32,10 +32,10 @@ bazel --version  # 验证
 
 | 版本号 | 官方下载链接 | 内部定制版下载链接 |
 |--------|-------------|-------------------|
-| 3.0（最新） | `https://github.com/chen3feng/blade/releases/latest` | <!-- 内部定制版链接待补充 --> |
-| 2.0（最新） | `https://github.com/chen3feng/blade/releases/tag/v2.0` | <!-- 内部定制版链接待补充 --> |
+| 3.0（最新） | `https://github.com/blade-build/blade-build/releases/latest` | <!-- 内部定制版链接待补充 --> |
+| 2.0（最新） | `https://github.com/blade-build/blade-build/releases/tag/v2.0` | <!-- 内部定制版链接待补充 --> |
 
-> **注意**：Blade 3.0 之前的版本不支持 arm64 架构。如果项目使用旧版 Blade，必须升级到 3.0 或更高版本。
+> **注意**：Blade 2.0 起支持 arm64 架构和 Python3。如果项目使用 2.0 之前的旧版 Blade，**优先升级到 2.0**（而非直接跳到 3.0），以减少版本跨度过大导致的兼容性问题。仅当 2.0 不满足项目需求时再升级到 3.0。
 
 **安装方式：**
 

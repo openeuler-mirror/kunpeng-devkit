@@ -1,6 +1,6 @@
-# 步骤一：环境检测与准备编译环境
+# 步骤一：环境检测、修复与准备编译环境
 
-本步骤用于检测 arm64 目标环境的编译器、构建工具和基础依赖，准备编译环境，确保项目在 arm64 上具备编译条件。执行本步骤前，请确认已满足 SKILL.md 中的前置条件。
+本步骤用于检测 arm64 目标环境的编译器、构建工具和基础依赖，对不满足要求的项自动修复（安装/升级），准备编译环境，确保项目在 arm64 上具备编译条件。执行本步骤前，请确认已满足 SKILL.md 中的前置条件。
 
 > 构建工具的下载链接参见 [build-tools-reference.md](build-tools-reference.md)，安装时优先使用内部定制版链接，无内部定制版时使用官方链接。
 
@@ -95,7 +95,7 @@ find . -name "blade.py"
    cat blade_extracted/blade/__init__.py  # 或类似的版本文件
    ```
 
-2. 检查 blade 版本是否支持 arm64 架构。如果版本不支持 arm64，**自动尝试升级**：
+2. 检查 blade 版本是否支持 arm64 架构。**2.0 之前**的 blade 版本不支持 arm64 和 Python3。如果版本不支持 arm64，**优先升级到 Blade 2.0**（而非直接跳到 3.0），以减少版本跨度过大导致的兼容性问题：
    - 从 [build-tools-reference.md](build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版
    - 下载并替换项目中的 blade zip 包：
      ```bash
@@ -105,6 +105,7 @@ find . -name "blade.py"
      cp /tmp/blade-upgrade.zip <项目中的blade zip包路径>
      ```
    - 验证新版本可以在 Python3 下工作：`python3 -m blade --version`
+   - 如果 Blade 2.0 仍不满足项目需求，再考虑升级到 3.0
 
 3. 检查 Python 版本兼容性：
    ```bash
@@ -241,9 +242,9 @@ protoc --version
 
 **重要**：即使 arm64 系统安装了更高版本的 protobuf，也**绝不能**升级项目使用的 protobuf 版本。项目必须使用其原始 protobuf 版本以保持兼容性。只需为 arm64 编译安装匹配版本的 protoc 二进制文件即可。
 
-## 1.7 生成环境检测报告
+## 1.7 生成环境检测与修复报告
 
-完成以上所有检查（含自动安装尝试）后，生成汇总报告。报告包含两个表格：
+完成以上所有检查和修复后，生成汇总报告。报告包含两个表格：
 
 ### 表一：环境基础信息
 
@@ -282,7 +283,7 @@ protoc --version
 **报告输出示例：**
 
 ```
-=== 环境检测报告 ===
+=== 环境检测与修复报告 ===
 
 --- 表一：环境基础信息 ---
 | 项目      | 源环境（x86_64）         | 目标环境（arm64）         |
@@ -305,4 +306,4 @@ protoc --version
   - 进入步骤二：依赖分析
 ```
 
-将此报告保存到项目目录中，文件名为 `migration-analysis-report.md`。
+将此报告保存到工作目录中，文件名为 `$WORK_DIR/reports/environment-check-report.md`。
