@@ -2,7 +2,7 @@
 
 本文档描述如何运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描，以及如何根据扫描报告对源码进行架构适配修改。
 
-> **范围说明**：本文档仅涵盖 DevKit 工具调用和源码修改方法。构建系统配置（`.bazelrc`、`WORKSPACE_arm`、`CMakeLists.txt` 等）的适配，由 SKILL.md 阶段 D 中的构建配置部分覆盖。
+> **范围说明**：本文档涵盖 DevKit 工具调用、源码修改方法，以及构建系统配置（`.bazelrc`、`WORKSPACE_arm`、`CMakeLists.txt` 等）的架构适配。
 
 > **前置条件**：阶段 C 用户确认已完成，私有依赖的 ARM 兼容性信息已获取。
 

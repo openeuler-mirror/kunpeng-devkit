@@ -129,16 +129,60 @@ git log --oneline --all | grep -iE "arm|aarch64|鲲鹏|kunpeng" | head -20
 
 ## Step 3：写入案例库
 
-按分类写入对应文件：
+### 3.1 写入目标文件
 
-| 分类 | 文件 | ID 前缀 |
-|------|------|---------|
-| 通用 ARM 适配（含汇编、内存序、char 符号性等） | `migration-cases/01-generic-arm-migration.md` | `G-` |
-| 版本兼容性（工具链版本升级导致） | `migration-cases/02-version-compatibility.md` | `V-` |
-| 项目特有（业务特定依赖组合、历史欠债） | `migration-cases/03-project-specific.md` | `P-` |
+按分类写入**详情库**（不是路由索引文件）：
 
-每条案例中必须包含 **`diff patch`** 字段，内容为该案例对应的实际改动片段（从 Step 1 生成的 patch 文件中提取相关部分，已脱敏）。  
+| 分类 | 详情库文件 | ID 前缀 |
+|------|----------|--------|
+| 通用 ARM 适配（含汇编、内存序、char 符号性、SIMD、ABI 等） | `migration-cases/G-cases.md` | `G-` |
+| 版本兼容性（工具链/库版本升级导致，换架构不一定必现） | `migration-cases/V-cases.md` | `V-` |
+| 项目特有（业务特定依赖组合、私有库、历史欠债） | `migration-cases/P-cases.md` | `P-` |
+
+> ⚠️ `01-generic-arm-migration.md`、`02-version-compatibility.md`、`03-project-specific.md` 是**路由索引文件**，只存摘要和行号，**不是案例正文的写入目标**。
+
+### 3.2 案例写入格式规范
+
+每条案例必须包含四要素，追加到对应 `*-cases.md` 文件末尾（紧接最后一个 `---` 之后）：
+
+````markdown
+## G-XX：<简明标题>（不含项目名、业务名）
+
+**错误现象：**
+```
+<原始编译报错信息，已脱敏，保留关键错误行>
+```
+
+**根因分析：**
+<为什么 x86 正常而 ARM 出错，指明架构/版本差异本质>
+
+**修复方法：**
+<具体代码改动，前后对比形式；构建系统修改用对应格式（ini/python/cmake）>
+
+**验证方式：**
+<如何确认修复有效，优先给出可执行命令>
+
+---
+````
+
+每条案例中必须包含 **`diff patch`** 字段（从 Step 1 生成的 patch 文件中提取相关部分，已脱敏）。  
 写入格式见 [case-collection-guide.md](case-collection-guide.md)。
+
+### 3.3 索引表维护规范（写入后必须执行）
+
+**写入步骤：**
+
+1. 写入案例正文前，先确认新案例 ID（取当前最大 ID + 1）
+2. 用 `wc -l migration-cases/G-cases.md` 确认当前总行数
+3. 新案例起始行 = 当前总行数 + 2（追加后 `---` 占 1 行、空行占 1 行，`##` 标题从第 3 行开始）
+4. 将案例正文追加到文件末尾
+5. **在文件头部索引表追加一行**：
+   ```
+   | G-XX | <起始行> | <摘要（核心错误关键词，≤30字）> |
+   ```
+6. **同步更新路由索引文件**中对应的摘要表（G 类更新 `01-generic-arm-migration.md`，V 类更新 `02-version-compatibility.md`，P 类更新 `03-project-specific.md`）
+
+> ⚠️ 行号必须准确——AI 依赖行号执行 `read_file(offset=<起始行>, limit=70)` 精准读取，行号偏差会导致读取到错误内容。写入后用 `sed -n '<起始行>p' migration-cases/G-cases.md` 验证该行确实是 `## G-XX` 标题行。
 
 ---
 
@@ -244,10 +288,8 @@ python3 $SKILL_DIR/arm_scan.py <项目根目录> --exclude build64_release,bazel
 **收集内容包括：**
 - 依赖库的 ARM 版本路径 / URL / commit / tag
 - ABI 设置（ABI0/ABI1/纯C）
-- 全局编译配置（BLADE_ROOT / .bazelrc 中的 ARM 段）
-- 工具版本（Bison、GCC、Blade、Bazel 等）
 
-**不收集：** 尚未验证可用的候选版本、已排除的版本。
+**不收集：** 主仓自身的全局编译配置（BLADE_ROOT / .bazelrc 等主仓分支特有配置）、工具版本、构建命令；尚未验证可用的候选版本、已排除的版本。
 
 ---
 
@@ -310,37 +352,12 @@ grep -A3 "linux_aarch64\|aarch64" $PROJECT_ROOT/.bazelrc 2>/dev/null | head -30
 | `<name>` | `<url>` / `commit = "<hash>"` | <简要说明> |
 ```
 
-**全局编译配置（BLADE_ROOT / .bazelrc，每个主仓单独记录）：**
-
-```markdown
-### <主仓名> 全局编译配置
-
-```python
-# BLADE_ROOT ARM 关键配置（仅 ARM 相关差异部分）
-cxxflags = ['-D_GLIBCXX_USE_CXX11_ABI=0', '-fsigned-char', ...]
-extra_incs = ['<ARM boost 路径>/include', ...]
-protoc = '<ARM protoc 路径>'
-```
-```
-
-**工具版本（每个主仓单独记录）：**
-
-```markdown
-### <主仓名> 工具版本
-
-| 工具 | ARM 版本 | 备注 |
-|------|---------|------|
-| Bison | 3.8.2 | openEuler 22.03 系统自带 |
-| GCC | 10.3.1 | 系统 GCC |
-| Blade | 1.1.3 | — |
-```
-
 ---
 
 ### 5.5 脱敏要求
 
 `arm_confirmed.md` 中的信息**不强制脱敏**（本文件仅存储在 skill 目录下，非公开），但写入时：
-- **本地绝对路径**保留（如 `/home/.../thirdparty/xxx/...`），供后续项目直接复用
+- **本地绝对路径**保留（如 `/data/.../thirdparty/xxx/...`），供后续项目直接复用
 - **内网 URL / SSH 地址**保留，仅替换无法复用的用户名部分（`/home/<username>/` → 保留其余）
 - **commit hash** 完整保留，不替换
 
@@ -362,9 +379,20 @@ grep -n "^## " <skill-dir>/case-collector/arm_confirmed.md
 
 ## 案例库文件索引
 
-- **通用 ARM 适配问题案例库**：[migration-cases/01-generic-arm-migration.md](migration-cases/01-generic-arm-migration.md)
-- **版本兼容性问题案例库**：[migration-cases/02-version-compatibility.md](migration-cases/02-version-compatibility.md)
-- **项目特有问题案例库**：[migration-cases/03-project-specific.md](migration-cases/03-project-specific.md)
+**详情库（案例正文写入目标）：**
+
+- **G 类详情库**：[migration-cases/G-cases.md](migration-cases/G-cases.md)（G-01~G-30+，通用 x86→ARM 架构差异）
+- **V 类详情库**：[migration-cases/V-cases.md](migration-cases/V-cases.md)（V-01~V-06+，构建工具链版本兼容问题）
+- **P 类详情库**：[migration-cases/P-cases.md](migration-cases/P-cases.md)（P-01~P-15+，项目特有依赖与编译问题）
+
+**路由索引（仅存摘要+行号，不写入案例正文）：**
+
+- **通用 ARM 适配路由**：[migration-cases/01-generic-arm-migration.md](migration-cases/01-generic-arm-migration.md)（A~F 系列快速路由 + G 系列摘要索引）
+- **版本兼容性路由**：[migration-cases/02-version-compatibility.md](migration-cases/02-version-compatibility.md)（V 系列摘要索引）
+- **项目特有路由**：[migration-cases/03-project-specific.md](migration-cases/03-project-specific.md)（P 系列摘要索引）
+
+**其他资源：**
+
 - **diff 采集与校验指南**：[diff-collection.md](diff-collection.md)
 - **迁移会话知识提取指南**：[migration-session-summary.md](migration-session-summary.md)
 - **案例采集规范**：[case-collection-guide.md](case-collection-guide.md)
