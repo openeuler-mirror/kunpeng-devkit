@@ -29,7 +29,7 @@ find /opt /usr/local -name "devkit" -maxdepth 8 -type f 2>/dev/null | head -3
 
 ### D.1.2 确认扫描参数
 
-根据阶段 A `setup.md` 的构建系统检测结果，确定 `-b` 参数：
+根据阶段 A `environment-prepare.md` 的构建系统检测结果，确定 `-b` 参数：
 
 | 构建系统 | `-b` 参数值 |
 |---------|------------|

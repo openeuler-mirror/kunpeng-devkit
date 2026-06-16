@@ -33,7 +33,7 @@ COMPILE_CMD="bazel build <主编译目标> --verbose_failures --config=linux_aar
 COMPILE_CMD="bash $PROJECT_ROOT/build.sh"
 ```
 
-> **编译目标来源**：来自阶段 A setup.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
+> **编译目标来源**：来自阶段 A environment-prepare.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
 
 ### CMake 项目
 
@@ -106,9 +106,9 @@ while ATTEMPT <= MAX_ATTEMPTS:
     │  分析错误并修复                         │
     └─────────────────────────────────────────┘
 
-    优先查询 sourcecode-error-patterns.md 中的已知案例
-    若找到匹配案例 → 按案例方法修复
-    若未找到匹配 → 按 E.4 速查表处理
+    优先查询 DevKit 报告（`$WORK_DIR/reports/devkit-*/`）中的已知问题
+    若 DevKit 报告命中 → 按报告方法修复
+    若未找到匹配 → 按 E.5 速查表处理
 
     记录修复操作到 $WORK_DIR/reports/fix_history.txt
 
@@ -207,7 +207,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 ## E.5 常见错误快速修复速查表
 
-> **优先查询 [sourcecode-error-patterns.md](sourcecode-error-patterns.md) 中的完整案例库**，以下为高频错误速查。
+> **修复优先级**：先查 DevKit 报告（`$WORK_DIR/reports/devkit-*/`）中是否已标记此问题；DevKit 未命中时再使用以下速查表。
 
 ### 编译标志类错误
 
@@ -238,9 +238,9 @@ grep -n "mf16c\|msse\|mavx\|mpopcnt\|mssse3\|march=.*86" $PROJECT_ROOT/.bazelrc
 
 | 错误信息 | 根因 | 修复 |
 |---------|------|------|
-| `'__m256i' was not declared` | AVX 类型未定义 | 用架构宏保护整个使用块，参考 sourcecode-error-patterns.md |
+| `'__m256i' was not declared` | AVX 类型未定义 | 用 `#if defined(__x86_64__)` 包裹整个使用块，ARM 路径提供 NEON 替代或标量退化（参考 sourcecode-devkit-scan.md D.2.2） |
 | `'_mm256_loadu_si256' undeclared` | AVX intrinsics 函数未定义 | 同上 |
-| `expected unqualified-id before '__attribute__'` | `-D__const__=` 破坏 ARM glibc | 改为 `select()` 架构区分，见 sourcecode-error-patterns.md 案例 C-04 |
+| `expected unqualified-id before '__attribute__'` | `-D__const__=` 破坏 ARM glibc | 在 .bazelrc / Makefile 中改为 `select()` / 架构判断分支，仅 x86 段保留该宏 |
 | `'proto_common' is not defined` | Bazel rules_proto 版本不兼容 | 在 .bazelrc 全局段加 `--incompatible_blacklisted_protos_requires_proto_info=false` |
 
 ### 链接错误
@@ -258,13 +258,13 @@ grep -n "mf16c\|msse\|mavx\|mpopcnt\|mssse3\|march=.*86" $PROJECT_ROOT/.bazelrc
 | `no such target '//platforms:linux_aarch64'` | 同上 | 同上 |
 | `Unrecognized option: --incompatible_...` | 系统 Bazel 版本过旧 | 确认使用项目内置 Bazel（software.sh 中的 PATH 设置） |
 | `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 改用 `new_local_repository` 指向本地桩 |
-| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 setup.md 1.6 节） |
+| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 environment-prepare.md 1.6 节） |
 
 ### 编译严格性差异
 
 | 错误信息 | 根因 | 修复 |
 |---------|------|------|
-| `jump to case label` | case 块中有局部变量，ARM GCC 更严格 | 给 case 块加花括号 `{}`，见 sourcecode-error-patterns.md 案例 C-05 |
+| `jump to case label` | case 块中有局部变量，ARM GCC 更严格 | 给 case 块加花括号 `{}` 形成独立作用域 |
 | `cannot convert 'const string' to 'const char*'` | 桩头文件签名与调用方不匹配 | 重新扫描调用方并修正桩签名 |
 | `missing binary operator before token "("` | Boost 版本过旧 | 使用系统新版 Boost 或升级 Boost 版本 |
 | `-Werror` 将警告升级为错误 | ARM GCC 产生 x86 GCC 没有的警告 | 在 ARM 配置段中添加对应的 `-Wno-xxx`，或修复源码中的警告 |
@@ -284,7 +284,7 @@ cat >> $FIX_LOG << EOF
 错误摘要：<错误类型，如 "immintrin.h not found in xxx.cpp">
 错误根因：<根因分析，如 "x86 头文件未用架构宏保护">
 修复操作：<具体修改，如 "在 src/util/simd.cpp:23 前后添加 #if defined(__x86_64__) 宏">
-参考案例：<sourcecode-error-patterns.md 中的案例编号，若有>
+参考案例：<DevKit 报告中对应问题编号，或 E.5 速查表表名，若有>
 修改文件：<文件路径>
 修改范围：<行号>
 
@@ -375,7 +375,7 @@ echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures
 - [ ] 已确定正确的编译命令（含 --config=linux_aarch64 或等效参数）
 - [ ] 第 1 次编译已执行，日志已保存到 `$WORK_DIR/logs/build_1.log`
 - [ ] 若失败，已提取并分析关键错误信息
-- [ ] 已优先查询 `sourcecode-error-patterns.md` 匹配已知案例
+- [ ] 已优先查询 DevKit 报告 / E.5 速查表匹配已知问题
 - [ ] 每次修复均已记录到 `fix_history.txt`
 - [ ] 最终编译成功（退出码 0，无 `error:` 行）
 - [ ] 临时 WORKSPACE 文件已清理

@@ -48,7 +48,7 @@ mkdir -p $WORK_DIR/{reports,downloads,build,logs,stubs}
 
 ## 阶段 A：环境检测与准备
 
-> ⚡ **立即 `read_file("setup.md")` 获取完整执行步骤。**
+> ⚡ **立即 `read_file("environment-prepare.md")` 获取完整执行步骤。**
 
 **本阶段目标**：确认 ARM 环境具备编译条件，输出环境检测报告到 `$WORK_DIR/reports/environment_check_report.md`。
 
@@ -142,9 +142,9 @@ options:
 
 **本阶段目标**：循环执行编译验证，直到编译成功或人工介入。
 
-**错误修复优先级**（详见 sourcecode-build-verify.md E.2/E.4b 节）：
-- **P0**：优先查 DevKit 报告（`$WORK_DIR/reports/devkit-*/`），命中则直接按报告修复，不查案例库
-- **P1**：DevKit 未命中时，`read_file("migration-cases/01-generic-arm-migration.md")` 获取路由索引，再 `read_file` 对应系列案例文件
+**错误修复优先级**（详见 sourcecode-build-verify.md E.2/E.5 节）：
+- **P0**：优先查 DevKit 报告（`$WORK_DIR/reports/devkit-*/`），命中则直接按报告修复
+- **P1**：DevKit 未命中时，查 [sourcecode-build-verify.md](sourcecode-build-verify.md) E.5 节的常见错误速查表
 - **报告目录不存在**：⛔ 回到阶段 D 重新执行 DevKit 扫描，不得跳过
 
 ---
@@ -153,14 +153,14 @@ options:
 
 | 文档 | 用途 |
 |------|------|
-| [setup.md](setup.md) | 阶段 A：环境检测与准备 |
-| [dependency-analysis/dependency-analysis.md](dependency-analysis/dependency-analysis.md) | 阶段 B：依赖分析与兼容性探测 |
-| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 |
+| [environment-prepare.md](environment-prepare.md) | 阶段 A：环境检测与准备 |
+| [build-tools-reference.md](build-tools-reference.md) | 阶段 A 配套：构建工具下载链接（内部定制版优先） |
+| [dependency-analysis/dependency-analysis.md](dependency-analysis/dependency-analysis.md) | 阶段 B：依赖分析与兼容性探测主编排 |
+| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4 / 阶段 D：写入 ARM 确认清单 + 执行真实切换 |
 | [sourcecode-devkit-scan.md](sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
-| [sourcecode-build-verify.md](sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复 |
-| [migration-cases/01-generic-arm-migration.md](migration-cases/01-generic-arm-migration.md) | 编译错误路由索引（A~F + G/V/P 系列，按需加载）|
-| [arm_confirmed.md](arm_confirmed.md) | ARM 兼容性已确认清单 |
+| [sourcecode-build-verify.md](sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.5 节为常见错误速查表） |
+| [arm_confirmed.md](arm_confirmed.md) | ARM 兼容性已确认清单（成功迁移后追加） |
 | [dependency-analysis/dependency-analysis-bazel.md](dependency-analysis/dependency-analysis-bazel.md) | Bazel 构建系统依赖分析（按需加载） |
 | [dependency-analysis/dependency-analysis-blade.md](dependency-analysis/dependency-analysis-blade.md) | Blade 构建系统依赖分析（按需加载） |
-| [dependency-analysis/dependency-analysis-scons.md](dependency-analysis/dependency-analysis-scons.md) | SCons 构建系统依赖分析（按需加载） |
 | [dependency-analysis/dependency-analysis-cmake.md](dependency-analysis/dependency-analysis-cmake.md) | CMake 构建系统依赖分析（按需加载） |
+| [dependency-analysis/dependency-analysis-scons.md](dependency-analysis/dependency-analysis-scons.md) | SCons 构建系统依赖分析（按需加载） |
