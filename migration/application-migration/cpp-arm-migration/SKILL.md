@@ -114,11 +114,18 @@ options:
 - 将用户选择逐条记录到 `$WORK_DIR/reports/user_decisions.txt`
 - 对"跳过"项记录降级方案；对"中止"立即终止流程
 
-### C.4 写入确认清单并执行切换
+### C.4 登记清单 + 确认切换 + 校验
 
 > ⚡ **`read_file("dependency-analysis/arm-confirmed-write.md")` 获取完整执行步骤。**
 
-**确认所有必要决策项后**，进入阶段 D。
+本步骤在阶段 C 末尾一次性完成三件事：
+1. **登记**：把用户确认的依赖 ARM 适配信息按依赖库写入 [arm_confirmed.md](arm_confirmed.md)
+2. **确认切换**：把待切换清单**逐项调用 `AskUserQuestion` 让用户确认**后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本
+3. **校验**：切换后逐项核对分支是否真切到 ARM 版（一句话提醒：切错会让后续编译错误极难排查）
+
+> ⛔ **分支切换必须用户确认**：同仓库可能存在多个 ARM 分支且版本对应复杂，切错会导致编译错误极难排查、迁移成本陡增——未获用户逐项确认不得执行任何切换命令。切换在阶段 C 末尾完成，阶段 D 不再涉及分支切换。
+
+**校验通过后**，阶段 C 结束，进入阶段 D。
 
 ---
 
@@ -129,6 +136,8 @@ options:
 **本阶段目标**：运行 DevKit 扫描发现源码 x86 专属问题，同时完成构建系统配置适配与源码修改。
 
 > ⛔ **硬性约束**：DevKit 扫描是阶段 D 的**门控步骤**，**必须先完成 DevKit 扫描并生成报告，才能进入构建配置适配和源码修改**。`which devkit` 返回空时不允许跳过，必须通过 `AskUserQuestion` 询问用户 DevKit 安装路径。
+>
+> 阶段 D 只做 DevKit 扫描与源码/构建适配——依赖分支切换已在阶段 C 末尾完成，此处不再切换。
 >
 > **DevKit 扫描报告是阶段 E 错误修复的最高优先级参考依据，路径 `$WORK_DIR/reports/devkit-*/`。**
 
@@ -159,7 +168,7 @@ options:
 | [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4 / 阶段 D：写入 ARM 确认清单 + 执行真实切换 |
 | [sourcecode-devkit-scan.md](sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
 | [sourcecode-build-verify.md](sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.5 节为常见错误速查表） |
-| [arm_confirmed.md](arm_confirmed.md) | ARM 兼容性已确认清单（成功迁移后追加） |
+| [arm_confirmed.md](arm_confirmed.md) | 已确认 ARM 适配的依赖库清单（按依赖库索引，阶段 B 查询命中 / 阶段 C 登记 + 确认切换分支） |
 | [dependency-analysis/dependency-analysis-bazel.md](dependency-analysis/dependency-analysis-bazel.md) | Bazel 构建系统依赖分析（按需加载） |
 | [dependency-analysis/dependency-analysis-blade.md](dependency-analysis/dependency-analysis-blade.md) | Blade 构建系统依赖分析（按需加载） |
 | [dependency-analysis/dependency-analysis-cmake.md](dependency-analysis/dependency-analysis-cmake.md) | CMake 构建系统依赖分析（按需加载） |

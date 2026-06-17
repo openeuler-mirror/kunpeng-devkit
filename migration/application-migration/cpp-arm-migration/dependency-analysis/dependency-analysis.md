@@ -65,7 +65,7 @@ cat "<cpp-arm-migration skill目录>/arm_confirmed.md" 2>/dev/null
 
 将免检清单的内容缓存在上下文中，供后续每次调用 [common-arm-probe.md](common-arm-probe.md) 时使用（Section 5 比对）。
 
-> ✅ **已确认兼容且配置一致的依赖，在整个报告的所有章节中完全省略**。
+> ✅ **在清单中命中（依赖库名 + 项目当前引用版本匹配到 ARM 适配行）的依赖，在整个报告的所有章节中完全省略**；命中时把该行的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
 
 ---
 
@@ -109,7 +109,7 @@ cat "<cpp-arm-migration skill目录>/arm_confirmed.md" 2>/dev/null
 
 | 判定条件 | 说明 |
 |----------|------|
-| `arm_confirmed.md` 中已确认兼容且配置一致 | 用户已手动确认，无需再次展示 |
+| `arm_confirmed.md` 命中（依赖库 + 当前版本匹配到 ARM 适配行） | 已知 ARM 适配，从报告省略；ARM 分支供阶段 C 末尾切换 |
 | 开源库源码已内嵌于仓库（`deps/`/`third_party/` 目录），且无 x86 专有汇编或平台宏 | 有完整 C/C++ 源码，直接重编译即可 |
 | 系统通用包（gflags、zlib、openssl、lz4、zstd、curl、leveldb、pthread 等）通过 `find_package`/`yum`/`apt` 安装 | 主流 Linux ARM 发行版均有对应包 |
 | 仓库内置二进制确认全部为**测试数据**（仅被测试框架引用，不链接进生产代码） | 不影响移植 |
@@ -146,17 +146,17 @@ cat "<cpp-arm-migration skill目录>/arm_confirmed.md" 2>/dev/null
 
 ---
 
-## 用户确认后写入免检清单并执行切换
+## 用户确认后写入清单并在阶段 C 末尾切换分支
 
-当用户对「待确认清单」中的某条依赖回复已确认兼容 ARM 后，按 [arm-confirmed-write.md](arm-confirmed-write.md) 执行：
+依赖的 ARM 适配信息有两条来源，都按 [arm-confirmed-write.md](arm-confirmed-write.md) 处理：
 
-**阶段 C（信息收集阶段，用户确认后立即执行）**：
-1. 在 `arm_confirmed.md` 中找到或新建该主仓的项目区块（`## <主仓名>（构建系统）`）
-2. 按对应构建系统的模板（Blade/Bazel/CMake），将 ARM 路径/URL/commit 写入对应表格行
-3. 补充全局编译配置、工具版本、构建命令等区块（首次为该主仓建立区块时）
+- **阶段 B 命中清单**的依赖（common-arm-probe.md Section 5 已查到 ARM 适配行）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 C 末尾的待切换清单
+- **阶段 C 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `arm_confirmed.md`
 
-**阶段 D（构建配置适配阶段，用户明确确认后才执行）**：
-4. 按写入的 ARM 适配信息执行真实的切换操作（回迁 thirdparty_arm 目录、修改 WORKSPACE、切换子模块分支等）并验证
+**阶段 C 末尾（登记 + 确认切换 + 校验，一次性完成）**：
+1. **登记**：在 `arm_confirmed.md` 中按**依赖库名**找到或新建区块（`## <依赖库名>`，不按主仓、不写全局配置），追加一行（匹配键填「项目当前引用版本」，来源项目填当前主仓名）
+2. **确认切换**：把待切换清单逐项调用 `AskUserQuestion` 让用户确认后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本（回迁 thirdparty_arm、修改 WORKSPACE、切换子模块分支等）
+3. **校验**：逐项核对分支是否真切到 ARM 版，再进入阶段 D
 
 ---
 
