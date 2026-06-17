@@ -1,0 +1,12 @@
+{
+  "name": "php-app-x86-to-arm-deployer",
+  "version": "0.1.0",
+  "target_os": "openEuler 22.03",
+  "target_arch": "aarch64",
+  "php_version": "7.0.33",
+  "default_php_prefix": "/opt/php_7.0.33",
+  "default_app_dir": "/opt/php-app",
+  "default_packages_dir": "/opt/migration/packages",
+  "entrypoint": "bin/php_arm_migration.py",
+  "skill": "skill.md"
+}
