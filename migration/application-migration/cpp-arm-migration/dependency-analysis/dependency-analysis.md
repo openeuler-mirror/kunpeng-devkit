@@ -65,7 +65,7 @@ cat "<cpp-arm-migration skill目录>/arm_confirmed.md" 2>/dev/null
 
 将免检清单的内容缓存在上下文中，供后续每次调用 [common-arm-probe.md](common-arm-probe.md) 时使用（Section 5 比对）。
 
-> ✅ **在清单中命中（依赖库名 + 项目当前引用版本匹配到 ARM 适配行）的依赖，在整个报告的所有章节中完全省略**；命中时把该行的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
+> ✅ **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
 
 ---
 
@@ -109,13 +109,14 @@ cat "<cpp-arm-migration skill目录>/arm_confirmed.md" 2>/dev/null
 
 | 判定条件 | 说明 |
 |----------|------|
-| `arm_confirmed.md` 命中（依赖库 + 当前版本匹配到 ARM 适配行） | 已知 ARM 适配，从报告省略；ARM 分支供阶段 C 末尾切换 |
 | 开源库源码已内嵌于仓库（`deps/`/`third_party/` 目录），且无 x86 专有汇编或平台宏 | 有完整 C/C++ 源码，直接重编译即可 |
 | 系统通用包（gflags、zlib、openssl、lz4、zstd、curl、leveldb、pthread 等）通过 `find_package`/`yum`/`apt` 安装 | 主流 Linux ARM 发行版均有对应包 |
 | 仓库内置二进制确认全部为**测试数据**（仅被测试框架引用，不链接进生产代码） | 不影响移植 |
 | 通用跨平台工具脚本（Perl/Python 脚本，如 lcov）确认无二进制依赖 | 脚本类工具无架构绑定 |
 
 **只要符合上述任意一条，对应依赖在报告的所有章节中完全不出现。**
+
+> **命中 `arm_confirmed.md` 的依赖单独处理**：按依赖库名命中区块的依赖**不属于**「必定兼容、完全省略」，而是在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」（让用户看到哪些依赖复用了历史成果），把 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，**不进入报告末尾的「待用户手动确认清单」**。
 
 #### 报告末尾必须输出「待用户手动确认清单」
 
@@ -150,11 +151,11 @@ cat "<cpp-arm-migration skill目录>/arm_confirmed.md" 2>/dev/null
 
 依赖的 ARM 适配信息有两条来源，都按 [arm-confirmed-write.md](arm-confirmed-write.md) 处理：
 
-- **阶段 B 命中清单**的依赖（common-arm-probe.md Section 5 已查到 ARM 适配行）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 C 末尾的待切换清单
+- **阶段 B 命中清单**的依赖（common-arm-probe.md Section 5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 C 末尾的待切换清单
 - **阶段 C 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `arm_confirmed.md`
 
 **阶段 C 末尾（登记 + 确认切换 + 校验，一次性完成）**：
-1. **登记**：在 `arm_confirmed.md` 中按**依赖库名**找到或新建区块（`## <依赖库名>`，不按主仓、不写全局配置），追加一行（匹配键填「项目当前引用版本」，来源项目填当前主仓名）
+1. **登记**：在 `arm_confirmed.md` 中按**依赖库名**找到或新建区块（`## <依赖库名>`，不按主仓、不写全局配置、不记 x86 版本），写入该依赖库唯一的 ARM 适配记录，来源项目填当前主仓名
 2. **确认切换**：把待切换清单逐项调用 `AskUserQuestion` 让用户确认后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本（回迁 thirdparty_arm、修改 WORKSPACE、切换子模块分支等）
 3. **校验**：逐项核对分支是否真切到 ARM 版，再进入阶段 D
 
