@@ -333,8 +333,6 @@ options:
 
 **阶段 D 完成后**，进入阶段 E。
 
-> 📚 **迁移知识采集**：阶段 D/E 中遇到的编译错误和修复方案，可在迁移完成后按 `case-collection-guide.md` + `migration-session-summary.md` 的流程批量提取写入案例库，供后续项目复用。
-
 ---
 
 ## 阶段 E：编译验证循环
