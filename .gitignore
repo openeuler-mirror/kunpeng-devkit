@@ -1,0 +1,6 @@
+# CatPaw IDE
+.catpaw/
+catpaw/
+
+# macOS
+.DS_Store

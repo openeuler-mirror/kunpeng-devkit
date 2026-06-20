@@ -291,6 +291,7 @@ python3 $SKILL_DIR/arm_scan.py <项目根目录> --exclude build64_release,bazel
 
 **不收集：**
 - **构建总体配置**：.bazelrc、BLADE_ROOT、platforms/BUILD、build.sh、WORKSPACE_arm / WORKSPACE_x86（双 WORKSPACE 切换机制本身）、mrpc.BUILD / leveldb.BUILD / zlib.BUILD 等源码编译 BUILD 文件、deploy/*.yaml 部署清单、compile.sh / run.sh / load_arm_library.sh 等部署脚本——这些都是主仓级特有配置，不同项目不可复用
+- **本服务的编译产物**：本服务源码编译出的可执行文件（如 xxxserver）和内部源码编译出的库 ——这些属于本项目特有构建产出，不同项目不可复用
 - 工具版本、构建命令
 - 尚未验证可用的候选版本、已排除的版本
 
@@ -372,6 +373,7 @@ grep -A3 "linux_aarch64\|aarch64" $PROJECT_ROOT/.bazelrc 2>/dev/null | head -30
 > - **以目录为粒度记录**：如果是一个完整的依赖包（含头文件 + 二进制 .so / .a 但无源码），直接记录其**目录路径**（末尾加 `/`），不要逐个列出 .so 文件。说明中列举关键文件即可。
 > - **仅独立文件单独记录**：如单独的可执行文件、独立 .yaml 配置文件等不属于某个目录包的，才逐条记录。
 > - **不包括构建产物**（bazel-out / build64_release 等生成目录）。
+> - **不包括本服务的编译产物**：本服务源码编译出的可执行文件（如 xxx_server）和内部源码编译出的库属于本项目特有构建产出，不同项目不可复用，不应记录。只记录**第三方依赖**的 ARM 二进制文件。
 > - 路径使用**绝对路径**，供后续项目直接复用定位。
 
 ---
