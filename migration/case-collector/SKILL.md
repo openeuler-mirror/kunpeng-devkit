@@ -146,7 +146,7 @@ git log --oneline --all | grep -iE "arm|aarch64|鲲鹏|kunpeng" | head -20
 每条案例必须包含四要素，追加到对应 `*-cases.md` 文件末尾（紧接最后一个 `---` 之后）：
 
 ````markdown
-## G-XX：<简明标题>（不含项目名、业务名）
+## <G-XX|V-XX|P-XX>：<简明标题>（不含项目名、业务名）
 
 **错误现象：**
 ```
@@ -289,7 +289,10 @@ python3 $SKILL_DIR/arm_scan.py <项目根目录> --exclude build64_release,bazel
 - 依赖库的 ARM 版本路径 / URL / commit / tag
 - ABI 设置（ABI0/ABI1/纯C）
 
-**不收集：** 主仓自身的全局编译配置（BLADE_ROOT / .bazelrc 等主仓分支特有配置）、工具版本、构建命令；尚未验证可用的候选版本、已排除的版本。
+**不收集：**
+- **构建总体配置**：.bazelrc、BLADE_ROOT、platforms/BUILD、build.sh、WORKSPACE_arm / WORKSPACE_x86（双 WORKSPACE 切换机制本身）、mrpc.BUILD / leveldb.BUILD / zlib.BUILD 等源码编译 BUILD 文件、deploy/*.yaml 部署清单、compile.sh / run.sh / load_arm_library.sh 等部署脚本——这些都是主仓级特有配置，不同项目不可复用
+- 工具版本、构建命令
+- 尚未验证可用的候选版本、已排除的版本
 
 ---
 
@@ -332,6 +335,8 @@ grep -A3 "linux_aarch64\|aarch64" $PROJECT_ROOT/.bazelrc 2>/dev/null | head -30
 
 ### 5.4 写入格式规范
 
+> **重要：** `arm_confirmed.md` 只记录**依赖库**的 ARM 适配信息。**不记录**主仓自身的 git 地址、x86 分支名、ARM 分支名、merge-base commit 等主仓级元信息——这些属于主仓分支特有配置，不同项目不可复用。
+
 **Blade 项目依赖表（追加到已有表格或新建）：**
 
 ```markdown
@@ -351,6 +356,23 @@ grep -A3 "linux_aarch64\|aarch64" $PROJECT_ROOT/.bazelrc 2>/dev/null | head -30
 |--------|-----------------|------|
 | `<name>` | `<url>` / `commit = "<hash>"` | <简要说明> |
 ```
+
+**ARM 二进制文件表（追加到对应主仓区域，紧跟依赖表之后）：**
+
+```markdown
+### ARM 二进制文件
+
+| 目录/文件 | 绝对路径 | 说明 |
+|----------|---------|------|
+| `<目录名>/` | `<仓库本地绝对路径>` | <用途简要说明，含关键文件列举> |
+| `<单文件名>` | `<仓库本地绝对路径>` | <用途简要说明，仅独立文件用> |
+```
+
+> **记录规则：**
+> - **以目录为粒度记录**：如果是一个完整的依赖包（含头文件 + 二进制 .so / .a 但无源码），直接记录其**目录路径**（末尾加 `/`），不要逐个列出 .so 文件。说明中列举关键文件即可。
+> - **仅独立文件单独记录**：如单独的可执行文件、独立 .yaml 配置文件等不属于某个目录包的，才逐条记录。
+> - **不包括构建产物**（bazel-out / build64_release 等生成目录）。
+> - 路径使用**绝对路径**，供后续项目直接复用定位。
 
 ---
 
