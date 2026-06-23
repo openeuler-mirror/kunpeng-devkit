@@ -44,7 +44,11 @@ mkdir -p $BUILD_DIR
 cmake -B $BUILD_DIR -S $PROJECT_ROOT \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-  -DCMAKE_SYSTEM_NAME=Linux
+  -DCMAKE_SYSTEM_NAME=Linux \
+  -DAUTO_SUBMODULE=OFF
+# 注：-DAUTO_SUBMODULE=OFF 仅当项目按 dependency-analysis-cmake.md「子模块自动签出检查」
+# 改造了 AUTO_SUBMODULE 开关时才需要传；未改造的项目 cmake 会忽略未知 option 的警告。
+# 作用：阻止 cmake 配置期 git submodule update 重置已钉定的 ARM 分支（见该文档第 1/2 步）。
 
 COMPILE_CMD="cmake --build $BUILD_DIR -j$(nproc) 2>&1"
 ```
