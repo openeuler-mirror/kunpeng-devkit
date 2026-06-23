@@ -159,17 +159,22 @@ fi
 
 > ⚠️ **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify.md](../sourcecode-build-verify.md) E.8 节落实。
 
-### CMake 项目：清缓存 + 切子模块分支
+### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
 CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②**子模块自动签出在 cmake 阶段把手动切的 ARM 分支默默重置回去**。
 
-> 🚨 **第二步「注释自动签出」是 CMake 项目阶段 D 的关键关卡 —— 不可跳过**：
+> 🚨 **关自动签出 + 钉定子模块分支是 CMake 项目阶段 C 末尾的关键关卡 —— 不可跳过**：
 >
-> 阶段 B 依赖分析报告中已识别到的自动签出逻辑（如 `execute_process(... git submodule update ...)`、`FetchContent_MakeAvailable`），**必须在切换子模块分支之前先注释或参数化**。否则下面第 4 步的 `cmake -B build` 会"恢复"未初始化子模块的初衷把刚切到 ARM 分支的子模块重置回默认分支，且**全程不报错**——后续编译会出现"明明切了 ARM 分支但报 x86 残留错误"的诡异现象，极易误判为依赖问题，浪费数小时。
+> 阶段 B 依赖分析报告中已识别到的自动签出逻辑（`execute_process(... git submodule update ...)` 等），**必须在切换子模块分支之前先改为可控开关并关闭**。否则下面第 4 步的 `cmake -B build` 会"恢复"未初始化子模块的初衷把刚切到 ARM 分支的子模块重置回默认分支，且**全程不报错**——后续编译会出现"明明切了 ARM 分支但报 x86 残留错误"的诡异现象，极易误判为依赖问题，浪费数小时。
 >
-> 该步骤完成后，必须在 `$WORK_DIR/reports/user_decisions.txt` 留痕：
+> ⚠️ **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
+>
+> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-cmake.md](build-systems/dependency-analysis-cmake.md)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
+>
+> 该步骤完成后，必须在 `$WORK_DIR/reports/user_decisions.txt` 留痕（记录**每个子模块钉定的分支/commit**，不只是"是否已禁用"）：
 > ```
-> [<时间戳>] CMake 自动签出逻辑已注释/参数化：<具体文件:行号>
+> [<时间戳>] CMake 自动签出已改为 AUTO_SUBMODULE 开关：<具体文件:行号>
+> [<时间戳>] 子模块 third_party/foo 钉定到 ARM 分支/commit：arm64
 > ```
 
 ```bash
@@ -178,23 +183,27 @@ cd $PROJECT_ROOT
 # 1. 完全清理 build 目录（不要只 rm CMakeCache.txt，部分模块会有自己的缓存）
 rm -rf build/
 
-# 2. 🚨 注释/参数化自动签出逻辑（阶段 B 报告里已识别的位置）
-#    人工核对后，将 CMakeLists.txt 中类似下面的语句改为可控开关：
-#      execute_process(COMMAND git submodule update --init --recursive ...)
-#    建议改为：
+# 2. 🚨 关掉 cmake 的动态重置：把自动签出改为 AUTO_SUBMODULE 开关（持久改造，非一次性注释）
+#    将 CMakeLists.txt 中类似语句改为可控开关，让 ARM 路径（OFF）跳过 execute_process：
 #      option(AUTO_SUBMODULE "Auto checkout submodules" ON)
 #      if(AUTO_SUBMODULE)
 #        execute_process(COMMAND git submodule update --init --recursive ...)
 #      endif()
-#    并在 ARM 配置中传 `-DAUTO_SUBMODULE=OFF`
 #    ⚠️ 不要直接删除原语句，保留开关让 x86 编译路径不受影响（双架构兼容原则）
+#    ⚠️ 开关加在含自动签出逻辑的那个 CMakeLists.txt、且在 execute_process 之前；
+#       若项目已有同名 option/变量，改用项目前缀命名（如 <PROJ>_AUTO_SUBMODULE）避免冲突
 
-# 3. 把待切换清单中 git 类子模块切到清单记录的 ARM 分支
-#    ARM_BRANCH 取自清单该依赖库区块记录的「ARM 适配分支/commit」，不要写死
-#    示例：third_party/foo → arm64
-ARM_BRANCH=<取自清单记录>
-git -C $PROJECT_ROOT/third_party/foo fetch origin "$ARM_BRANCH"
-git -C $PROJECT_ROOT/third_party/foo checkout "$ARM_BRANCH"
+# 3. 逐个把子模块钉到清单记录的 ARM 分支/commit
+#    ARM_REF 取自清单该依赖库区块记录的「ARM 适配分支/commit」，不要写死；分支名或 commit 皆可
+#    先 init（确保工作区就位、含嵌套子模块），再逐个 checkout（checkout 必须在 init 之后、为最后一步）
+git submodule update --init --recursive
+for SUB in <待切换清单中每个 git 类子模块路径>; do
+    ARM_REF=<取自该子模块在清单记录的 ARM 分支/commit>
+    git -C "$SUB" fetch origin "$ARM_REF" 2>/dev/null || true   # 若是 commit 则 fetch 可能无分支，忽略失败
+    git -C "$SUB" checkout "$ARM_REF"
+    # 嵌套子模块同样要逐层钉定（父模块 cmake 会重置它们），对 $SUB 下的子模块重复本循环
+done
+# ⚠️ 钉定后不得再跑 git submodule update（会重置回默认 commit），分支维持靠第 2 步的 OFF 开关
 
 # 4. 重新生成（带 ARM 工具链参数 + 关闭自动签出）
 cmake -B build -S $PROJECT_ROOT \
@@ -204,9 +213,10 @@ cmake -B build -S $PROJECT_ROOT \
   -DAUTO_SUBMODULE=OFF
 
 # 5. 验证子模块分支没有被 cmake 重置
-git -C $PROJECT_ROOT/third_party/foo branch --show-current
-# 期望输出：arm64
-# 若输出非 arm64 → 第 2 步失败，回到第 2 步检查是否还有遗漏的自动签出语句
+git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
+  || git -C $PROJECT_ROOT/third_party/foo describe --all
+# 期望输出：arm64（分支）或对应 commit（detached HEAD）
+# 若输出为空或非预期 → 第 2 步失败，回到第 2 步检查是否还有遗漏的自动签出语句
 ```
 
 ---
@@ -220,7 +230,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current
 - [ ] 待切换清单中每个依赖，对应的 ARM 分支/路径/URL 在项目里**确实存在**（git 类依赖确认清单记录的分支能 `git fetch` 到）
 - [ ] Blade：`thirdparty/<组件>/` 下能找到 `lib*.so` 且 `file lib*.so` 输出含 `aarch64`
 - [ ] Bazel：`WORKSPACE` 当前内容来自 `WORKSPACE_arm`（`diff WORKSPACE WORKSPACE_arm` 应无差异）
-- [ ] CMake：`rm -rf build/` 已执行；🚨 自动签出逻辑已注释/参数化（在 user_decisions.txt 留痕）；切换分支后 `git branch --show-current` 验证子模块分支未被重置
+- [ ] CMake：`rm -rf build/` 已执行；🚨 自动签出已改为 `AUTO_SUBMODULE` 开关且 ARM 传 `-DAUTO_SUBMODULE=OFF`；每个子模块已钉到清单记录的 ARM 分支/commit（在 user_decisions.txt 留痕）；`cmake -B build` 后 `git branch --show-current`/`git describe --all` 验证子模块未被重置
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 

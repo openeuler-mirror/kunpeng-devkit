@@ -59,7 +59,7 @@
 | SCons | [dependency-analysis-scons.md](build-systems/dependency-analysis-scons.md) | 库链接声明、x86 编译标志、Python 版本问题 |
 | 未知 | — | 跳过，deps_list 为空 |
 
-> 🚨 **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `dependency-analysis-cmake.md` 前，**必须**先检查 `$REPO_PATH/CMakeLists.txt` 中是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`FetchContent_MakeAvailable` 等）。若存在，需在依赖分析报告**最前面**单独成节以 ⚠️ 警告，并明确告诉用户：**阶段 C 末尾切换 ARM 分支前必须先注释/参数化该逻辑**——否则每次 `cmake -B build` 都会把手动切到 ARM 分支的子模块**默默重置回默认分支**且不报错，导致编译错误在"x86 残留"和"找不到 ARM 符号"之间反复横跳。详细处置方案见 [dependency-analysis-cmake.md](build-systems/dependency-analysis-cmake.md)「子模块自动签出检查」。
+> 🚨 **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `dependency-analysis-cmake.md` 前，**必须**先检查是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`GIT_SUBMODULE` 等；**注意 `FetchContent_MakeAvailable` 不算**——它是构建期下载依赖的正当机制，误当自动签出去关会破坏依赖拉取）。若存在，需在依赖分析报告**最前面**单独成节以 ⚠️ 警告，并明确告诉用户：**阶段 C 末尾、阶段 E 首次 `cmake -B build` 前必须先改为可控开关并关闭、再把每个子模块钉到用户确认的 ARM 分支/commit**——否则每次 `cmake -B build` 都会把手动切到 ARM 分支的子模块**默默重置回默认分支**且不报错，导致编译错误在"x86 残留"和"找不到 ARM 符号"之间反复横跳。详细处置方案见 [dependency-analysis-cmake.md](build-systems/dependency-analysis-cmake.md)「子模块自动签出检查」。
 
 **扫描结束后，同时收集 Shell 脚本下载依赖（所有构建系统通用）**：
 
