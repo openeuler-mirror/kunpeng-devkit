@@ -25,7 +25,22 @@ find /opt /usr/local -name "devkit" -maxdepth 8 -type f 2>/dev/null | head -3
 <devkit路径> --version
 ```
 
-若未找到，访问 https://www.hikunpeng.com/developer/devkit 下载并安装。
+若上述均未找到，**不得跳过扫描、也不得自行下载安装**。通过 `AskUserQuestion` 向用户决策如何处理（与 SKILL.md 阶段 D 硬性约束一致）：
+
+```
+question: "未在系统中检测到 DevKit，如何继续阶段 D 扫描？"
+options:
+  - id: provide_path   label: "我知道路径，手动提供 DevKit 安装路径"
+  - id: download       label: "我去 https://www.hikunpeng.com/developer/devkit 下载安装后继续"
+  - id: abort          label: "中止阶段 D"
+```
+
+按用户选择处理：
+- **provide_path**：用户给出路径后，将其作为 `DEVKIT` 继续后续步骤；若该路径 `--version` 仍失败，回到本提问
+- **download**：暂停阶段 D，等待用户安装完成并回报路径后继续（agent 不代为下载安装）
+- **abort**：终止阶段 D，不进入 D.2
+
+> DevKit 安装位置因环境而异、且下载安装属重操作，应由用户决策而非 agent 擅自执行。
 
 ### D.1.2 确认扫描参数
 
