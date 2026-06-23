@@ -88,7 +88,7 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     if BUILD_EXIT_CODE == 0 && 日志中无 "error:" 行:
-        → ✅ 编译成功，跳到 E.5 收尾
+        → ✅ 编译成功，跳到 E.8 收尾
 
     ┌─────────────────────────────────────────┐
     │  提取关键错误信息                       │
@@ -98,7 +98,7 @@ while ATTEMPT <= MAX_ATTEMPTS:
     current_error_hash = hash(current_errors)
 
     if current_error_hash == last_error_hash:
-        → ⛔ 连续相同错误，修复无效，跳到 E.6 人工介入
+        → ⛔ 连续相同错误，修复无效，跳到 E.7 人工介入
 
     last_error_hash = current_error_hash
 
@@ -120,12 +120,12 @@ while ATTEMPT <= MAX_ATTEMPTS:
     记录修复操作到 $WORK_DIR/reports/fix_history.txt
 
     if 判断无法自动修复:
-        → ⛔ 跳到 E.6 人工介入
+        → ⛔ 跳到 E.7 人工介入
 
     ATTEMPT += 1
 
 if ATTEMPT > MAX_ATTEMPTS:
-    → ⛔ 跳到 E.6 人工介入
+    → ⛔ 跳到 E.7 人工介入
 ```
 
 ---
@@ -170,7 +170,7 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     REAL_ERRORS=$(grep -cE "^ERROR |: error:|error: " $LOG_FILE 2>/dev/null || echo 0)
     if [ "$REAL_ERRORS" -eq 0 ]; then
         echo "✅ 编译成功（第 ${ATTEMPT} 次尝试）"
-        # 进入 E.5 收尾
+        # 进入 E.8 收尾
     else
         echo "⚠️ 退出码为 0 但日志中仍有 ${REAL_ERRORS} 条 error，继续分析"
     fi
