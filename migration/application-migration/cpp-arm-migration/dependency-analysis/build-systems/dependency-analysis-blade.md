@@ -53,7 +53,7 @@ find <项目根目录>/thirdparty_arm -maxdepth 2 -type d -name "*_arm*"
 ```
 
 > `thirdparty_arm/` 是 ARM 库的统一管理目录，结构与 `thirdparty/` 一致（`thirdparty_arm/<组件名>/<ARM子目录>`）。
-> 构建前需将所需库从 `thirdparty_arm/` 回迁到 `thirdparty/` 对应位置，详见 [arm-confirmed-write.md](arm-confirmed-write.md)「Blade 项目：thirdparty_arm 回迁」。
+> 构建前需将所需库从 `thirdparty_arm/` 回迁到 `thirdparty/` 对应位置，详见 [arm-confirmed-write.md](../arm-confirmed-write.md)「Blade 项目：thirdparty_arm 回迁」。
 
 ---
 
@@ -103,12 +103,12 @@ grep -rn '"#.*"' <项目根目录>/thirdparty/*/BUILD <项目根目录>/*/BUILD 
 
 ## Blade 项目私有依赖补充
 
-对 Blade 项目，[common-arm-probe.md](common-arm-probe.md) 识别私有依赖时还需检查 thirdparty 目录下预编译包（`prebuilt = 1`）的来源。若 thirdparty 中某组件只有 x86 二进制（无 `*_arm` 子目录），且该组件来自内部对象存储（如 `*.internal-storage.example.com` 等内部域名），则标记为私有预编译依赖，需获取 ARM 版本。
+对 Blade 项目，[common-arm-probe.md](../common-arm-probe.md) 识别私有依赖时还需检查 thirdparty 目录下预编译包（`prebuilt = 1`）的来源。若 thirdparty 中某组件只有 x86 二进制（无 `*_arm` 子目录），且该组件来自内部对象存储（如 `*.internal-storage.example.com` 等内部域名），则标记为私有预编译依赖，需获取 ARM 版本。
 
 ## 预编译二进制识别与溯源
 
-> Blade 项目中 `prebuilt = 1` 组件的架构判断和源码溯源逻辑已统一移入 [common-binary-detect.md](common-binary-detect.md)，此处不再重复。
-> 由 [analyze-one-repo.md](analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
+> Blade 项目中 `prebuilt = 1` 组件的架构判断和源码溯源逻辑已统一移入 [common-binary-detect.md](../common-binary-detect.md)，此处不再重复。
+> 由 [analyze-one-repo.md](../analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
 >
 > 特别说明：Blade 项目的 `lib64_release/*.so`/`*.a` 文件会在 `common-binary-detect.md` Section 1 的 `find` 命令中被扫描到，Section 2 判断架构，若为 x86 则进入 Section 3 溯源（第一优先级会检查 `BUILD` 文件中的源码来源字段）。
 

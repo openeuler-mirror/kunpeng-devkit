@@ -1,6 +1,6 @@
 # CMake 构建系统依赖分析
 
-> ⚠️ **按需加载**：仅当 [analyze-one-repo.md](analyze-one-repo.md) Step 1 识别到构建系统为 **CMake** 时加载本文件，否则跳过。
+> ⚠️ **按需加载**：仅当 [analyze-one-repo.md](../analyze-one-repo.md) Step 1 识别到构建系统为 **CMake** 时加载本文件，否则跳过。
 
 ---
 
@@ -91,7 +91,7 @@ grep -rn "add_library.*IMPORTED\|set_target_properties.*IMPORTED_LOCATION" \
 grep -rn "set(.*_LIBRARY .*\.\(so\|a\))" <项目根目录>/CMakeLists.txt <项目根目录>/cmake/
 ```
 
-> 检测到的预编译二进制由 [analyze-one-repo.md](analyze-one-repo.md) Step 4 统一交给 [common-binary-detect.md](common-binary-detect.md) 判断架构与溯源源码。
+> 检测到的预编译二进制由 [analyze-one-repo.md](../analyze-one-repo.md) Step 4 统一交给 [common-binary-detect.md](../common-binary-detect.md) 判断架构与溯源源码。
 
 ---
 
@@ -118,8 +118,8 @@ find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
 
 ## CMake 源码溯源
 
-> 预编译二进制的源码溯源逻辑已统一移入 [common-binary-detect.md](common-binary-detect.md)，此处不再重复。
-> 由 [analyze-one-repo.md](analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
+> 预编译二进制的源码溯源逻辑已统一移入 [common-binary-detect.md](../common-binary-detect.md)，此处不再重复。
+> 由 [analyze-one-repo.md](../analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
 >
 > 对于 CMake 项目，`common-binary-detect.md` Section 3「第一优先级」会在 `$REPO_PATH/CMakeLists.txt` 与 `$REPO_PATH/cmake/*.cmake` 中搜索依赖名，自动找到 `FetchContent_Declare`/`ExternalProject_Add` 中的源码地址。
 
@@ -127,8 +127,8 @@ find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
 
 ## CMake 子模块依赖分析
 
-> 子模块递归逻辑已统一由 [analyze-one-repo.md](analyze-one-repo.md) Step 5 处理。
-> 当子模块被识别为 CMake 项目时，[analyze-one-repo.md](analyze-one-repo.md) 会重新加载本文件对该子模块执行依赖扫描，无需在此重复定义。
+> 子模块递归逻辑已统一由 [analyze-one-repo.md](../analyze-one-repo.md) Step 5 处理。
+> 当子模块被识别为 CMake 项目时，[analyze-one-repo.md](../analyze-one-repo.md) 会重新加载本文件对该子模块执行依赖扫描，无需在此重复定义。
 
 ---
 

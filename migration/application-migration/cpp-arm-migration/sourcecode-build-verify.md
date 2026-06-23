@@ -103,12 +103,19 @@ while ATTEMPT <= MAX_ATTEMPTS:
     last_error_hash = current_error_hash
 
     ┌─────────────────────────────────────────┐
-    │  分析错误并修复                         │
+    │  分析错误并修复（两级查询）             │
     └─────────────────────────────────────────┘
 
-    优先查询 DevKit 报告（`$WORK_DIR/reports/devkit-*/`）中的已知问题
-    若 DevKit 报告命中 → 按报告方法修复
-    若未找到匹配 → 按 E.5 速查表处理
+    【第1级】查 build-error-quickfix.md 速查表
+    路径：$SKILL_DIR/build-error-quickfix.md（扁平关键字表，扫描快）
+    若速查表命中 → 按「修复」列描述修复
+
+    【第2级】速查表未命中 → 查 migration-cases 案例库（详细兜底）
+    路由：$SKILL_DIR/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
+    若案例库命中 → 按案例修复方法修复
+
+    ⚠️ 每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 E.5 节），
+       便于核验 skill 是否实际使用了案例库知识
 
     记录修复操作到 $WORK_DIR/reports/fix_history.txt
 
@@ -205,69 +212,49 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 ---
 
-## E.5 常见错误快速修复速查表
+## E.5 错误修复查询（两级）
 
-> **修复优先级**：先查 DevKit 报告（`$WORK_DIR/reports/devkit-*/`）中是否已标记此问题；DevKit 未命中时再使用以下速查表。
+> **修复优先级（两级查询）**：
+> 1. **第1级 — 速查表**：查 [build-error-quickfix.md](build-error-quickfix.md)（扁平关键字表，扫描快）；命中则按「修复」列描述修复
+> 2. **第2级 — 案例库**：速查表未命中时，查 [migration-cases/](migration-cases/) 案例库（结构化教案，详细兜底）；命中则按案例修复方法修复
+>
+> ⚠️ **醒目标识要求（强制）**：每次执行第2级案例库查询时，**必须**在 agent 交互界面输出醒目标识，便于核验 skill 是否实际使用了案例库知识。无论命中与否都要输出，格式如下：
+>
+> ```
+> 🔍 [案例库查询] 错误关键字：<从日志提取的关键字>
+>    查询路由：<01-generic / 02-version / 03-project> → <G-cases / V-cases / P-cases>
+>    查询结果：<命中 G-XX / V-XX / P-XX，将按案例修复> 或 <未命中，需人工介入或新增案例>
+> ```
 
-### 编译标志类错误
+### 第1级：速查表
 
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `'-mf16c' is not supported by this configuration` | x86 标志残留在全局 .bazelrc | 将 .bazelrc 全局段的 `-mf16c/-msse/-mavx/-mpopcnt` 移到 `build:linux_x86` 段 |
-| `unrecognized option '-mssse3'` | 同上 | 同上 |
-| `error: option '-mpopcnt' cannot be specified` | 同上 | 同上 |
+速查表已独立为 [build-error-quickfix.md](build-error-quickfix.md)，按错误类别分表（头文件 / 类型符号 / 链接 / Bazel / 编译严格性），扁平关键字匹配，扫描快。命中即按「修复」列描述修复，未命中进入第2级。
 
-**修复命令参考：**
-```bash
-# 定位 .bazelrc 中需要移动的行
-grep -n "mf16c\|msse\|mavx\|mpopcnt\|mssse3\|march=.*86" $PROJECT_ROOT/.bazelrc
+### 第2级：案例库路由查询流程
 
-# 用编辑工具将 "build --cxxopt=..." 改为 "build:linux_x86 --cxxopt=..."
-```
+案例库位于 `$SKILL_DIR/migration-cases/`，按错误类别分三系列，每系列有「路由索引 + 案例库」两文件：
 
-### 头文件找不到
+| 系列 | 路由索引文件 | 案例库文件 | 适用错误 |
+|------|------------|----------|---------|
+| G 系列 | [01-generic-arm-migration.md](migration-cases/01-generic-arm-migration.md) | [G-cases.md](migration-cases/G-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
+| V 系列 | [02-version-compatibility.md](migration-cases/02-version-compatibility.md) | [V-cases.md](migration-cases/V-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
+| P 系列 | [03-project-specific.md](migration-cases/03-project-specific.md) | [P-cases.md](migration-cases/P-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
 
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `'immintrin.h' file not found` | x86 intrinsics 头文件未隔离 | 用 `#if defined(__x86_64__)` 包裹 `#include` |
-| `'emmintrin.h' file not found` | 同上 | 同上 |
-| `'sys/sysctl.h': No such file` | ARM Linux 无该头文件 | 用 `#if !defined(__aarch64__)` 包裹 |
-| `fatal error: xxx.h: No such file or directory` (来自第三方库) | BUILD 文件缺少 `hdrs` 或 `includes` | 在对应 BUILD 文件中补 `hdrs = glob(["**/*.h"])` 和 `includes = ["."]` |
+**查询步骤**：
 
-### 类型/符号未定义
+1. 从编译错误日志（`$WORK_DIR/logs/build_<N>.log`）提取关键字（如 `immintrin.h not found`、`File in wrong format`、`undefined reference`）
+2. 按错误类别选路由索引文件，扫描「摘要」列匹配关键字 → 定位案例 ID（如 `G-01`）
+3. 跳到对应案例库文件，按 ID 查看完整修复方法（错误现象 / 根因 / 修复方法 / 验证方式）
+4. **输出醒目标识**（见上方格式），命中与否都要输出
+5. 命中 → 按案例修复方法执行；未命中 → 跳到 E.6 记录后进入 E.7 人工介入
 
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `'__m256i' was not declared` | AVX 类型未定义 | 用 `#if defined(__x86_64__)` 包裹整个使用块，ARM 路径提供 NEON 替代或标量退化（参考 sourcecode-devkit-scan.md D.2.2） |
-| `'_mm256_loadu_si256' undeclared` | AVX intrinsics 函数未定义 | 同上 |
-| `expected unqualified-id before '__attribute__'` | `-D__const__=` 破坏 ARM glibc | 在 .bazelrc / Makefile 中改为 `select()` / 架构判断分支，仅 x86 段保留该宏 |
-| `'proto_common' is not defined` | Bazel rules_proto 版本不兼容 | 在 .bazelrc 全局段加 `--incompatible_blacklisted_protos_requires_proto_info=false` |
+> **类别判定速查**：
+> - 错误含 x86 编译标志 / intrinsics 头文件 / 内联汇编 → **G 系列**
+> - 错误含依赖库版本 / ABI / 头文件版本不一致 → **V 系列**
+> - 错误含部署 / manifest / so 路径 / 流水线 → **P 系列**
+> - 不确定时三个路由索引都扫一遍
 
-### 链接错误
-
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `error adding symbols: File in wrong format` | x86 `.so`/`.a` 被 ARM 链接器处理 | 确认 WORKSPACE_arm 中的 URL 已替换为 ARM 版本；检查对应 `.so` 文件架构 |
-| `undefined reference to 'xxx'` | ARM 版库未链接或 ABI 不匹配 | 检查 WORKSPACE_arm 库路径，确认 ARM `.so`/`.a` 已就位，符号签名一致 |
-
-### Bazel 构建系统错误
-
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `no such target '//platforms:is_aarch64'` | platforms/BUILD 未定义 ARM 平台 | 补全 platforms/BUILD，见 sourcecode-devkit-scan.md D.2.4 节 |
-| `no such target '//platforms:linux_aarch64'` | 同上 | 同上 |
-| `Unrecognized option: --incompatible_...` | 系统 Bazel 版本过旧 | 确认使用项目内置 Bazel（software.sh 中的 PATH 设置） |
-| `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 改用 `new_local_repository` 指向本地桩 |
-| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 environment-prepare.md 1.6 节） |
-
-### 编译严格性差异
-
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `jump to case label` | case 块中有局部变量，ARM GCC 更严格 | 给 case 块加花括号 `{}` 形成独立作用域 |
-| `cannot convert 'const string' to 'const char*'` | 桩头文件签名与调用方不匹配 | 重新扫描调用方并修正桩签名 |
-| `missing binary operator before token "("` | Boost 版本过旧 | 使用系统新版 Boost 或升级 Boost 版本 |
-| `-Werror` 将警告升级为错误 | ARM GCC 产生 x86 GCC 没有的警告 | 在 ARM 配置段中添加对应的 `-Wno-xxx`，或修复源码中的警告 |
+> **新增修复方法的归属**：速查表未覆盖的新错误，若修复方法具备通用性，应补录到 [migration-cases/](migration-cases/) 案例库（按 G/V/P 系列格式新增案例并更新路由索引），而非扩充速查表——速查表仅承载扁平关键字映射，结构化教案归案例库。
 
 ---
 
@@ -284,7 +271,7 @@ cat >> $FIX_LOG << EOF
 错误摘要：<错误类型，如 "immintrin.h not found in xxx.cpp">
 错误根因：<根因分析，如 "x86 头文件未用架构宏保护">
 修复操作：<具体修改，如 "在 src/util/simd.cpp:23 前后添加 #if defined(__x86_64__) 宏">
-参考案例：<DevKit 报告中对应问题编号，或 E.5 速查表表名，若有>
+参考案例：<速查表表名 / migration-cases 案例ID（如 G-01），若有>
 修改文件：<文件路径>
 修改范围：<行号>
 
@@ -375,7 +362,7 @@ echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures
 - [ ] 已确定正确的编译命令（含 --config=linux_aarch64 或等效参数）
 - [ ] 第 1 次编译已执行，日志已保存到 `$WORK_DIR/logs/build_1.log`
 - [ ] 若失败，已提取并分析关键错误信息
-- [ ] 已优先查询 DevKit 报告 / E.5 速查表匹配已知问题
+- [ ] 已查询速查表 / migration-cases 案例库匹配已知问题（两级查询）
 - [ ] 每次修复均已记录到 `fix_history.txt`
 - [ ] 最终编译成功（退出码 0，无 `error:` 行）
 - [ ] 临时 WORKSPACE 文件已清理

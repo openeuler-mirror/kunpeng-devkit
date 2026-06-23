@@ -193,10 +193,10 @@ task(
 3. 先 read_file("$SKILL_DIR/dependency-analysis/common-arm-probe.md") 获取 ARM 兼容性探测步骤
 4. 先 read_file("$SKILL_DIR/dependency-analysis/common-binary-detect.md") 获取预编译二进制识别步骤
 5. 根据阶段 A 识别的构建系统，read_file 对应的专用分析文件：
-   - Bazel: "$SKILL_DIR/dependency-analysis/dependency-analysis-bazel.md"
-   - CMake: "$SKILL_DIR/dependency-analysis/dependency-analysis-cmake.md"
-   - Blade: "$SKILL_DIR/dependency-analysis/dependency-analysis-blade.md"
-   - SCons: "$SKILL_DIR/dependency-analysis/dependency-analysis-scons.md"
+   - Bazel: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-bazel.md"
+   - CMake: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-cmake.md"
+   - Blade: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-blade.md"
+   - SCons: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-scons.md"
 6. 先 read_file("$SKILL_DIR/arm_confirmed.md") 读取免检清单
 7. 按照上述文档的步骤逐一执行依赖分析
 8. 使用 run_terminal_cmd / read_file / grep 等工具收集信息
@@ -340,9 +340,9 @@ options:
 
 **本阶段目标**：循环执行编译验证，直到编译成功或人工介入。
 
-**错误修复优先级**（详见 sourcecode-build-verify.md E.2/E.5 节）：
-- **P0**：优先查 DevKit 报告（`$WORK_DIR/reports/devkit-*/`），命中则直接按报告修复
-- **P1**：DevKit 未命中时，查 [sourcecode-build-verify.md](sourcecode-build-verify.md) E.5 节的常见错误速查表
+**错误修复优先级（两级查询，详见 sourcecode-build-verify.md E.2/E.5 节）**：
+- **第1级**：查 [build-error-quickfix.md](build-error-quickfix.md) 速查表（扁平关键字表，扫描快），命中则按「修复」列描述修复
+- **第2级**：速查表未命中时，查 [migration-cases/](migration-cases/) 案例库（01/02/03 路由索引 → G/V/P-cases，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 sourcecode-build-verify.md E.5 节）
 - **报告目录不存在**：⛔ 回到阶段 D 重新执行 DevKit 扫描，不得跳过
 
 ---
@@ -356,12 +356,9 @@ options:
 | [dependency-analysis/dependency-analysis.md](dependency-analysis/dependency-analysis.md) | 阶段 B：依赖分析与兼容性探测主编排 |
 | [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4 / 阶段 D：写入 ARM 确认清单 + 执行真实切换 |
 | [sourcecode-devkit-scan.md](sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
-| [sourcecode-build-verify.md](sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.5 节为常见错误速查表） |
+| [sourcecode-build-verify.md](sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.2 两级查询：build-error-quickfix 速查表 → migration-cases 案例库兜底） |
+| [build-error-quickfix.md](build-error-quickfix.md) | 阶段 E 第1级：编译错误快速修复速查表（扁平关键字表，按错误类别分表） |
 | [arm_confirmed.md](arm_confirmed.md) | 已确认 ARM 适配的依赖库清单（按依赖库索引，阶段 B 查询命中 / 阶段 C 登记 + 确认切换分支） |
-| [dependency-analysis/dependency-analysis-bazel.md](dependency-analysis/dependency-analysis-bazel.md) | Bazel 构建系统依赖分析（按需加载） |
-| [dependency-analysis/dependency-analysis-blade.md](dependency-analysis/dependency-analysis-blade.md) | Blade 构建系统依赖分析（按需加载） |
-| [dependency-analysis/dependency-analysis-cmake.md](dependency-analysis/dependency-analysis-cmake.md) | CMake 构建系统依赖分析（按需加载） |
-| [dependency-analysis/dependency-analysis-scons.md](dependency-analysis/dependency-analysis-scons.md) | SCons 构建系统依赖分析（按需加载） |
 | [migration-cases/](migration-cases/) | ARM 迁移案例库：3 个路由索引 + 3 个详细案例文件（G/V/P 系列） |
 | [migration-cases-example/](migration-cases-example/) | 案例库脱敏样例（3 个路由索引 + 3 个详细案例，每类各一条） |
 | [case-collection-guide.md](case-collection-guide.md) | 案例分类标准与写入格式规范 |
