@@ -48,7 +48,7 @@
 
 | 错误信息 | 根因 | 修复 |
 |---------|------|------|
-| `no such target '//platforms:is_aarch64'` | platforms/BUILD 未定义 ARM 平台 | 补全 platforms/BUILD，见 sourcecode-devkit-scan.md D.2.4 节 |
+| `no such target '//platforms:is_aarch64'` | platforms/BUILD 未定义 ARM 平台 | 补全 platforms/BUILD，见 bazel-dual-arch-pattern.md 层1 |
 | `no such target '//platforms:linux_aarch64'` | 同上 | 同上 |
 | `Unrecognized option: --incompatible_...` | 系统 Bazel 版本过旧 | 确认使用项目内置 Bazel（software.sh 中的 PATH 设置） |
 | `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 改用 `new_local_repository` 指向本地桩 |

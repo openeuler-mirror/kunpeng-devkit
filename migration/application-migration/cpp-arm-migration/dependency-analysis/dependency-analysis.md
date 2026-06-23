@@ -29,7 +29,7 @@
 | [dependency-analysis-cmake.md](build-systems/dependency-analysis-cmake.md) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
 | [dependency-analysis-blade.md](build-systems/dependency-analysis-blade.md) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
 | [dependency-analysis-scons.md](build-systems/dependency-analysis-scons.md) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
-| [arm-confirmed-write.md](arm-confirmed-write.md) | 阶段 C/D：写入 ARM 确认清单、执行真实切换操作 |
+| [arm-confirmed-write.md](arm-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
 | [dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md) | 报告输出模板示例 |
 
 ---

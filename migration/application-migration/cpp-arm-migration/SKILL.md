@@ -354,16 +354,10 @@ options:
 | [environment-prepare.md](environment-prepare.md) | 阶段 A：环境检测与准备 |
 | [build-tools-reference.md](build-tools-reference.md) | 阶段 A 配套：构建工具下载链接（内部定制版优先） |
 | [dependency-analysis/dependency-analysis.md](dependency-analysis/dependency-analysis.md) | 阶段 B：依赖分析与兼容性探测主编排 |
-| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4 / 阶段 D：写入 ARM 确认清单 + 执行真实切换 |
+| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [sourcecode-devkit-scan.md](sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
 | [sourcecode-build-verify.md](sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.2 两级查询：build-error-quickfix 速查表 → migration-cases 案例库兜底） |
 | [build-error-quickfix.md](build-error-quickfix.md) | 阶段 E 第1级：编译错误快速修复速查表（扁平关键字表，按错误类别分表） |
 | [arm_confirmed.md](arm_confirmed.md) | 已确认 ARM 适配的依赖库清单（按依赖库索引，阶段 B 查询命中 / 阶段 C 登记 + 确认切换分支） |
 | [migration-cases/](migration-cases/) | ARM 迁移案例库：3 个路由索引 + 3 个详细案例文件（G/V/P 系列） |
-| [migration-cases-example/](migration-cases-example/) | 案例库脱敏样例（3 个路由索引 + 3 个详细案例，每类各一条） |
-| [case-collection-guide.md](case-collection-guide.md) | 案例分类标准与写入格式规范 |
-| [diff-collection.md](diff-collection.md) | Diff 采集与校验指南 |
-| [migration-session-summary.md](migration-session-summary.md) | 迁移会话知识提取指南（编译成功后批量入库） |
-| [arm-scan-rules.json](arm-scan-rules.json) | 自定义扫描规则库（与 arm_scan.py 配套） |
 | [bazel-dual-arch-pattern.md](bazel-dual-arch-pattern.md) | Bazel x86/ARM 双架构切换模式参考（5 层架构 + 通用模板） |
-| [arm_confirmed_by_project.md](arm_confirmed_by_project.md) | 按主代码仓索引的 ARM 分支/依赖版本信息（迁移产出记录） |
