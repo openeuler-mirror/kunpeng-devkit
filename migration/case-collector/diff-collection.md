@@ -192,10 +192,14 @@ find . -name "*.a" -newer /tmp/arm_migration_full.diff 2>/dev/null | \
 
 ## 4. Diff 归档
 
-校验完成后，将 diff 归档到工作目录：
+校验完成后，将 diff 归档到 **迁移报告目录**（`<迁移工作目录>/reports/`，不放在 skill 目录下）。**diff 文件仅保存在迁移报告目录中，不写入 `migration-cases/` 案例库文件。**
 
 ```bash
-ARCHIVE_DIR=/tmp/arm_migration_archive/$(date +%Y%m%d_%H%M%S)
+# 报告目录（迁移工作目录下的 reports/）
+REPORT_DIR=<迁移工作目录>/reports
+mkdir -p $REPORT_DIR
+
+ARCHIVE_DIR=$REPORT_DIR/$(date +%Y%m%d_%H%M%S)
 mkdir -p $ARCHIVE_DIR
 
 cp /tmp/arm_migration_full.diff $ARCHIVE_DIR/reference.diff
@@ -217,7 +221,10 @@ echo "Diff 已归档至：$ARCHIVE_DIR"
 
 ## 5. 注意事项
 
-- diff 中涉及**真实仓库地址** （写入案例库前必须替换为 `ssh://git@<your-host>/<repo-path>.git`
-- diff 中涉及**内网 IP**（`10.x.x.x`、`172.x.x.x`）时，替换为 `<internal-host>`
-- diff 中涉及**具体业务名称/服务名**时，替换为 `<service-name>`、`<project-name>`
-- 预编译库的 URL替换为 `https://<your-package-repo>/...`
+- **diff 文件保存位置**：diff patch 仅保存在迁移报告目录中（`<迁移工作目录>/reports/`，不放在 skill 目录下），**不写入 `migration-cases/` 案例库文件**
+- **diff 内容无需脱敏**：迁移报告目录下的 diff 文件保留真实路径和内容，供事后校验使用
+- **案例库文件仍需脱敏**：`migration-cases/` 中的案例正文（错误现象、根因分析、修复方法等）仍按脱敏要求处理：
+  - 真实仓库地址 → `ssh://git@<your-host>/<repo-path>.git`
+  - 内网 IP（`10.x.x.x`、`172.x.x.x`）→ `<internal-host>`
+  - 具体业务名称/服务名 → `<service-name>`、`<project-name>`
+  - 预编译库的 URL → `https://<your-package-repo>/...`

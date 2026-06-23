@@ -1,6 +1,8 @@
 # CatPaw IDE
 .catpaw/
 catpaw/
+.claude/
+.trae/
 
 # macOS
 .DS_Store

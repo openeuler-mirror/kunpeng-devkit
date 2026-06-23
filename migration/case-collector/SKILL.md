@@ -11,7 +11,7 @@ description: C/C++ 项目 x86→ARM 迁移知识采集技能。用于从迁移 d
 - **可扩展案例库**：每类案例有独立文件，案例 ID 自增，新增案例追加到文件末尾，不修改已有案例
 - **格式统一**：每条案例包含 **错误现象 → 根因分析 → 修复方法 → 验证方式** 四要素，与 `sourcecode-error-patterns.md` 格式保持一致
 - **分类清晰**：按三类进行归档，不混淆；汇编/内存序问题归入"通用 ARM 适配"而非"源码改动"
-- **diff 可校验**：保存的 diff patch 用于事后校验 AI 改动是否精确
+- **diff 可校验**：保存的 diff patch 用于事后校验 AI 改动是否精确。patch 文件保存在迁移报告目录中（不放在 skill 目录下），**不写入 `migration-cases/` 案例库文件**
 
 ---
 
@@ -53,7 +53,7 @@ options:
 
 ### 1.2 生成并保存完整 Diff Patch（必须步骤）
 
-获取到路径信息后，**立即生成完整 diff patch 并保存到迁移报告目录**（不放在 skill 目录下），后续案例写入时引用此文件路径。
+获取到路径信息后，**立即生成完整 diff patch 并保存到迁移报告目录**（不放在 skill 目录下），作为事后校验 AI 改动精确性的依据。**patch 文件仅保存在迁移报告目录中，不写入 `migration-cases/` 案例库文件。**
 
 **diff 内容无需脱敏，保留真实路径和内容。**
 
@@ -85,7 +85,7 @@ echo "✅ Diff patch 已保存到：$PATCH_FILE"
 
 > ⚠️ **必须确认 patch 文件非空**：`wc -l $PATCH_FILE`，若为 0 行说明路径或分支有误，需重新问询用户。
 
-**PATCH_FILE 的绝对路径将在 Step 3 写入案例时作为 `diff patch` 字段引用（仅记录路径，不将 diff 内容写入案例库文件）。**
+**PATCH_FILE 保存在迁移报告目录中（不放在 skill 目录下），仅作为事后校验 AI 改动精确性的依据，不写入 `migration-cases/` 案例库文件。**
 
 ### 1.3 Git 分支扫描（可选，用于定位 ARM 分支）
 
@@ -165,7 +165,7 @@ git log --oneline --all | grep -iE "arm|aarch64|鲲鹏|kunpeng" | head -20
 ---
 ````
 
-每条案例中必须包含 **`diff patch`** 字段（从 Step 1 生成的 patch 文件中提取相关部分，已脱敏）。  
+每条案例中**不包含 `diff patch` 字段**——diff patch 仅保存在迁移报告目录中（见 Step 1.2），作为事后校验依据，不写入 `migration-cases/` 案例库文件。  
 写入格式见 [case-collection-guide.md](case-collection-guide.md)。
 
 ### 3.3 索引表维护规范（写入后必须执行）
