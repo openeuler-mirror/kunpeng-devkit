@@ -1,6 +1,6 @@
 ---
 name: cpp-arm-migration
-description: 将 C/C++ 项目从 x86 迁移到 ARM（aarch64/鲲鹏），目标是使项目**同时**在 x86 和 ARM 上编译运行（双架构兼容）。支持 Bazel/CMake/Make/Blade/SCons 等主流构建系统。五阶段流程：① 环境检测与准备（subagent）；② 依赖分析（subagent，含 ARM 兼容性探测）；③ 汇总 subagent 待确认项并等待用户确认；④ DevKit 扫描 → 构建配置 + 源码适配（严格串行，先扫描再修改）；⑤ 循环编译验证直到成功。
+description: 将 C/C++ 项目从 x86 迁移到 ARM（aarch64/鲲鹏），实现双架构同时兼容编译运行。当用户要求把 C/C++ 项目适配/迁移到 ARM、鲲鹏、aarch64，或需要项目同时支持 x86 与 ARM 架构时调用。支持 Bazel/CMake/Make/Blade/SCons 构建系统，五阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环）。
 ---
 
 # C/C++ 项目 ARM 迁移主控 Skill
