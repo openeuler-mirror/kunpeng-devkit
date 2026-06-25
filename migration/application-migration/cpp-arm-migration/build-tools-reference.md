@@ -76,6 +76,64 @@ scons --version  # 验证
 
 ---
 
+## JDK（毕昇 JDK）
+
+毕昇 JDK 是华为基于 OpenJDK 定制的高性能 OpenJDK 发行版，在 ARM 架构上进行了性能优化和稳定性增强，适用于 arm64 目标环境。毕昇 JDK 支持 JDK 8/11/17/21 四个 LTS 版本，支持 Linux/AArch64 和 Linux/x86_64 平台（本节仅列出 arm64 架构链接）。
+
+> **注意**：毕昇 JDK 要求系统 glibc 版本不低于 2.18。安装前请使用 `ldd --version` 确认系统 glibc 版本满足要求。
+
+### 下载链接
+
+> 链接说明：`<version>` 需替换为下表对应的具体版本号字符串（如 `8u462-b11`、`11.0.24+10` 等）。
+
+| JDK 大版本 | 具体版本 | 鲲鹏社区下载链接（arm64） |
+|-----------|---------|---------------------------|
+| JDK 8  | 8u462-b11  | `https://mirrors.huaweicloud.com/kunpeng/archive/compiler/bisheng_jdk/bisheng-jdk-8u462-b11-linux-aarch64.tar.gz` |
+| JDK 11 | 11.0.24+10 | `https://mirrors.huaweicloud.com/kunpeng/archive/compiler/bisheng_jdk/bisheng-jdk-11.0.24+10-linux-aarch64.tar.gz` |
+| JDK 17 | 17.0.12+10 | `https://mirrors.huaweicloud.com/kunpeng/archive/compiler/bisheng_jdk/bisheng-jdk-17.0.12+10-linux-aarch64.tar.gz` |
+| JDK 21 | 21.0.4+5   | `https://mirrors.huaweicloud.com/kunpeng/archive/compiler/bisheng_jdk/bisheng-jdk-21.0.4+5-linux-aarch64.tar.gz` |
+
+> **版本说明**：以上为参考版本，鲲鹏社区会持续更新补丁版本。如需获取最新版本，可访问鲲鹏开发者社区 JDK 下载页面或华为云镜像站 `https://mirrors.huaweicloud.com/kunpeng/archive/compiler/bisheng_jdk/` 查看可用版本列表，并替换上表中的 `<version>` 部分。
+
+### 安装方式
+
+```bash
+JDK_MAJOR="<jdk 大版本，如 8/11/17/21>"
+JDK_PACKAGE_VERSION="<从上表选取的具体版本，如 8u462-b11>"
+DOWNLOAD_URL="<从上表选取链接>"
+
+# 1. 下载并解压到 /opt/bisheng-jdk${JDK_MAJOR}
+wget ${DOWNLOAD_URL} -O /tmp/bisheng-jdk-${JDK_PACKAGE_VERSION}-linux-aarch64.tar.gz
+sudo mkdir -p /opt/bisheng-jdk${JDK_MAJOR}
+sudo tar -zxvf /tmp/bisheng-jdk-${JDK_PACKAGE_VERSION}-linux-aarch64.tar.gz -C /opt/bisheng-jdk${JDK_MAJOR} --strip-components=1
+
+# 2. 配置环境变量（建议写入 /etc/profile.d/bisheng-jdk.sh 以便全局生效）
+sudo tee /etc/profile.d/bisheng-jdk${JDK_MAJOR}.sh > /dev/null <<EOF
+export JAVA_HOME=/opt/bisheng-jdk${JDK_MAJOR}
+export PATH=\$JAVA_HOME/bin:\$PATH
+EOF
+
+# 3. 使环境变量生效
+source /etc/profile.d/bisheng-jdk${JDK_MAJOR}.sh
+
+# 4. 验证
+java -version
+javac -version
+```
+
+### 多版本共存
+
+如需在同一台 arm64 机器上安装多个 JDK 版本，可将其分别安装到 `/opt/bisheng-jdk8`、`/opt/bisheng-jdk11`、`/opt/bisheng-jdk17`、`/opt/bisheng-jdk21`，并通过 `alternatives` 或修改 `/etc/profile.d/` 下对应脚本的方式切换默认 JDK：
+
+```bash
+# 示例：使用 alternatives 管理 java
+sudo alternatives --install /usr/bin/java java /opt/bisheng-jdk17/bin/java 2
+sudo alternatives --install /usr/bin/javac javac /opt/bisheng-jdk17/bin/javac 2
+sudo alternatives --config java    # 交互式切换默认版本
+```
+
+---
+
 ## 链接选取规则
 
 环境检测与安装流程按以下规则选取下载链接：
