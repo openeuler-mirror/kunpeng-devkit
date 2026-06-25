@@ -345,8 +345,6 @@ options:
 >
 > **DevKit 扫描报告是阶段 E 错误修复的最高优先级参考依据，路径 `$WORK_DIR/reports/devkit-*/`。**
 
-**案例库参考**：阶段 D 的源码/构建适配可参考 [migration-cases/](migration-cases/) 中的历史案例。遇到类似错误时，先查 G/V/P 系列路由索引定位案例，再按案例中的修复方法执行。
-
 **阶段 D 完成后**，进入阶段 E。
 ---
 
