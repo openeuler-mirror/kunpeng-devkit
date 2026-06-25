@@ -134,16 +134,16 @@ task(
    - 报告文件路径
 
 ## 待确认项格式
-每条待确认项为一个 YAML 代码块：
-```yaml
-- id: env_<名称>            # env_ 前缀
-  category: 环境检测
-  question: "<具体问题>"
-  options:
-    - id: <选项id>
-      label: "<选项标签>"
-  context: "<决策依据>"
-```
+  每条待确认项为一个 YAML 代码块：
+    ```yaml
+    - id: env_<名称>            # env_ 前缀
+      category: 环境检测
+      question: "<具体问题>"
+      options:
+        - id: <选项id>
+          label: "<选项标签>"
+      context: "<决策依据>"
+    ```
 
 现在开始执行阶段 A 环境检测。"""
 )
@@ -216,28 +216,28 @@ task(
    - 报告文件路径
 
 ## 待确认项格式
-每条待确认项为一个 YAML 代码块：
-```yaml
-- id: dep_<依赖名>          # dep_ 前缀
-  category: 依赖分析
-  question: "<具体问题>"
-  options:
-    - id: <选项id>
-      label: "<选项标签>"
-  context: "<决策依据>"
-  priority: P0/P1/P2/P3    # 依赖优先级
-```
+    每条待确认项为一个 YAML 代码块：
+    ```yaml
+    - id: dep_<依赖名>          # dep_ 前缀
+      category: 依赖分析
+      question: "<具体问题>"
+      options:
+        - id: <选项id>
+          label: "<选项标签>"
+      context: "<决策依据>"
+      priority: P0/P1/P2/P3    # 依赖优先级
+    ```
 
 ## 待切换清单格式
-每条待切换项：
-```yaml
-- dep_name: <依赖名>
-  arm_branch: <ARM分支或commit>
-  arm_url: <ARM版本URL（如有）>
-  current_ref: <当前构建配置中的引用>
-  switch_action: <具体切换操作描述>
-  source: arm_confirmed.md  # 来源
-```
+    每条待切换项：
+    ```yaml
+    - dep_name: <依赖名>
+      arm_branch: <ARM分支或commit>
+      arm_url: <ARM版本URL（如有）>
+      current_ref: <当前构建配置中的引用>
+      switch_action: <具体切换操作描述>
+      source: arm_confirmed.md  # 来源
+    ```
 
 现在开始执行阶段 B 依赖分析。"""
 )
