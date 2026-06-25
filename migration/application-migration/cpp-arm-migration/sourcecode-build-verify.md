@@ -355,6 +355,11 @@ echo "⚠️  请验证 x86 编译未被破坏："
 echo "   在 x86 机器上执行以下命令之一："
 echo "   - 方式1：使用项目的构建脚本（若已添加架构自动检测，在 x86 上会自动走 x86 路径）"
 echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures --config=linux_x86"
+
+# 6. 引导进入阶段 F
+echo ""
+echo "📋 阶段 E 完成，进入阶段 F：生成迁移总结报告"
+echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 ```
 
 ---
@@ -372,3 +377,4 @@ echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures
 - [ ] 临时 WORKSPACE 文件已清理
 - [ ] 最终修改清单已保存
 - [ ] 已提示进行 x86 双架构兼容性验证
+- [ ] 已记录阶段 E 结束时间戳到 timeline.log
