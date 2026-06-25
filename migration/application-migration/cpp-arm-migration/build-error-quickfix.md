@@ -43,6 +43,7 @@
 |---------|------|------|
 | `error adding symbols: File in wrong format` | x86 `.so`/`.a` 被 ARM 链接器处理 | 确认 WORKSPACE_arm 中的 URL 已替换为 ARM 版本；检查对应 `.so` 文件架构 |
 | `undefined reference to 'xxx'` | ARM 版库未链接或 ABI 不匹配 | 检查 WORKSPACE_arm 库路径，确认 ARM `.so`/`.a` 已就位，符号签名一致 |
+| `undefined reference to 'std::__cxx11::basic_string'` / `_ZNSt7__cxx11*` | CXX ABI 不一致（新/旧 ABI 混用） | 全局加 `-D_GLIBCXX_USE_CXX11_ABI=0` 并重编译所有依赖库，详见 [V-02](migration-cases/V-cases.md) |
 
 ## Bazel 构建系统错误
 
