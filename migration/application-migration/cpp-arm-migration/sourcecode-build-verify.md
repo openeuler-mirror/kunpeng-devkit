@@ -107,6 +107,15 @@ while ATTEMPT <= MAX_ATTEMPTS:
     last_error_hash = current_error_hash
 
     ┌─────────────────────────────────────────┐
+    │  代码仓权限问题检测（特殊分支）         │
+    └─────────────────────────────────────────┘
+
+    if current_errors 命中代码仓权限问题关键字（见 E.2.1）:
+        → 跳到 E.2.1 权限问题处理（AskUserQuestion 提问用户）
+        → 用户提供代码仓路径后，更新构建配置并继续编译
+        → ATTEMPT += 1，继续循环
+
+    ┌─────────────────────────────────────────┐
     │  分析错误并修复（两级查询）             │
     └─────────────────────────────────────────┘
 
@@ -131,6 +140,69 @@ while ATTEMPT <= MAX_ATTEMPTS:
 if ATTEMPT > MAX_ATTEMPTS:
     → ⛔ 跳到 E.7 人工介入
 ```
+
+---
+
+## E.2.1 代码仓权限问题处理（AskUserQuestion 分支）
+
+> ⛔ **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，必须通过 `AskUserQuestion` 提问用户，由用户提供已下载好的代码仓路径。
+
+### 权限错误关键字识别
+
+编译日志中出现以下任一关键字时，判定为代码仓权限问题：
+
+| 关键字 | 典型场景 |
+|--------|---------|
+| `Permission denied (publickey)` | SSH 密钥未授权 |
+| `could not read Username` / `Authentication failed` | HTTPS 仓库鉴权失败 |
+| `Access denied` / `Repository not found` | 无仓库访问权限 |
+| `fatal: unable to access` + `403`/`401` | HTTP 鉴权失败 |
+| `ERROR: error cloning` + 权限相关字样 | Bazel `git_repository` 拉取失败 |
+| `fatal: could not clone` + 权限相关字样 | CMake `FetchContent` / submodule 拉取失败 |
+
+```bash
+# 权限错误检测命令
+LOG_FILE="$WORK_DIR/logs/build_${ATTEMPT}.log"
+PERM_ERR=$(grep -iE "Permission denied|could not read Username|Could not read from remote repository|Authentication failed|Access denied|Repository not found|unable to access.*(403|401)|error cloning|could not clone" "$LOG_FILE" | head -5)
+if [ -n "$PERM_ERR" ]; then
+    echo "⛔ 检测到代码仓权限问题"
+    echo "$PERM_ERR"
+    # 进入下方 AskUserQuestion 流程
+fi
+```
+
+### AskUserQuestion 提问流程
+
+检测到权限问题后，**立即停止自动修复**，通过 `AskUserQuestion` 向用户提问：
+
+```
+question:
+  header: "代码仓权限"
+  question: "编译过程中检测到代码仓 <仓库名/URL> 无访问权限（错误：<错误摘要>）。请提供已下载好的代码仓本地路径，或选择处理方式："
+  options:
+    - label: "提供本地路径"
+      description: "我已在本地下载好该代码仓，将在后续提供路径"
+    - label: "跳过该依赖"
+      description: "暂不处理该依赖，继续编译其他目标（可能导致后续链接错误）"
+    - label: "中止迁移"
+      description: "中止整个迁移流程"
+  multiSelect: false
+```
+
+### 用户提供路径后的处理
+
+1. **校验路径**：确认用户提供的路径存在且包含代码仓内容（检查 `.git` 目录或关键文件如 `CMakeLists.txt` / `WORKSPACE` / `Makefile`）
+2. **更新构建配置**：将构建配置中该依赖的远程仓库引用替换为本地路径
+   - **Bazel**：`git_repository` → `local_repository`，或修改 `url` 为 `file://` 本地路径
+   - **CMake**：`FetchContent_Declare` 的 `GIT_REPOSITORY` + `GIT_TAG` → `SOURCE_DIR` 本地路径
+   - **Make/Blade/SCons**：更新依赖路径变量指向本地目录
+3. **记录到修复历史**：在 `$WORK_DIR/reports/fix_history.txt` 记录权限问题、用户提供的路径、配置变更
+4. **继续编译循环**：`ATTEMPT += 1`，重新执行编译
+
+> ⛔ **禁止行为**：
+> - **不得**在服务器 `/home`、`/tmp`、`/opt` 等其他目录搜索同名代码仓
+> - **不得**尝试修改 SSH 密钥或 git credentials 配置以绕过权限
+> - **不得**跳过权限问题继续编译（会导致后续链接错误更难排查）
 
 ---
 
@@ -371,6 +443,7 @@ echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 - [ ] 已确定正确的编译命令（含 --config=linux_aarch64 或等效参数）
 - [ ] 第 1 次编译已执行，日志已保存到 `$WORK_DIR/logs/build_1.log`
 - [ ] 若失败，已提取并分析关键错误信息
+- [ ] 遇到代码仓权限问题时，已通过 `AskUserQuestion` 向用户提供本地路径（未在服务器其他目录查找代码仓）
 - [ ] 已查询速查表 / migration-cases 案例库匹配已知问题（两级查询）
 - [ ] 每次修复均已记录到 `fix_history.txt`
 - [ ] 最终编译成功（退出码 0，无 `error:` 行）

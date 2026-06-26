@@ -357,6 +357,7 @@ options:
 **错误修复优先级（两级查询，详见 sourcecode-build-verify.md E.2/E.5 节）**：
 - **第1级**：查 [build-error-quickfix.md](build-error-quickfix.md) 速查表（扁平关键字表，扫描快），命中则按「修复」列描述修复
 - **第2级**：速查表未命中时，查 [migration-cases/](migration-cases/) 案例库（01/02/03 路由索引 → G/V/P-cases，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 sourcecode-build-verify.md E.5 节）
+- **代码仓权限问题**：⛔ 遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须用 `AskUserQuestion` 提问用户提供已下载的代码仓路径（详见 sourcecode-build-verify.md E.2.1 节）
 - **报告目录不存在**：⛔ 回到阶段 D 重新执行 DevKit 扫描，不得跳过
 
 ---
