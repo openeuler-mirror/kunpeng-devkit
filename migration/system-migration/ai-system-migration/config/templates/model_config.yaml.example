@@ -1,0 +1,20 @@
+mode: agent-native
+
+agent_native:
+  description: Use current Agent/Subagent runtime to analyze and modify files.
+
+openai_compatible:
+  base_url: ""
+  api_key_env: AI_MIGRATION_MODEL_API_KEY
+  model: ""
+  temperature: 0.1
+  max_tokens: 8192
+
+manual_review:
+  enabled: false
+  output_patch_suggestions_only: true
+
+privacy:
+  require_user_approval_before_sending_source: true
+  require_user_approval_before_sending_config: true
+  redact_credentials: true

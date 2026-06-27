@@ -1,0 +1,203 @@
+# AI System Migration configuration
+workspace: /opt/ai-system-migration
+credentials_file: /opt/ai-system-migration/config/credentials.yaml
+mode: default              # default | custom
+application_type: java
+require_root: true
+
+source:
+  # remote_ssh: 主 Skill/编排器在目标 ARM 上运行，通过 SSH 远程到源 x86 扫描，再 SCP 回传结果。
+  # local_source: 在源 x86 本机执行扫描，适合无法从目标机连源机的场景。
+  execution_mode: remote_ssh
+  host_role: source_x86
+  ssh:
+    host: ""
+    port: 22
+    username: root
+    private_key_path: ""        # 推荐使用 SSH key。密码方式建议由 credential 子 Skill/sshpass/expect 处理，不写入日志。
+  remote_workspace: /opt/ai-system-migration-source
+  remote_scan_script: /opt/ai-system-migration-source/bin/devkit_disk_scan.sh
+  remote_output_dir: /opt/ai-system-migration-source/source_scan_output
+  # 放在目标 ARM 侧的扫描脚本路径，执行时会上传到源 x86 的 remote_scan_script。
+  scan_script: /opt/ai-system-migration/packages/devkit_disk_scan.sh
+  scan_roots:
+    - /
+  output_dir: /opt/ai-system-migration/workspace/source_scan
+  log_level: info
+  concurrency: 4
+  dynamic_version_probe:
+    enabled: false
+    require_confirm: true
+    allowed_commands:
+      - --version
+      - -version
+      - -v
+      - version
+  background: false
+  resume: true
+  specified_pack_paths: []
+  collect_runtime_config: true
+  collect_database_dump:
+    enabled: true
+    require_confirm: true
+  exclude_paths:
+    - /proc
+    - /sys
+    - /dev
+    - /run
+    - /tmp
+    - /var/tmp
+
+transfer:
+  method: manual             # manual | scp
+  target_upload_dir: /opt/ai-system-migration/workspace/transfer
+  verify_sha256: true
+
+model:
+  mode: agent-native         # agent-native | openai-compatible | manual-review
+  require_user_approval_before_sending_source: true
+  require_user_approval_before_sending_config: true
+  config_file: /opt/ai-system-migration/config/model_config.yaml
+
+# 安装包解析策略：严格遵守 route_plan，不允许缺包时静默替换产品。
+package_resolution:
+  required_packages:
+    - tongweb
+    - tongweb-license
+    - dm
+  local_first: true
+  remote_search_enabled: true
+  download_enabled: true
+  http_index_max_depth: 3
+  http_index_max_pages: 120
+  # 可选：配置厂商官方直接下载 URL 或目录页。若只是普通网页且无法解析直链，Skill 会输出待确认项。
+  official_urls: []
+
+# 默认国产化路线。route_plan.yaml 中会显式写入 no_silent_fallback 策略。
+default_route:
+  jdk: openjdk-arm-keep-major
+  tomcat: tongweb
+  tomcat_custom_options:
+    - tongweb
+    - bes
+    - tomcat-arm
+  resin: resin-arm
+  nginx: nginx-arm
+  redis: redis-arm
+  database: dm
+  database_migration_preference: dynamic-first
+
+middleware:
+  package_sources:
+    - name: user-provided
+      path: /opt/ai-system-migration/packages
+    - name: user-provided-middleware
+      path: /opt/ai-system-migration/packages/middleware
+    - name: user-provided-tongweb
+      path: /opt/ai-system-migration/packages/tongweb
+    - name: user-provided-database
+      path: /opt/ai-system-migration/packages/database
+    - name: user-provided-dm
+      path: /opt/ai-system-migration/packages/dm
+    - name: kunpeng-archive
+      url: https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/
+    - name: official-site
+      enabled_when_missing: true
+  install_root: /opt/middleware
+  app_root: /opt/app
+  backup_before_overwrite: true
+  download_missing_packages: true
+  # 关键策略：Tomcat->东方通时不允许缺包后静默降级 Apache Tomcat。
+  fallback_to_apache_tomcat: false
+  tongweb:
+    install_dir: /opt/middleware/tongweb
+    license_required: true
+    # 若提供的是厂商 .bin/.sh 安装器，需要在这里补静默安装参数；tar.gz/zip 免安装包可直接解压。
+    silent_install_args: []
+
+database:
+  target_type: dm
+  source_type: mysql
+  host: 127.0.0.1
+  instance_port: 5236
+  install_dir: /opt/dmdbms
+  data_dir: /opt/dmdata
+  database_name: DMDB
+  instance_name: DMSERVER
+  service_user: dmdba
+  service_group: dinstall
+  dba_username: SYSDBA
+  dba_password: ""
+  target_schema: APP_SCHEMA
+  target_username: APP_USER
+  target_password: ""
+  package_dir: /opt/ai-system-migration/packages/dm
+  download_missing_packages: true
+  install_timeout_seconds: 1800
+  import_timeout_seconds: 1800
+  create_systemd_service: true
+  initialize_instance: true
+  case_sensitive: false
+  charset: 1
+  dm_home_candidates:
+    - /opt/dmdbms
+    - /dm8
+    - /opt/dm8
+  dts_cli_candidates:
+    - $DM_HOME/tool/dts_cmd_run.sh
+    - /opt/dmdbms/tool/dts_cmd_run.sh
+    - /dm8/tool/dts_cmd_run.sh
+    - /opt/dm8/tool/dts_cmd_run.sh
+  dynamic_first: true
+  generate_dts_xml: true
+  require_confirm_before_dts_run: true
+  static_export:
+    mysql_tool: mysqldump
+    oracle_policy: dts_preferred
+    sqlserver_policy: dts_preferred
+  compatibility_defaults:
+    mysql: mysql-compatible
+    oracle: oracle-compatible
+    sqlserver: sqlserver-compatible
+    db2: db2-compatible
+
+application_transform:
+  source_preferred: true
+  no_source_decompile:
+    enabled: true
+    require_authorization: true
+    tool: cfr
+  backup_original_package: true
+  build:
+    max_fix_rounds_per_phase: 5
+    stop_if_same_error_repeats: 3
+    total_fix_rounds: 10
+  sql_transform:
+    enabled: true
+    scan_patterns:
+      - "**/*.xml"
+      - "**/*.sql"
+      - "**/*.properties"
+      - "**/*.yml"
+      - "**/*.yaml"
+
+deploy_verify:
+  auto_start_target_services: true
+  health_check:
+    type: auto              # auto | port | http | command
+    http_urls: []
+    ports: []
+  max_fix_rounds_per_phase: 5
+  stop_if_same_error_repeats: 3
+  total_fix_rounds: 10
+  user_stop_words:
+    - exit
+    - quit
+    - stop
+
+report:
+  output_dir: /opt/ai-system-migration/workspace/reports
+  markdown: true
+  json: true
+  jsonl_log: true
+  redact_sensitive: true

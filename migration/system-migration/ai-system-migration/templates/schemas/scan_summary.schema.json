@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Scan Analysis Summary",
+  "type": "object",
+  "properties": {
+    "runtime_apps": {"type": "array"},
+    "components": {"type": "object"},
+    "source_candidates": {"type": "array"},
+    "manual_confirm_items": {"type": "array"},
+    "risks": {"type": "array"}
+  }
+}
