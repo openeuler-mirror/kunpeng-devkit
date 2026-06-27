@@ -81,7 +81,7 @@ git log --oneline --all | grep -iE "arm|aarch64|cross.?compil|kunpeng" | head -5
 
 ```bash
 # 读取已确认清单（skill 目录下）
-cat "$SKILL_DIR/arm_confirmed.md" 2>/dev/null
+cat "$SKILL_DIR/references/arm_confirmed.md" 2>/dev/null
 ```
 
 ### 比对方法

@@ -1,7 +1,7 @@
 # 写入 ARM 确认清单与执行真实切换
 
 > 本文件是「查到分支 → 用户确认 → 切换并校验」闭环的写入端与切换端，描述阶段 C 中的两个连续动作：
-> 1. **阶段 C 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [arm_confirmed.md](../arm_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
+> 1. **阶段 C 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [arm_confirmed.md](../../references/arm_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
 > 2. **阶段 C 末尾切换**：确认通过后，立即把构建配置里这些依赖的分支 / commit / URL 替换为清单记录的 ARM 版本，并做基础校验，让项目在进入阶段 D（DevKit 扫描）前就已是 ARM 版本
 >
 > 切换放在阶段 C 末尾（而非阶段 D）的原因：用户刚确认完、信息最全时顺手切掉，避免拖到阶段 D 与源码适配交织；阶段 D 因此可专注 DevKit 扫描与源码修改。
@@ -20,7 +20,7 @@
 
 ### 步骤 1：定位依赖库区块
 
-打开 [arm_confirmed.md](../arm_confirmed.md)，按**依赖库名**查找区块。区块标题格式：
+打开 [arm_confirmed.md](../../references/arm_confirmed.md)，按**依赖库名**查找区块。区块标题格式：
 
 ```markdown
 ## <依赖库名>
@@ -72,7 +72,7 @@
 
 | 来源 | 依赖的 ARM 适配信息从哪取 |
 |------|------------------------|
-| 阶段 B 命中 [arm_confirmed.md](../arm_confirmed.md)（common-arm-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
+| 阶段 B 命中 [arm_confirmed.md](../../references/arm_confirmed.md)（common-arm-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
 | 阶段 C 新登记 | 刚写入清单的记录 |
 
 #### 🚨 切换前必须用户确认（不可跳过）
@@ -157,7 +157,7 @@ if [ -d "$DEP_DIR" ]; then
 fi
 ```
 
-> ⚠️ **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify.md](../sourcecode-build-verify.md) E.8 节落实。
+> ⚠️ **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify.md](../e-build-verify/sourcecode-build-verify.md) E.8 节落实。
 
 ### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
@@ -234,7 +234,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [sourcecode-devkit-scan.md](../sourcecode-devkit-scan.md)）。
+校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [sourcecode-devkit-scan.md](../d-devkit-scan/sourcecode-devkit-scan.md)）。
 
 ---
 

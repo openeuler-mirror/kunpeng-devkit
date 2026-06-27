@@ -60,7 +60,7 @@ cat "$REPORT"
 **在启动任何仓库分析之前**，先读取全局免检清单，避免对已确认兼容的依赖重复探测：
 
 ```bash
-cat "<cpp-arm-migration skill目录>/arm_confirmed.md" 2>/dev/null
+cat "<cpp-arm-migration skill目录>/references/arm_confirmed.md" 2>/dev/null
 ```
 
 将免检清单的内容缓存在上下文中，供后续每次调用 [common-arm-probe.md](common-arm-probe.md) 时使用（Section 5 比对）。

@@ -120,11 +120,11 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     【第1级】查 build-error-quickfix.md 速查表
-    路径：$SKILL_DIR/build-error-quickfix.md（扁平关键字表，扫描快）
+    路径：$SKILL_DIR/stages/e-build-verify/build-error-quickfix.md（扁平关键字表，扫描快）
     若速查表命中 → 按「修复」列描述修复
 
     【第2级】速查表未命中 → 查 migration-cases 案例库（详细兜底）
-    路由：$SKILL_DIR/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
+    路由：$SKILL_DIR/stages/e-build-verify/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
     若案例库命中 → 按案例修复方法修复
 
     ⚠️ 每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 E.5 节），
@@ -308,7 +308,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 ### 第2级：案例库路由查询流程
 
-案例库位于 `$SKILL_DIR/migration-cases/`，按错误类别分三系列，每系列有「路由索引 + 案例库」两文件：
+案例库位于 `$SKILL_DIR/stages/e-build-verify/migration-cases/`，按错误类别分三系列，每系列有「路由索引 + 案例库」两文件：
 
 | 系列 | 路由索引文件 | 案例库文件 | 适用错误 |
 |------|------------|----------|---------|
