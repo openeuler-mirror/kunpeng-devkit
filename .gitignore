@@ -1,0 +1,9 @@
+# CatPaw IDE
+.catpaw/
+catpaw/
+.claude/
+.trae/
+CLAUDE.md
+
+# macOS
+.DS_Store

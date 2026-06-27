@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "ARM 迁移自定义扫描规则库（与 arm_scan.py 配套使用）",
+    "规则仅包含 DevKit 未覆盖或覆盖不完整的通用 x86→ARM 问题。",
+    "DevKit 已覆盖的问题类型（无需在此配置）"
+  ],
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "SCAN-G02-01",
+      "case_ref": "G-02",
+      "title": "char 符号性：有符号 char 与无符号边界值比较",
+      "description": "x86 默认 signed char，ARM 默认 unsigned char。将 char 与 >= 128 的值比较或赋值时，x86/ARM 行为不同。",
+      "file_types": [".cpp", ".cc", ".c", ".h", ".hpp"],
+      "patterns": [
+        {
+          "regex": "\\(char\\)\\s*(?:0x[89a-fA-F][0-9a-fA-F]|1[2-9][0-9]|2[0-4][0-9]|25[0-5])",
+          "description": "将 >= 128 的整数强转为 char（符号性依赖）",
+          "severity": "warning"
+        },
+        {
+          "regex": "char\\s+\\w+\\s*=\\s*(?:0x[89a-fA-F][0-9a-fA-F]|1[2-9][0-9]|2[0-4][0-9]|25[0-5])",
+          "description": "char 变量赋值为 >= 128 的常量（符号性依赖）",
+          "severity": "warning"
+        }
+      ],
+      "fix_suggestion": "若代码需要处理字节值（0-255），改用 unsigned char 或 uint8_t；若仅处理 ASCII（0-127），无需修改。",
+      "devkit_covered": false
+    }
+  ]
+}

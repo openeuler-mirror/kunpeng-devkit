@@ -2,11 +2,11 @@
 
 本文档描述如何运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描，以及如何根据扫描报告对源码进行架构适配修改。
 
-> **范围说明**：本文档仅涵盖 DevKit 工具调用和源码修改方法。构建系统配置（`.bazelrc`、`WORKSPACE_arm`、`CMakeLists.txt` 等）的适配，由 SKILL.md 阶段 D 中的构建配置部分覆盖。
+> **范围说明**：本文档涵盖 DevKit 工具调用、源码修改方法，以及构建系统配置（`.bazelrc`、`WORKSPACE_arm`、`CMakeLists.txt` 等）的架构适配。
 
 > **前置条件**：阶段 C 用户确认已完成，私有依赖的 ARM 兼容性信息已获取。
 
----
+***
 
 ## D.1 运行 DevKit 扫描
 
@@ -25,18 +25,36 @@ find /opt /usr/local -name "devkit" -maxdepth 8 -type f 2>/dev/null | head -3
 <devkit路径> --version
 ```
 
-若未找到，访问 https://www.hikunpeng.com/developer/devkit 下载并安装。
+若上述均未找到，**不得跳过扫描**。通过 `AskUserQuestion` 向用户决策如何处理（与 SKILL.md 阶段 D 硬性约束一致）：
+
+```
+question: "未在系统中检测到 DevKit，如何继续阶段 D 扫描？"
+options:
+  - id: provide_path   label: "我知道路径，手动提供 DevKit 安装路径"
+  - id: download       label: "由 Skill 自动下载安装 DevKit"
+  - id: abort          label: "中止阶段 D"
+```
+
+按用户选择处理：
+
+- **provide\_path**：用户给出路径后，将其作为 `DEVKIT` 继续后续步骤；若该路径 `--version` 仍失败，回到本提问
+- **download**：由 agent 执行 DevKit 下载安装逻辑（详见下方 D.1.1.1），安装完成后继续后续步骤
+- **abort**：终止阶段 D，不进入 D.2
+
+#### D.1.1.1 自动下载安装 DevKit
+
+用户选择 `download` 时，agent `read_file("devkit-download.md")` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 D.1.2 使用。失败时回到 D.1.1 提问。
 
 ### D.1.2 确认扫描参数
 
-根据阶段 A `setup.md` 的构建系统检测结果，确定 `-b` 参数：
+根据阶段 A `environment-prepare.md` 的构建系统检测结果，确定 `-b` 参数：
 
-| 构建系统 | `-b` 参数值 |
-|---------|------------|
-| Bazel | `bazel` |
-| CMake | `cmake` |
-| Make/Makefile | `make` |
-| Blade/SCons/其他 | `other` |
+| 构建系统           | `-b` 参数值 |
+| -------------- | -------- |
+| Bazel          | `bazel`  |
+| CMake          | `cmake`  |
+| Make/Makefile  | `make`   |
+| Blade/SCons/其他 | `other`  |
 
 ### D.1.3 执行扫描
 
@@ -77,26 +95,91 @@ find $DEVKIT_REPORT_DIR -name "*.csv" \
 
 **理解报告中的问题分类：**
 
-| DevKit 问题类型 | 含义 | 修改策略 |
-|---------------|------|---------|
-| `x86 asm` / `inline asm` | x86 内联汇编 | 架构宏隔离，提供 ARM 替代实现或禁用 |
-| `x86 intrinsics` | SSE/AVX intrinsics 函数调用 | 架构宏隔离，提供 NEON 替代或标量退化 |
-| `x86 header` | x86 专属头文件（`immintrin.h` 等） | 架构宏保护 `#include` 语句 |
-| `type size` | 类型大小/字节序依赖 | 改用 `uint32_t` 等明确宽度的类型 |
-| `memory align` | 内存对齐假设 | 排查强制对齐的指针操作 |
-| `compiler flag` | 源码中硬编码的 x86 编译标志 | 移入构建系统的架构专属配置段 |
+| DevKit 问题类型              | 含义                         | 修改策略                   |
+| ------------------------ | -------------------------- | ---------------------- |
+| `x86 asm` / `inline asm` | x86 内联汇编                   | 架构宏隔离，提供 ARM 替代实现或禁用   |
+| `x86 intrinsics`         | SSE/AVX intrinsics 函数调用    | 架构宏隔离，提供 NEON 替代或标量退化  |
+| `x86 header`             | x86 专属头文件（`immintrin.h` 等） | 架构宏保护 `#include` 语句    |
+| `type size`              | 类型大小/字节序依赖                 | 改用 `uint32_t` 等明确宽度的类型 |
+| `memory align`           | 内存对齐假设                     | 排查强制对齐的指针操作            |
+| `compiler flag`          | 源码中硬编码的 x86 编译标志           | 移入构建系统的架构专属配置段         |
 
----
+***
 
-## D.2 按报告逐条修改源码
+## D.2 源码/构建适配修改
 
-扫描完成后，对报告中每一条问题按以下方法处理。所有修改须遵循**双架构兼容**原则：修改后 x86 和 ARM 均能正常编译，不删除任何原有的 x86 实现。
+扫描完成后，按以下顺序进行源码与构建配置适配。所有修改须遵循**双架构兼容**原则：修改后 x86 和 ARM 均能正常编译，不删除任何原有的 x86 实现。
 
-### D.2.1 处理 x86 专属头文件（`x86 header` 类型）
+> **修改顺序**：D.2.1（ARM 强制全局编译选项）为编译前必做的基础配置，须**最先执行**；D.2.2 ~ D.2.6 按 DevKit 扫描报告逐条处理源码问题。
+
+### D.2.1 添加 ARM 强制全局编译选项（编译前必做）
+
+> ⚠️ **ARM 强制要求**：以下编译选项在 ARM（aarch64）上**必须全局添加**，是编译前必须完成的基础配置。x86 与 ARM 的默认行为差异会导致隐式 bug，不加这些选项即使编译通过也可能运行结果错误。
+
+| 编译选项 | 默认值 | 作用 | 不加的风险 |
+|---------|--------|------|-----------|
+| `-fsigned-char` | — | 强制 `char` 类型为有符号 | x86 默认 `char` 有符号，ARM 默认无符号，导致字符比较/算术结果不同 |
+| `-march=armv8.5-a` | `armv8.5-a` | 指定目标 ARM 架构版本 | 未指定时编译器可能使用过低架构，无法利用鲲鹏处理器指令集 |
+
+> **`-march` 取值规则**：默认使用 `armv8.5-a`；若编译器版本过旧或目标硬件不支持 armv8.5-a，降级为 `armv8-a`。可通过以下命令检测编译器支持的架构：
+
+```bash
+# 检查编译器是否支持 armv8.5-a
+echo | gcc -march=armv8.5-a -E -dM - 2>/dev/null | grep -q "__ARM_ARCH" \
+  && echo "支持 armv8.5-a" || echo "不支持，请降级为 armv8-a"
+```
+
+**按构建系统添加全局编译选项：**
+
+#### Bazel 项目
+
+在 `.bazelrc` 的 ARM 配置段中添加：
+
+```python
+# .bazelrc
+build:linux_aarch64 --copt=-fsigned-char
+build:linux_aarch64 --cxxopt=-fsigned-char
+build:linux_aarch64 --copt=-march=armv8.5-a
+build:linux_aarch64 --cxxopt=-march=armv8.5-a
+# 若编译器/硬件不支持 armv8.5-a，将上述 armv8.5-a 改为 armv8-a
+```
+
+#### CMake 项目
+
+在 `CMakeLists.txt` 中添加全局编译选项：
+
+```cmake
+# CMakeLists.txt
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    add_compile_options(-fsigned-char -march=armv8.5-a)
+    # 若编译器/硬件不支持 armv8.5-a，改为：
+    # add_compile_options(-fsigned-char -march=armv8-a)
+endif()
+```
+
+#### Make 项目
+
+在 `Makefile` 中追加全局编译选项：
+
+```makefile
+# Makefile
+ifeq ($(shell uname -m),aarch64)
+    CFLAGS   += -fsigned-char -march=armv8.5-a
+    CXXFLAGS += -fsigned-char -march=armv8.5-a
+    # 若编译器/硬件不支持 armv8.5-a，改为 -march=armv8-a
+endif
+```
+
+> **双架构兼容说明**：上述选项仅在 ARM 构建时生效（通过构建系统的架构判断或配置段隔离），不影响 x86 编译。
+
+***
+
+### D.2.2 处理 x86 专属头文件（`x86 header` 类型）
 
 **问题定位**：DevKit 报告给出了包含 x86 专属头文件的源文件路径和行号，直接跳转到对应行。
 
 **修改方法**：用架构宏将 `#include` 语句包裹起来。常见的 x86 专属头文件包括：
+
 - `<immintrin.h>`、`<emmintrin.h>`、`<xmmintrin.h>`（SIMD intrinsics）
 - `<cpuid.h>`（CPU 特性检测）
 - `<sys/sysctl.h>`（BSD/macOS 专属，ARM Linux 无此文件）
@@ -126,9 +209,9 @@ find $DEVKIT_REPORT_DIR -name "*.csv" \
 #endif  // __x86_64__
 ```
 
----
+***
 
-### D.2.2 处理 intrinsics 函数调用（`x86 intrinsics` 类型）
+### D.2.3 处理 intrinsics 函数调用（`x86 intrinsics` 类型）
 
 **问题定位**：报告给出使用了 `_mm256_*`、`_mm_*`、`__m256i` 等 x86 SIMD API 的具体位置。
 
@@ -185,9 +268,9 @@ void register_simd_optimizer() {
 #endif
 ```
 
----
+***
 
-### D.2.3 处理内联汇编（`x86 asm` 类型）
+### D.2.4 处理内联汇编（`x86 asm` 类型）
 
 **问题定位**：报告给出含 `__asm__` / `asm volatile` 的源文件位置。
 
@@ -195,12 +278,12 @@ void register_simd_optimizer() {
 
 常见内联汇编场景及 ARM 替代方式：
 
-| x86 汇编用途 | x86 写法 | ARM 替代 |
-|-------------|---------|---------|
-| 读 CPU 时钟周期 | `rdtsc` | `mrs %0, cntvct_el0`（系统计数器） |
-| 内存屏障 | `mfence` / `sfence` | `__sync_synchronize()` 或 `asm volatile("dmb ish")` |
-| 原子操作 | `lock xadd` | `__atomic_*` 系列 GCC 内置函数（跨架构兼容） |
-| 位扫描（BSF/BSR） | `bsf %1, %0` | `__builtin_ctz()` / `__builtin_clz()`（跨架构兼容） |
+| x86 汇编用途     | x86 写法              | ARM 替代                                             |
+| ------------ | ------------------- | -------------------------------------------------- |
+| 读 CPU 时钟周期   | `rdtsc`             | `mrs %0, cntvct_el0`（系统计数器）                        |
+| 内存屏障         | `mfence` / `sfence` | `__sync_synchronize()` 或 `asm volatile("dmb ish")` |
+| 原子操作         | `lock xadd`         | `__atomic_*` 系列 GCC 内置函数（跨架构兼容）                    |
+| 位扫描（BSF/BSR） | `bsf %1, %0`        | `__builtin_ctz()` / `__builtin_clz()`（跨架构兼容）       |
 
 修改模式：
 
@@ -225,9 +308,9 @@ inline uint64_t get_timestamp() {
 
 > **优先使用 GCC 内置函数替代内联汇编**：`__builtin_popcount()`、`__builtin_ctz()`、`__builtin_clz()` 等均支持 ARM64，编译器会自动选择最优指令，无需手动区分架构。
 
----
+***
 
-### D.2.4 处理类型大小/字节序依赖（`type size` 类型）
+### D.2.5 处理类型大小/字节序依赖（`type size` 类型）
 
 **问题定位**：报告标记了依赖特定类型大小的代码，例如假设 `int` 为 32 位、`long` 为 64 位等。
 
@@ -250,9 +333,9 @@ uint32_t network_val = htonl(host_val);   // 主机序 → 网络序（跨平台
 uint32_t host_val    = ntohl(network_val); // 网络序 → 主机序
 ```
 
----
+***
 
-### D.2.5 处理内存对齐假设（`memory align` 类型）
+### D.2.6 处理内存对齐假设（`memory align` 类型）
 
 **问题定位**：报告标记了使用对齐相关 API 或假设特定对齐的代码。
 
@@ -276,7 +359,7 @@ uint32_t host_val    = ntohl(network_val); // 网络序 → 主机序
 void* buf = aligned_alloc(16, size);  // C11 标准，x86 和 ARM 均支持
 ```
 
----
+***
 
 ## D.3 修改完整性验证
 
@@ -309,11 +392,12 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
   >> $WORK_DIR/reports/source_changes.txt
 ```
 
----
+***
 
 ## D.4 修改完成检查清单
 
 - [ ] DevKit 扫描报告已读取并按类型汇总
+- [ ] ARM 强制全局编译选项已添加（`-fsigned-char`、`-march=armv8.5-a` 或降级 `armv8-a`）
 - [ ] 所有 `x86 header` 类型问题已用架构宏保护 `#include`
 - [ ] 所有 `x86 intrinsics` 类型问题已处理（NEON 替代或标量退化）
 - [ ] 所有 `x86 asm` / `inline asm` 类型问题已用架构宏隔离
@@ -322,3 +406,4 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
 - [ ] 残留检查通过（grep 无遗漏输出）
 - [ ] 修改清单已记录到 `$WORK_DIR/reports/source_changes.txt`
 - [ ] 确认所有修改中 x86 代码路径未被删除（最小侵入）
+

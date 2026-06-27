@@ -33,7 +33,7 @@ COMPILE_CMD="bazel build <主编译目标> --verbose_failures --config=linux_aar
 COMPILE_CMD="bash $PROJECT_ROOT/build.sh"
 ```
 
-> **编译目标来源**：来自阶段 A setup.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
+> **编译目标来源**：来自阶段 A environment-prepare.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
 
 ### CMake 项目
 
@@ -44,7 +44,11 @@ mkdir -p $BUILD_DIR
 cmake -B $BUILD_DIR -S $PROJECT_ROOT \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-  -DCMAKE_SYSTEM_NAME=Linux
+  -DCMAKE_SYSTEM_NAME=Linux \
+  -DAUTO_SUBMODULE=OFF
+# 注：-DAUTO_SUBMODULE=OFF 仅当项目按 dependency-analysis-cmake.md「子模块自动签出检查」
+# 改造了 AUTO_SUBMODULE 开关时才需要传；未改造的项目 cmake 会忽略未知 option 的警告。
+# 作用：阻止 cmake 配置期 git submodule update 重置已钉定的 ARM 分支（见该文档第 1/2 步）。
 
 COMPILE_CMD="cmake --build $BUILD_DIR -j$(nproc) 2>&1"
 ```
@@ -88,7 +92,7 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     if BUILD_EXIT_CODE == 0 && 日志中无 "error:" 行:
-        → ✅ 编译成功，跳到 E.5 收尾
+        → ✅ 编译成功，跳到 E.8 收尾
 
     ┌─────────────────────────────────────────┐
     │  提取关键错误信息                       │
@@ -98,28 +102,107 @@ while ATTEMPT <= MAX_ATTEMPTS:
     current_error_hash = hash(current_errors)
 
     if current_error_hash == last_error_hash:
-        → ⛔ 连续相同错误，修复无效，跳到 E.6 人工介入
+        → ⛔ 连续相同错误，修复无效，跳到 E.7 人工介入
 
     last_error_hash = current_error_hash
 
     ┌─────────────────────────────────────────┐
-    │  分析错误并修复                         │
+    │  代码仓权限问题检测（特殊分支）         │
     └─────────────────────────────────────────┘
 
-    优先查询 sourcecode-error-patterns.md 中的已知案例
-    若找到匹配案例 → 按案例方法修复
-    若未找到匹配 → 按 E.4 速查表处理
+    if current_errors 命中代码仓权限问题关键字（见 E.2.1）:
+        → 跳到 E.2.1 权限问题处理（AskUserQuestion 提问用户）
+        → 用户提供代码仓路径后，更新构建配置并继续编译
+        → ATTEMPT += 1，继续循环
+
+    ┌─────────────────────────────────────────┐
+    │  分析错误并修复（两级查询）             │
+    └─────────────────────────────────────────┘
+
+    【第1级】查 build-error-quickfix.md 速查表
+    路径：$SKILL_DIR/build-error-quickfix.md（扁平关键字表，扫描快）
+    若速查表命中 → 按「修复」列描述修复
+
+    【第2级】速查表未命中 → 查 migration-cases 案例库（详细兜底）
+    路由：$SKILL_DIR/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
+    若案例库命中 → 按案例修复方法修复
+
+    ⚠️ 每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 E.5 节），
+       便于核验 skill 是否实际使用了案例库知识
 
     记录修复操作到 $WORK_DIR/reports/fix_history.txt
 
     if 判断无法自动修复:
-        → ⛔ 跳到 E.6 人工介入
+        → ⛔ 跳到 E.7 人工介入
 
     ATTEMPT += 1
 
 if ATTEMPT > MAX_ATTEMPTS:
-    → ⛔ 跳到 E.6 人工介入
+    → ⛔ 跳到 E.7 人工介入
 ```
+
+---
+
+## E.2.1 代码仓权限问题处理（AskUserQuestion 分支）
+
+> ⛔ **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，必须通过 `AskUserQuestion` 提问用户，由用户提供已下载好的代码仓路径。
+
+### 权限错误关键字识别
+
+编译日志中出现以下任一关键字时，判定为代码仓权限问题：
+
+| 关键字 | 典型场景 |
+|--------|---------|
+| `Permission denied (publickey)` | SSH 密钥未授权 |
+| `could not read Username` / `Authentication failed` | HTTPS 仓库鉴权失败 |
+| `Access denied` / `Repository not found` | 无仓库访问权限 |
+| `fatal: unable to access` + `403`/`401` | HTTP 鉴权失败 |
+| `ERROR: error cloning` + 权限相关字样 | Bazel `git_repository` 拉取失败 |
+| `fatal: could not clone` + 权限相关字样 | CMake `FetchContent` / submodule 拉取失败 |
+
+```bash
+# 权限错误检测命令
+LOG_FILE="$WORK_DIR/logs/build_${ATTEMPT}.log"
+PERM_ERR=$(grep -iE "Permission denied|could not read Username|Could not read from remote repository|Authentication failed|Access denied|Repository not found|unable to access.*(403|401)|error cloning|could not clone" "$LOG_FILE" | head -5)
+if [ -n "$PERM_ERR" ]; then
+    echo "⛔ 检测到代码仓权限问题"
+    echo "$PERM_ERR"
+    # 进入下方 AskUserQuestion 流程
+fi
+```
+
+### AskUserQuestion 提问流程
+
+检测到权限问题后，**立即停止自动修复**，通过 `AskUserQuestion` 向用户提问：
+
+```
+question:
+  header: "代码仓权限"
+  question: "编译过程中检测到代码仓 <仓库名/URL> 无访问权限（错误：<错误摘要>）。请提供已下载好的代码仓本地路径，或选择处理方式："
+  options:
+    - label: "提供本地路径"
+      description: "我已在本地下载好该代码仓，将在后续提供路径"
+    - label: "跳过该依赖"
+      description: "暂不处理该依赖，继续编译其他目标（可能导致后续链接错误）"
+    - label: "中止迁移"
+      description: "中止整个迁移流程"
+  multiSelect: false
+```
+
+### 用户提供路径后的处理
+
+1. **校验路径**：确认用户提供的路径存在且包含代码仓内容（检查 `.git` 目录或关键文件如 `CMakeLists.txt` / `WORKSPACE` / `Makefile`）
+2. **更新构建配置**：将构建配置中该依赖的远程仓库引用替换为本地路径
+   - **Bazel**：`git_repository` → `local_repository`，或修改 `url` 为 `file://` 本地路径
+   - **CMake**：`FetchContent_Declare` 的 `GIT_REPOSITORY` + `GIT_TAG` → `SOURCE_DIR` 本地路径
+   - **Make/Blade/SCons**：更新依赖路径变量指向本地目录
+3. **记录到修复历史**：在 `$WORK_DIR/reports/fix_history.txt` 记录权限问题、用户提供的路径、配置变更
+4. **继续编译循环**：`ATTEMPT += 1`，重新执行编译
+
+> ⛔ **禁止行为**：
+> - **不得**在服务器 `/home`、`/tmp`、`/opt` 等其他目录搜索同名代码仓
+> - **不得**尝试修改 SSH 密钥或 git credentials 配置以绕过权限
+> - **不得**跳过权限问题继续编译（会导致后续链接错误更难排查）
 
 ---
 
@@ -163,7 +246,7 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     REAL_ERRORS=$(grep -cE "^ERROR |: error:|error: " $LOG_FILE 2>/dev/null || echo 0)
     if [ "$REAL_ERRORS" -eq 0 ]; then
         echo "✅ 编译成功（第 ${ATTEMPT} 次尝试）"
-        # 进入 E.5 收尾
+        # 进入 E.8 收尾
     else
         echo "⚠️ 退出码为 0 但日志中仍有 ${REAL_ERRORS} 条 error，继续分析"
     fi
@@ -205,69 +288,49 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 ---
 
-## E.5 常见错误快速修复速查表
+## E.5 错误修复查询（两级）
 
-> **优先查询 [sourcecode-error-patterns.md](sourcecode-error-patterns.md) 中的完整案例库**，以下为高频错误速查。
+> **修复优先级（两级查询）**：
+> 1. **第1级 — 速查表**：查 [build-error-quickfix.md](build-error-quickfix.md)（扁平关键字表，扫描快）；命中则按「修复」列描述修复
+> 2. **第2级 — 案例库**：速查表未命中时，查 [migration-cases/](migration-cases/) 案例库（结构化教案，详细兜底）；命中则按案例修复方法修复
+>
+> ⚠️ **醒目标识要求（强制）**：每次执行第2级案例库查询时，**必须**在 agent 交互界面输出醒目标识，便于核验 skill 是否实际使用了案例库知识。无论命中与否都要输出，格式如下：
+>
+> ```
+> 🔍 [案例库查询] 错误关键字：<从日志提取的关键字>
+>    查询路由：<01-generic / 02-version / 03-project> → <G-cases / V-cases / P-cases>
+>    查询结果：<命中 G-XX / V-XX / P-XX，将按案例修复> 或 <未命中，需人工介入或新增案例>
+> ```
 
-### 编译标志类错误
+### 第1级：速查表
 
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `'-mf16c' is not supported by this configuration` | x86 标志残留在全局 .bazelrc | 将 .bazelrc 全局段的 `-mf16c/-msse/-mavx/-mpopcnt` 移到 `build:linux_x86` 段 |
-| `unrecognized option '-mssse3'` | 同上 | 同上 |
-| `error: option '-mpopcnt' cannot be specified` | 同上 | 同上 |
+速查表已独立为 [build-error-quickfix.md](build-error-quickfix.md)，按错误类别分表（头文件 / 类型符号 / 链接 / Bazel / 编译严格性），扁平关键字匹配，扫描快。命中即按「修复」列描述修复，未命中进入第2级。
 
-**修复命令参考：**
-```bash
-# 定位 .bazelrc 中需要移动的行
-grep -n "mf16c\|msse\|mavx\|mpopcnt\|mssse3\|march=.*86" $PROJECT_ROOT/.bazelrc
+### 第2级：案例库路由查询流程
 
-# 用编辑工具将 "build --cxxopt=..." 改为 "build:linux_x86 --cxxopt=..."
-```
+案例库位于 `$SKILL_DIR/migration-cases/`，按错误类别分三系列，每系列有「路由索引 + 案例库」两文件：
 
-### 头文件找不到
+| 系列 | 路由索引文件 | 案例库文件 | 适用错误 |
+|------|------------|----------|---------|
+| G 系列 | [01-generic-arm-migration.md](migration-cases/01-generic-arm-migration.md) | [G-cases.md](migration-cases/G-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
+| V 系列 | [02-version-compatibility.md](migration-cases/02-version-compatibility.md) | [V-cases.md](migration-cases/V-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
+| P 系列 | [03-project-specific.md](migration-cases/03-project-specific.md) | [P-cases.md](migration-cases/P-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
 
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `'immintrin.h' file not found` | x86 intrinsics 头文件未隔离 | 用 `#if defined(__x86_64__)` 包裹 `#include` |
-| `'emmintrin.h' file not found` | 同上 | 同上 |
-| `'sys/sysctl.h': No such file` | ARM Linux 无该头文件 | 用 `#if !defined(__aarch64__)` 包裹 |
-| `fatal error: xxx.h: No such file or directory` (来自第三方库) | BUILD 文件缺少 `hdrs` 或 `includes` | 在对应 BUILD 文件中补 `hdrs = glob(["**/*.h"])` 和 `includes = ["."]` |
+**查询步骤**：
 
-### 类型/符号未定义
+1. 从编译错误日志（`$WORK_DIR/logs/build_<N>.log`）提取关键字（如 `immintrin.h not found`、`File in wrong format`、`undefined reference`）
+2. 按错误类别选路由索引文件，扫描「摘要」列匹配关键字 → 定位案例 ID（如 `G-01`）
+3. 跳到对应案例库文件，按 ID 查看完整修复方法（错误现象 / 根因 / 修复方法 / 验证方式）
+4. **输出醒目标识**（见上方格式），命中与否都要输出
+5. 命中 → 按案例修复方法执行；未命中 → 跳到 E.6 记录后进入 E.7 人工介入
 
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `'__m256i' was not declared` | AVX 类型未定义 | 用架构宏保护整个使用块，参考 sourcecode-error-patterns.md |
-| `'_mm256_loadu_si256' undeclared` | AVX intrinsics 函数未定义 | 同上 |
-| `expected unqualified-id before '__attribute__'` | `-D__const__=` 破坏 ARM glibc | 改为 `select()` 架构区分，见 sourcecode-error-patterns.md 案例 C-04 |
-| `'proto_common' is not defined` | Bazel rules_proto 版本不兼容 | 在 .bazelrc 全局段加 `--incompatible_blacklisted_protos_requires_proto_info=false` |
+> **类别判定速查**：
+> - 错误含 x86 编译标志 / intrinsics 头文件 / 内联汇编 → **G 系列**
+> - 错误含依赖库版本 / ABI / 头文件版本不一致 → **V 系列**
+> - 错误含部署 / manifest / so 路径 / 流水线 → **P 系列**
+> - 不确定时三个路由索引都扫一遍
 
-### 链接错误
-
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `error adding symbols: File in wrong format` | x86 `.so`/`.a` 被 ARM 链接器处理 | 确认 WORKSPACE_arm 中的 URL 已替换为 ARM 版本；检查对应 `.so` 文件架构 |
-| `undefined reference to 'xxx'` | ARM 版库未链接或 ABI 不匹配 | 检查 WORKSPACE_arm 库路径，确认 ARM `.so`/`.a` 已就位，符号签名一致 |
-
-### Bazel 构建系统错误
-
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `no such target '//platforms:is_aarch64'` | platforms/BUILD 未定义 ARM 平台 | 补全 platforms/BUILD，见 sourcecode-devkit-scan.md D.2.4 节 |
-| `no such target '//platforms:linux_aarch64'` | 同上 | 同上 |
-| `Unrecognized option: --incompatible_...` | 系统 Bazel 版本过旧 | 确认使用项目内置 Bazel（software.sh 中的 PATH 设置） |
-| `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 改用 `new_local_repository` 指向本地桩 |
-| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 setup.md 1.6 节） |
-
-### 编译严格性差异
-
-| 错误信息 | 根因 | 修复 |
-|---------|------|------|
-| `jump to case label` | case 块中有局部变量，ARM GCC 更严格 | 给 case 块加花括号 `{}`，见 sourcecode-error-patterns.md 案例 C-05 |
-| `cannot convert 'const string' to 'const char*'` | 桩头文件签名与调用方不匹配 | 重新扫描调用方并修正桩签名 |
-| `missing binary operator before token "("` | Boost 版本过旧 | 使用系统新版 Boost 或升级 Boost 版本 |
-| `-Werror` 将警告升级为错误 | ARM GCC 产生 x86 GCC 没有的警告 | 在 ARM 配置段中添加对应的 `-Wno-xxx`，或修复源码中的警告 |
+> **新增修复方法的归属**：速查表未覆盖的新错误，若修复方法具备通用性，应补录到 [migration-cases/](migration-cases/) 案例库（按 G/V/P 系列格式新增案例并更新路由索引），而非扩充速查表——速查表仅承载扁平关键字映射，结构化教案归案例库。
 
 ---
 
@@ -284,7 +347,7 @@ cat >> $FIX_LOG << EOF
 错误摘要：<错误类型，如 "immintrin.h not found in xxx.cpp">
 错误根因：<根因分析，如 "x86 头文件未用架构宏保护">
 修复操作：<具体修改，如 "在 src/util/simd.cpp:23 前后添加 #if defined(__x86_64__) 宏">
-参考案例：<sourcecode-error-patterns.md 中的案例编号，若有>
+参考案例：<速查表表名 / migration-cases 案例ID（如 G-01），若有>
 修改文件：<文件路径>
 修改范围：<行号>
 
@@ -364,6 +427,11 @@ echo "⚠️  请验证 x86 编译未被破坏："
 echo "   在 x86 机器上执行以下命令之一："
 echo "   - 方式1：使用项目的构建脚本（若已添加架构自动检测，在 x86 上会自动走 x86 路径）"
 echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures --config=linux_x86"
+
+# 6. 引导进入阶段 F
+echo ""
+echo "📋 阶段 E 完成，进入阶段 F：生成迁移总结报告"
+echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 ```
 
 ---
@@ -375,9 +443,11 @@ echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures
 - [ ] 已确定正确的编译命令（含 --config=linux_aarch64 或等效参数）
 - [ ] 第 1 次编译已执行，日志已保存到 `$WORK_DIR/logs/build_1.log`
 - [ ] 若失败，已提取并分析关键错误信息
-- [ ] 已优先查询 `sourcecode-error-patterns.md` 匹配已知案例
+- [ ] 遇到代码仓权限问题时，已通过 `AskUserQuestion` 向用户提供本地路径（未在服务器其他目录查找代码仓）
+- [ ] 已查询速查表 / migration-cases 案例库匹配已知问题（两级查询）
 - [ ] 每次修复均已记录到 `fix_history.txt`
 - [ ] 最终编译成功（退出码 0，无 `error:` 行）
 - [ ] 临时 WORKSPACE 文件已清理
 - [ ] 最终修改清单已保存
 - [ ] 已提示进行 x86 双架构兼容性验证
+- [ ] 已记录阶段 E 结束时间戳到 timeline.log

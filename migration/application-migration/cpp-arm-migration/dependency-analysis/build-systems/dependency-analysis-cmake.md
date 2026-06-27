@@ -1,0 +1,174 @@
+# CMake 构建系统依赖分析
+
+> ⚠️ **按需加载**：仅当 [analyze-one-repo.md](../analyze-one-repo.md) Step 1 识别到构建系统为 **CMake** 时加载本文件，否则跳过。
+
+---
+
+## 子模块自动签出检查（加载本文件后第一步）
+
+CMake 项目常通过 `execute_process(... git submodule update ...)` 或 `find_package(Git)` 配合自定义命令在 `cmake` 阶段自动拉取/重置子模块。这种逻辑会在切换 ARM 分支后**重新覆盖回原默认分支**，是 CMake 项目 ARM 迁移的高频踩坑点。
+
+```bash
+# 检查是否存在 git submodule 自动签出（含子目录 CMakeLists.txt，不只顶层）
+# ⚠️ 不要把 FetchContent_MakeAvailable 算进来——它是构建期下载依赖的正当机制
+#    （见下方「解析 CMake 依赖声明」表），误当自动签出去注释会直接破坏依赖拉取
+grep -rn "git submodule\|GIT_SUBMODULE" \
+  --include="CMakeLists.txt" --include="*.cmake" \
+  --exclude-dir=build --exclude-dir=.git \
+  <项目根目录>/ 2>/dev/null
+
+# 检查是否有 cmake 阶段调用 git reset / git checkout
+# ⚠️ execute_process 可能跨行书写，grep 不跨行——命中数偏少时需人工翻看 execute_process 块
+grep -rn "execute_process.*git\|git reset\|git checkout" \
+  --include="CMakeLists.txt" --include="*.cmake" \
+  --exclude-dir=build --exclude-dir=.git \
+  <项目根目录>/ 2>/dev/null
+```
+
+**若存在自动签出逻辑**：
+
+> 🚨 **CMake 项目 ARM 迁移最高频踩坑点 —— 必须在依赖分析报告头部以醒目方式提示用户**
+>
+> - 在依赖分析报告**最前面**单独成节标注 ⚠️ 警告，不要混在普通依赖列表里
+> - 根因：`cmake -B build` 配置期会执行这段 `git submodule update`，以"修复未初始化子模块"的名义把已手动切到 ARM 分支的子模块**默默重置回默认分支**，而且**不会报错**。每次 cmake 重新配置都重置一次——不只第一次，清 build 目录重来也会
+> - 症状极具迷惑性：`git submodule status` 显示分支正确，但 cmake 重新配置后回退；编译错误在"x86 残留"与"找不到 ARM 符号"间反复横跳，极易误判为依赖问题
+>
+> **处置分两步，且都必须在阶段 E 首次 `cmake -B build` 之前完成**：
+>
+> **第 1 步 — 关掉 cmake 的动态重置（CMake 侧，持久改造，不是一次性注释）**
+>
+> 不要删除自动签出逻辑，改为可控开关；ARM 路径（`OFF`）直接跳过 `execute_process`，让 cmake 配置期完全不触碰子模块分支。这是写进 CMakeLists 的持久改造，每次 cmake 重新配置都生效，清 build 目录重来也不会失效：
+>
+> ```cmake
+> option(AUTO_SUBMODULE "Auto checkout submodules" ON)
+> if(AUTO_SUBMODULE)
+>     # x86 默认路径：保留原自动签出行为
+>     execute_process(COMMAND git submodule update --init --recursive ...)
+> endif()
+> # ARM 路径（-DAUTO_SUBMODULE=OFF）：整个 execute_process 被跳过，分支由第 2 步钉定
+> ```
+>
+> ARM 构建命令（阶段 E.1）显式传 `-DAUTO_SUBMODULE=OFF`。
+>
+> **第 2 步 — 把每个子模块钉到用户指定的固定分支（git 侧，逐个子模块）**
+>
+> 关掉动态重置只是"不再被覆盖"，子模块仍停在不确定状态，必须主动钉定，否则 cmake 不重置、但分支本身可能也没切对：
+>
+> - 每个含自动签出的子模块，其 ARM 分支作为**待确认项**在阶段 C 收集，走与其它 Git 依赖相同的确认闭环（见 [common-arm-probe.md](../common-arm-probe.md) Section 2/4 与 [arm-confirmed-write.md](../arm-confirmed-write.md)）。不同子模块的 ARM 分支名往往不同（`arm64` / `aarch64` / `kunpeng`…），**逐个子模块确认，不共用一个分支**
+> - 阶段 C 末尾、阶段 E 首次 `cmake -B build` **之前**，先 init 再逐个钉定（init 会把工作区停在默认 commit，随后的 checkout 覆盖为 ARM 分支，故 checkout 必须在后、且为最后一步）：
+>   ```bash
+>   git submodule update --init --recursive                          # 确保子模块工作区就位（含嵌套）
+>   git -C <子模块路径> checkout <用户为该子模块确认的ARM分支或commit>   # 逐个钉到固定分支/commit
+>   ```
+> - **嵌套子模块要逐层钉定**：`--recursive` 会拉起嵌套子模块，父模块的 cmake 同样会在配置期重置它们，故每个层级的嵌套子模块都要按其各自确认的分支/commit 钉定，不能只钉顶层
+> - **分支或 commit 皆可**：清单记录的是「ARM 适配分支/commit」，有些子模块的 ARM 适配只在某个 commit、无命名分支，`git checkout <commit>` 同样有效（detached HEAD 也能被第 1 步的 OFF 开关保护住不被重置）
+> - 钉定后状态持久（存于子模块自身 .git，不在 build 目录），只要第 1 步开关生效，cmake 重新配置不会覆盖。**钉定后不得再手动跑 `git submodule update`**（会重置回默认 commit），分支维持靠第 1 步的 `OFF` 开关
+>
+> **留痕**：在 `$WORK_DIR/reports/user_decisions.txt` 中记录**每个子模块钉定的分支**（不只是"是否已禁用"），阶段 E 前再次核对。
+
+---
+
+## 解析 CMake 依赖声明
+
+```bash
+# 主 CMakeLists.txt
+cat <项目根目录>/CMakeLists.txt
+
+# cmake 子模块文件（FindXxx.cmake、依赖配置等）
+find <项目根目录>/cmake -name "*.cmake" -type f 2>/dev/null
+
+# 模块化拆分的 CMakeLists（子目录）
+find <项目根目录> -name "CMakeLists.txt" -not -path "*/build/*" -not -path "*/.git/*" | head -20
+```
+
+CMake 通过以下命令声明外部依赖，每种对应不同的来源类型：
+
+| 命令 | 依赖来源 | ARM 迁移关注点 |
+|------|---------|---------------|
+| `find_package(Foo REQUIRED)` | 系统已安装包 | 检查 ARM 系统包管理器是否提供该包 |
+| `FetchContent_Declare` + `FetchContent_MakeAvailable` | 远端 Git/HTTP（构建期下载） | 检查远端是否有 ARM 分支或源码可重编 |
+| `ExternalProject_Add` | 远端 Git/HTTP（编译期独立构建） | 同上，且需检查 `CONFIGURE_COMMAND`/`BUILD_COMMAND` 中是否硬编码 x86 标志 |
+| `add_subdirectory(third_party/xxx)` | 仓库内嵌源码 | 检查内嵌源码是否含 x86 专属指令 |
+| `target_link_libraries(... /path/to/libxxx.a)` | 硬编码二进制路径 | ⚠️ 大概率是 x86 预编译，需找 ARM 版替代 |
+| `link_directories(/usr/lib64/...)` | 硬编码库目录 | 检查路径在 ARM 上是否存在（ARM 通常为 `/usr/lib/aarch64-linux-gnu`） |
+
+**各命令需提取的关键字段**：
+
+| 命令 | 关键字段 | 说明 |
+|------|---------|------|
+| `find_package` | 包名、`REQUIRED`/`OPTIONAL`、`<X.Y>` 版本 | 定位包名和版本要求 |
+| `FetchContent_Declare` | `NAME`、`GIT_REPOSITORY`/`URL`、`GIT_TAG`/`URL_HASH` | 定位仓库地址和版本 |
+| `ExternalProject_Add` | `NAME`、`URL`/`GIT_REPOSITORY`、`CONFIGURE_COMMAND`、`BUILD_COMMAND` | 同上 + 检查构建命令架构标志 |
+
+---
+
+## 识别预编译二进制依赖
+
+CMake 项目中预编译二进制通常通过以下方式引入，在 ARM 上很容易直接报 `File in wrong format`：
+
+```bash
+# 1. 硬编码 .so/.a 路径
+grep -rn 'target_link_libraries.*\.\(so\|a\)\b' \
+  <项目根目录>/CMakeLists.txt <项目根目录>/cmake/ \
+  --include="*.cmake" --include="CMakeLists.txt"
+
+# 2. IMPORTED 库目标
+grep -rn "add_library.*IMPORTED\|set_target_properties.*IMPORTED_LOCATION" \
+  <项目根目录>/CMakeLists.txt <项目根目录>/cmake/
+
+# 3. find_library 返回的硬编码路径变量是否被强制覆盖
+grep -rn "set(.*_LIBRARY .*\.\(so\|a\))" <项目根目录>/CMakeLists.txt <项目根目录>/cmake/
+```
+
+> 检测到的预编译二进制由 [analyze-one-repo.md](../analyze-one-repo.md) Step 4 统一交给 [common-binary-detect.md](../common-binary-detect.md) 判断架构与溯源源码。
+
+---
+
+## 编译标志检查（ABI=0 工具链与 x86 专属标志）
+
+```bash
+# x86 专属编译标志
+grep -rn "msse\|mavx\|mf16c\|mpopcnt\|march=.*86\|march=core\|march=native" \
+  <项目根目录>/CMakeLists.txt <项目根目录>/cmake/ \
+  --include="*.cmake" --include="CMakeLists.txt"
+
+# C++ ABI 标志（_GLIBCXX_USE_CXX11_ABI=0 强绑老 ABI，跨 GCC 版本有兼容风险）
+grep -rn "_GLIBCXX_USE_CXX11_ABI" \
+  <项目根目录>/CMakeLists.txt <项目根目录>/cmake/
+
+# 工具链文件硬编码 x86 编译器
+find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
+  | xargs grep -l "x86_64\|gcc-7" 2>/dev/null
+```
+
+**ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
+
+---
+
+## CMake 源码溯源
+
+> 预编译二进制的源码溯源逻辑已统一移入 [common-binary-detect.md](../common-binary-detect.md)，此处不再重复。
+> 由 [analyze-one-repo.md](../analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
+>
+> 对于 CMake 项目，`common-binary-detect.md` Section 3「第一优先级」会在 `$REPO_PATH/CMakeLists.txt` 与 `$REPO_PATH/cmake/*.cmake` 中搜索依赖名，自动找到 `FetchContent_Declare`/`ExternalProject_Add` 中的源码地址。
+
+---
+
+## CMake 子模块依赖分析
+
+> 子模块递归逻辑已统一由 [analyze-one-repo.md](../analyze-one-repo.md) Step 5 处理。
+> 当子模块被识别为 CMake 项目时，[analyze-one-repo.md](../analyze-one-repo.md) 会重新加载本文件对该子模块执行依赖扫描，无需在此重复定义。
+
+---
+
+## CMake 注意事项
+
+| 注意事项 | 说明 | 建议操作 |
+|---------|------|---------|
+| **子模块自动签出** | `cmake -B build` 会重新拉取/重置子模块，覆盖手动切换的 ARM 分支 | 改 `AUTO_SUBMODULE` 开关 + ARM 传 `-DAUTO_SUBMODULE=OFF`；阶段 E 前逐个子模块 `git checkout` 钉到用户确认的 ARM 分支（见本文档「子模块自动签出检查」第 1/2 步） |
+| **`find_package` 缓存** | `CMakeCache.txt` 缓存了 x86 路径，切到 ARM 后不会重新查找 | 切换前 `rm -rf build/` 完全清理后再重新 `cmake -B build` |
+| **预编译 IMPORTED 库** | `IMPORTED_LOCATION` 直接指向 x86 二进制 | 改为按 `CMAKE_SYSTEM_PROCESSOR` 选择 x86/ARM 路径分支 |
+| **`pkg-config` 路径** | x86 系统的 `.pc` 文件可能写死 `/usr/lib64`，ARM 上路径不同 | 在 ARM 环境中重新生成 / 用 `CMAKE_PREFIX_PATH` 覆盖 |
+| **`CMAKE_HOST_SYSTEM_PROCESSOR`** | 仅反映构建主机架构，不反映目标架构 | 跨架构时使用 `CMAKE_SYSTEM_PROCESSOR`，在工具链文件中显式声明 |
+| **`add_compile_options` 全局生效** | 写在顶层的 `-mavx` 会污染所有子目标 | 改为对单个目标 `target_compile_options(... PRIVATE $<$<BOOL:${X86_64}>:-mavx>)` |
+| **`ExternalProject_Add` 构建命令硬编码** | `CONFIGURE_COMMAND`/`BUILD_COMMAND` 中可能写死 `--host=x86_64-linux-gnu` | 改为透传 `${CMAKE_HOST_SYSTEM_PROCESSOR}` 或参数化 |
