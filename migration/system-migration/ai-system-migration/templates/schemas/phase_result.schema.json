@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI System Migration Phase Result",
+  "type": "object",
+  "required": ["phase", "status"],
+  "properties": {
+    "phase": {"type": "string"},
+    "status": {"enum": ["success", "failed", "skipped", "waiting_input", "partially_success", "prepared", "draft", "dry_run", "running"]},
+    "summary": {"type": "string"},
+    "actions": {"type": "array"},
+    "artifacts": {"type": "array"},
+    "risks": {"type": "array"},
+    "manual_confirm_items": {"type": "array"},
+    "next_steps": {"type": "array"}
+  }
+}

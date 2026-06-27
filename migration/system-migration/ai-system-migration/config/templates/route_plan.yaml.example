@@ -1,0 +1,56 @@
+route_id: default-java-x86-to-arm
+status: draft                 # draft | confirmed | custom
+
+route_policy:
+  no_silent_fallback: true
+  fallback_requires_explicit_config: true
+
+package_policy:
+  local_first: true
+  kunpeng_archive_second: true
+  official_site_third: true
+  record_url_sha256: true
+
+jdk:
+  source_major: auto
+  target: openjdk-arm-keep-major
+
+tomcat:
+  detected: false
+  target: tongweb
+  options:
+    - tongweb
+    - bes
+    - tomcat-arm
+  fallback_to_apache_tomcat: false
+  requires_license: true
+
+resin:
+  detected: false
+  target: resin-arm
+
+nginx:
+  detected: false
+  target: nginx-arm
+
+redis:
+  detected: false
+  target: redis-arm
+
+database:
+  detected_sources: []
+  target: dm
+  auto_install: true
+  migration_preference: dynamic-first
+  compatibility_mode: auto-by-source-db
+  dts_xml:
+    generate_by_skill: true
+    user_provided_path: ""
+    require_confirm_before_run: true
+
+application:
+  package_type: auto          # jar | war | ear | unknown
+  source_mode: auto           # source | no-source | unknown
+  decompile_when_no_source: true
+  decompile_tool: cfr
+  require_decompile_authorization: true

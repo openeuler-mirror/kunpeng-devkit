@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI System Migration Interaction Task",
+  "type": "object",
+  "required": ["task_id", "phase", "type", "blocking_scope", "question", "options"],
+  "properties": {
+    "task_id": {"type": "string"},
+    "phase": {"type": "string"},
+    "type": {"enum": ["confirmation", "credential", "choice", "free_text", "file_path"]},
+    "blocking_scope": {"type": "string"},
+    "default_action": {"type": "string"},
+    "question": {"type": "string"},
+    "options": {"type": "array", "items": {"type": "string"}},
+    "expires_policy": {"enum": ["manual", "use_default_if_safe", "skip_until_confirmed"]},
+    "status": {"enum": ["pending", "answered", "skipped"]}
+  }
+}

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DM DTS CLI migration template.
+  This template is a draft for Skill generation. Review with the actual DTS CLI
+  version before execution.
+-->
+<dts-job>
+  <job-name>${JOB_NAME}</job-name>
+  <migration-mode>${MIGRATION_MODE}</migration-mode>
+  <source>
+    <type>${SOURCE_TYPE}</type>
+    <host>${SOURCE_HOST}</host>
+    <port>${SOURCE_PORT}</port>
+    <database>${SOURCE_DATABASE}</database>
+    <schema>${SOURCE_SCHEMA}</schema>
+    <username>${SOURCE_USERNAME}</username>
+    <password>${SOURCE_DB_PASSWORD}</password>
+  </source>
+  <target>
+    <type>dm</type>
+    <host>${TARGET_HOST}</host>
+    <port>${TARGET_PORT}</port>
+    <database>${TARGET_DATABASE}</database>
+    <schema>${TARGET_SCHEMA}</schema>
+    <username>${TARGET_USERNAME}</username>
+    <password>${TARGET_DB_PASSWORD}</password>
+  </target>
+  <objects mode="${OBJECT_MODE}">
+    ${OBJECT_ITEMS}
+  </objects>
+  <options>
+    <migrate-tables>true</migrate-tables>
+    <migrate-data>true</migrate-data>
+    <migrate-indexes>true</migrate-indexes>
+    <migrate-constraints>true</migrate-constraints>
+    <migrate-views>true</migrate-views>
+    <migrate-procedures>false</migrate-procedures>
+    <migrate-triggers>false</migrate-triggers>
+  </options>
+</dts-job>
