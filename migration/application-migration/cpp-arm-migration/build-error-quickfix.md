@@ -52,7 +52,7 @@
 | `no such target '//platforms:is_aarch64'` | platforms/BUILD 未定义 ARM 平台 | 补全 platforms/BUILD，见 bazel-dual-arch-pattern.md 层1 |
 | `no such target '//platforms:linux_aarch64'` | 同上 | 同上 |
 | `Unrecognized option: --incompatible_...` | 系统 Bazel 版本过旧 | 确认使用项目内置 Bazel（software.sh 中的 PATH 设置） |
-| `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 改用 `new_local_repository` 指向本地桩 |
+| `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 向用户提问获取地址 |
 | `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 environment-prepare.md 1.6 节） |
 
 ## 编译严格性差异
@@ -60,6 +60,5 @@
 | 错误信息 | 根因 | 修复 |
 |---------|------|------|
 | `jump to case label` | case 块中有局部变量，ARM GCC 更严格 | 给 case 块加花括号 `{}` 形成独立作用域 |
-| `cannot convert 'const string' to 'const char*'` | 桩头文件签名与调用方不匹配 | 重新扫描调用方并修正桩签名 |
 | `missing binary operator before token "("` | Boost 版本过旧 | 使用系统新版 Boost 或升级 Boost 版本 |
 | `-Werror` 将警告升级为错误 | ARM GCC 产生 x86 GCC 没有的警告 | 在 ARM 配置段中添加对应的 `-Wno-xxx`，或修复源码中的警告 |
