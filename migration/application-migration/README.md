@@ -73,36 +73,45 @@
 
 ```
 cpp-arm-migration/
-├── SKILL.md                              # 主控入口（六阶段流程编排）
-├── environment-prepare.md                # 阶段 A：环境检测与准备
-├── build-tools-reference.md              # 阶段 A 配套：构建工具下载链接
-├── dependency-analysis/
-│   ├── dependency-analysis.md            # 阶段 B：依赖分析主编排
-│   ├── analyze-one-repo.md               # 单仓库分析闭环步骤
-│   ├── common-arm-probe.md               # 通用 ARM 兼容性探测
-│   ├── common-binary-detect.md           # 预编译二进制识别
-│   ├── arm-confirmed-write.md            # 阶段 C：写入确认清单 + 执行切换
-│   ├── dependency-analysis-report-template-example.md
-│   └── build-systems/
-│       ├── dependency-analysis-bazel.md  # Bazel 专用分析
-│       ├── dependency-analysis-cmake.md  # CMake 专用分析
-│       ├── dependency-analysis-blade.md  # Blade 专用分析
-│       └── dependency-analysis-scons.md  # SCons 专用分析
-├── sourcecode-devkit-scan.md             # 阶段 D：DevKit 扫描与源码/构建适配
-├── sourcecode-build-verify.md            # 阶段 E：编译验证与循环修复
-├── build-error-quickfix.md               # 编译错误快速修复速查表
-├── migration-cases/
-│   ├── 01-generic-arm-migration.md       # 路由索引：通用迁移问题
-│   ├── 02-version-compatibility.md       # 路由索引：版本兼容性
-│   ├── 03-project-specific.md            # 路由索引：项目特定问题
-│   ├── G-cases.md                        # G 系列详细案例
-│   ├── V-cases.md                        # V 系列详细案例
-│   └── P-cases.md                        # P 系列详细案例
-├── migration-summary-report.md           # 阶段 F：迁移总结报告生成
-├── arm_confirmed.md                      # 已确认 ARM 适配的依赖库清单
-├── bazel-dual-arch-pattern.md            # Bazel 双架构切换模式参考
-└── prompt.md                             # 使用提示词模板
+├── SKILL.md                                          # 主控入口（六阶段流程编排）
+├── references/                                       # 跨阶段复用参考
+│   ├── arm_confirmed.md                              # 已确认 ARM 适配的依赖库清单
+│   └── bazel-dual-arch-pattern.md                    # Bazel 双架构切换模式参考
+├── stages/
+│   ├── a-environment/                                # 阶段 A：环境检测与准备
+│   │   ├── environment-prepare.md
+│   │   └── build-tools-reference.md                  # 构建工具下载链接
+│   ├── b-dependency-analysis/                        # 阶段 B：依赖分析
+│   │   ├── dependency-analysis.md                    # 依赖分析主编排
+│   │   ├── analyze-one-repo.md                       # 单仓库分析闭环步骤
+│   │   ├── common-arm-probe.md                       # 通用 ARM 兼容性探测
+│   │   ├── common-binary-detect.md                   # 预编译二进制识别
+│   │   ├── arm-confirmed-write.md                    # 阶段 C：写入确认清单 + 执行切换
+│   │   ├── dependency-analysis-report-template-example.md
+│   │   └── build-systems/
+│   │       ├── dependency-analysis-bazel.md          # Bazel 专用分析
+│   │       ├── dependency-analysis-cmake.md          # CMake 专用分析
+│   │       ├── dependency-analysis-blade.md          # Blade 专用分析
+│   │       └── dependency-analysis-scons.md          # SCons 专用分析
+│   ├── d-devkit-scan/                                # 阶段 D：DevKit 扫描与源码/构建适配
+│   │   ├── sourcecode-devkit-scan.md
+│   │   └── devkit-download.md
+│   ├── e-build-verify/                               # 阶段 E：编译验证与循环修复
+│   │   ├── sourcecode-build-verify.md
+│   │   ├── build-error-quickfix.md                   # 编译错误快速修复速查表
+│   │   └── migration-cases/
+│   │       ├── 01-generic-arm-migration.md           # 路由索引：通用迁移问题
+│   │       ├── 02-version-compatibility.md           # 路由索引：版本兼容性
+│   │       ├── 03-project-specific.md                # 路由索引：项目特定问题
+│   │       ├── G-cases.md                            # G 系列详细案例
+│   │       ├── V-cases.md                            # V 系列详细案例
+│   │       └── P-cases.md                            # P 系列详细案例
+│   └── f-summary/                                    # 阶段 F：迁移总结报告
+│       └── migration-summary-report.md
+└── ../prompt.md                                      # 使用提示词模板（位于父目录 application-migration/）
 ```
+
+> 注：`prompt.md` 不在 `cpp-arm-migration/` skill 目录内，而是其父目录 `application-migration/prompt.md`，供用户复制使用。
 
 ---
 
