@@ -110,9 +110,6 @@ cpp-arm-migration/
 │       └── migration-summary-report.md
 └── ../prompt.md                                      # 使用提示词模板（位于父目录 application-migration/）
 ```
-
-> 注：`prompt.md` 不在 `cpp-arm-migration/` skill 目录内，而是其父目录 `application-migration/prompt.md`，供用户复制使用。
-
 ---
 
 ## 安装方式
