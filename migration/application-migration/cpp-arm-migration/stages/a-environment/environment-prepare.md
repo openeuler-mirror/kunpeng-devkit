@@ -161,7 +161,7 @@ bazel --version
 
 如果项目所需的 Bazel 版本与系统安装的版本不一致，或系统未安装 Bazel，**自动尝试安装**匹配版本：
 
-1. 从 [build-tools-reference.md](build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版：
+1. 从 [build-tools-reference.md](../references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版：
    ```bash
    BAZEL_VERSION="<项目所需版本>"
    # 从 reference 文档获取下载链接，优先内部定制版

@@ -132,7 +132,7 @@ task(
 
 ## 你的执行步骤
 1. 先 read_file("$SKILL_DIR/stages/a-environment/environment-prepare.md") 获取完整执行步骤
-2. 先 read_file("$SKILL_DIR/stages/a-environment/build-tools-reference.md") 获取构建工具下载链接
+2. 先 read_file("$SKILL_DIR/references/build-tools-reference.md") 获取构建工具下载链接
 3. 按照 environment-prepare.md 的 1.1 ~ 1.7 步骤逐一执行环境检测
 4. 使用 run_terminal_cmd 执行所有检测命令
 5. 使用 read_file / grep 等工具读取项目构建配置
@@ -355,8 +355,8 @@ options:
 **本阶段目标**：循环执行编译验证，直到编译成功或人工介入。
 
 **错误修复优先级（两级查询，详见 stages/e-build-verify/sourcecode-build-verify.md E.2/E.5 节）**：
-- **第1级**：查 [build-error-quickfix.md](stages/e-build-verify/build-error-quickfix.md) 速查表（扁平关键字表，扫描快），命中则按「修复」列描述修复
-- **第2级**：速查表未命中时，查 [migration-cases/](stages/e-build-verify/migration-cases/) 案例库（01/02/03 路由索引 → G/V/P-cases，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 stages/e-build-verify/sourcecode-build-verify.md E.5 节）
+- **第1级**：查 [build-error-quickfix.md](references/build-error-quickfix.md) 速查表（扁平关键字表，扫描快），命中则按「修复」列描述修复
+- **第2级**：速查表未命中时，查 [migration-cases/](references/migration-cases/) 案例库（01/02/03 路由索引 → G/V/P-cases，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 stages/e-build-verify/sourcecode-build-verify.md E.5 节）
 - **代码仓权限问题**：⛔ 遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须用 `AskUserQuestion` 提问用户提供已下载的代码仓路径（详见 stages/e-build-verify/sourcecode-build-verify.md E.2.1 节）
 - **报告目录不存在**：⛔ 回到阶段 D 重新执行 DevKit 扫描，不得跳过
 
@@ -383,13 +383,13 @@ options:
 | 文档 | 用途 |
 |------|------|
 | [environment-prepare.md](stages/a-environment/environment-prepare.md) | 阶段 A：环境检测与准备 |
-| [build-tools-reference.md](stages/a-environment/build-tools-reference.md) | 阶段 A 配套：构建工具下载链接（内部定制版优先） |
+| [build-tools-reference.md](references/build-tools-reference.md) | 阶段 A 配套：构建工具下载链接（内部定制版优先） |
 | [stages/b-dependency-analysis/dependency-analysis.md](stages/b-dependency-analysis/dependency-analysis.md) | 阶段 B：依赖分析与兼容性探测主编排 |
 | [stages/b-dependency-analysis/arm-confirmed-write.md](stages/b-dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [sourcecode-devkit-scan.md](stages/d-devkit-scan/sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
 | [sourcecode-build-verify.md](stages/e-build-verify/sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.2 两级查询：build-error-quickfix 速查表 → migration-cases 案例库兜底） |
 | [migration-summary-report.md](stages/f-summary/migration-summary-report.md) | 阶段 F：迁移总结报告生成步骤 |
-| [build-error-quickfix.md](stages/e-build-verify/build-error-quickfix.md) | 阶段 E 第1级：编译错误快速修复速查表（扁平关键字表，按错误类别分表） |
+| [build-error-quickfix.md](references/build-error-quickfix.md) | 阶段 E 第1级：编译错误快速修复速查表（扁平关键字表，按错误类别分表） |
 | [arm_confirmed.md](references/arm_confirmed.md) | 已确认 ARM 适配的依赖库清单（按依赖库索引，阶段 B 查询命中 / 阶段 C 登记 + 确认切换分支） |
-| [migration-cases/](stages/e-build-verify/migration-cases/) | ARM 迁移案例库：3 个路由索引 + 3 个详细案例文件（G/V/P 系列） |
+| [migration-cases/](references/migration-cases/) | ARM 迁移案例库：3 个路由索引 + 3 个详细案例文件（G/V/P 系列） |
 | [bazel-dual-arch-pattern.md](references/bazel-dual-arch-pattern.md) | Bazel x86/ARM 双架构切换模式参考（5 层架构 + 通用模板） |
