@@ -74,13 +74,23 @@
 ```
 cpp-arm-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
+├── scripts/                                          # 可执行脚本
+│   └── devkit-download.sh                            # DevKit CLI 自动下载安装脚本
 ├── references/                                       # 跨阶段复用参考
 │   ├── arm_confirmed.md                              # 已确认 ARM 适配的依赖库清单
-│   └── bazel-dual-arch-pattern.md                    # Bazel 双架构切换模式参考
+│   ├── bazel-dual-arch-pattern.md                    # Bazel 双架构切换模式参考
+│   ├── build-tools-reference.md                      # 构建工具下载链接
+│   ├── build-error-quickfix.md                       # 编译错误快速修复速查表
+│   └── migration-cases/                              # ARM 迁移案例库
+│       ├── 01-generic-arm-migration.md               # 路由索引：通用迁移问题
+│       ├── 02-version-compatibility.md               # 路由索引：版本兼容性
+│       ├── 03-project-specific.md                    # 路由索引：项目特定问题
+│       ├── G-cases.md                                # G 系列详细案例
+│       ├── V-cases.md                                # V 系列详细案例
+│       └── P-cases.md                                # P 系列详细案例
 ├── stages/
 │   ├── a-environment/                                # 阶段 A：环境检测与准备
-│   │   ├── environment-prepare.md
-│   │   └── build-tools-reference.md                  # 构建工具下载链接
+│   │   └── environment-prepare.md
 │   ├── b-dependency-analysis/                        # 阶段 B：依赖分析
 │   │   ├── dependency-analysis.md                    # 依赖分析主编排
 │   │   ├── analyze-one-repo.md                       # 单仓库分析闭环步骤
@@ -97,15 +107,7 @@ cpp-arm-migration/
 │   │   ├── sourcecode-devkit-scan.md
 │   │   └── devkit-download.md
 │   ├── e-build-verify/                               # 阶段 E：编译验证与循环修复
-│   │   ├── sourcecode-build-verify.md
-│   │   ├── build-error-quickfix.md                   # 编译错误快速修复速查表
-│   │   └── migration-cases/
-│   │       ├── 01-generic-arm-migration.md           # 路由索引：通用迁移问题
-│   │       ├── 02-version-compatibility.md           # 路由索引：版本兼容性
-│   │       ├── 03-project-specific.md                # 路由索引：项目特定问题
-│   │       ├── G-cases.md                            # G 系列详细案例
-│   │       ├── V-cases.md                            # V 系列详细案例
-│   │       └── P-cases.md                            # P 系列详细案例
+│   │   └── sourcecode-build-verify.md
 │   └── f-summary/                                    # 阶段 F：迁移总结报告
 │       └── migration-summary-report.md
 └── ../prompt.md                                      # 使用提示词模板（位于父目录 application-migration/）
