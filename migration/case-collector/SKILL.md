@@ -1,5 +1,5 @@
 ---
-name: arm-migration-case-collector
+name: kunpeng-migration-case-collector
 description: C/C++ 项目 x86→ARM 迁移知识采集技能。用于从迁移 diff 或迁移会话上下文中提取编译错误→解决方案，按"通用ARM适配 / 版本兼容性 / 项目特有"三类规范化写入可扩展案例库。支持：① 从 x86/ARM 分支自动生成 diff；② 从成功迁移的会话中批量提取错误样例；③ 主动问询分支路径并验证。触发场景：用户提到"整理迁移案例"、"采集编译错误"、"写入案例库"、"总结迁移经验"，或上下文中有一次完整迁移流程且最终编译成功。
 ---
 
