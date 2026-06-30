@@ -92,7 +92,7 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     if BUILD_EXIT_CODE == 0 && 日志中无 "error:" 行:
-        → ✅ 编译成功，跳到 E.8 收尾
+        → 编译成功，跳到 E.8 收尾
 
     ┌─────────────────────────────────────────┐
     │  提取关键错误信息                       │
@@ -102,7 +102,7 @@ while ATTEMPT <= MAX_ATTEMPTS:
     current_error_hash = hash(current_errors)
 
     if current_error_hash == last_error_hash:
-        → ⛔ 连续相同错误，修复无效，跳到 E.7 人工介入
+        → 连续相同错误，修复无效，跳到 E.7 人工介入
 
     last_error_hash = current_error_hash
 
@@ -127,25 +127,25 @@ while ATTEMPT <= MAX_ATTEMPTS:
     路由：$SKILL_DIR/references/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
     若案例库命中 → 按案例修复方法修复
 
-    ⚠️ 每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 E.5 节），
+    每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 E.5 节），
        便于核验 skill 是否实际使用了案例库知识
 
     记录修复操作到 $WORK_DIR/reports/fix_history.txt
 
     if 判断无法自动修复:
-        → ⛔ 跳到 E.7 人工介入
+        → 跳到 E.7 人工介入
 
     ATTEMPT += 1
 
 if ATTEMPT > MAX_ATTEMPTS:
-    → ⛔ 跳到 E.7 人工介入
+    → 跳到 E.7 人工介入
 ```
 
 ---
 
 ## E.2.1 代码仓权限问题处理（AskUserQuestion 分支）
 
-> ⛔ **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，必须通过 `AskUserQuestion` 提问用户，由用户提供已下载好的代码仓路径。
+> **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，必须通过 `AskUserQuestion` 提问用户，由用户提供已下载好的代码仓路径。
 
 ### 权限错误关键字识别
 
@@ -165,7 +165,7 @@ if ATTEMPT > MAX_ATTEMPTS:
 LOG_FILE="$WORK_DIR/logs/build_${ATTEMPT}.log"
 PERM_ERR=$(grep -iE "Permission denied|could not read Username|Could not read from remote repository|Authentication failed|Access denied|Repository not found|unable to access.*(403|401)|error cloning|could not clone" "$LOG_FILE" | head -5)
 if [ -n "$PERM_ERR" ]; then
-    echo "⛔ 检测到代码仓权限问题"
+    echo "检测到代码仓权限问题"
     echo "$PERM_ERR"
     # 进入下方 AskUserQuestion 流程
 fi
@@ -199,7 +199,7 @@ question:
 3. **记录到修复历史**：在 `$WORK_DIR/reports/fix_history.txt` 记录权限问题、用户提供的路径、配置变更
 4. **继续编译循环**：`ATTEMPT += 1`，重新执行编译
 
-> ⛔ **禁止行为**：
+> **禁止行为**：
 > - **不得**在服务器 `/home`、`/tmp`、`/opt` 等其他目录搜索同名代码仓
 > - **不得**尝试修改 SSH 密钥或 git credentials 配置以绕过权限
 > - **不得**跳过权限问题继续编译（会导致后续链接错误更难排查）
@@ -245,10 +245,10 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     # 退出码 0，但需确认日志中无真实 error 行
     REAL_ERRORS=$(grep -cE "^ERROR |: error:|error: " $LOG_FILE 2>/dev/null || echo 0)
     if [ "$REAL_ERRORS" -eq 0 ]; then
-        echo "✅ 编译成功（第 ${ATTEMPT} 次尝试）"
+        echo "编译成功（第 ${ATTEMPT} 次尝试）"
         # 进入 E.8 收尾
     else
-        echo "⚠️ 退出码为 0 但日志中仍有 ${REAL_ERRORS} 条 error，继续分析"
+        echo "退出码为 0 但日志中仍有 ${REAL_ERRORS} 条 error，继续分析"
     fi
 fi
 ```
@@ -294,10 +294,10 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 > 1. **第1级 — 速查表**：查 [build-error-quickfix.md](../../references/build-error-quickfix.md)（扁平关键字表，扫描快）；命中则按「修复」列描述修复
 > 2. **第2级 — 案例库**：速查表未命中时，查 [migration-cases/](../../references/migration-cases/) 案例库（结构化教案，详细兜底）；命中则按案例修复方法修复
 >
-> ⚠️ **醒目标识要求（强制）**：每次执行第2级案例库查询时，**必须**在 agent 交互界面输出醒目标识，便于核验 skill 是否实际使用了案例库知识。无论命中与否都要输出，格式如下：
+> **醒目标识要求（强制）**：每次执行第2级案例库查询时，**必须**在 agent 交互界面输出醒目标识，便于核验 skill 是否实际使用了案例库知识。无论命中与否都要输出，格式如下：
 >
 > ```
-> 🔍 [案例库查询] 错误关键字：<从日志提取的关键字>
+> [案例库查询] 错误关键字：<从日志提取的关键字>
 >    查询路由：<01-generic / 02-version / 03-project> → <G-cases / V-cases / P-cases>
 >    查询结果：<命中 G-XX / V-XX / P-XX，将按案例修复> 或 <未命中，需人工介入或新增案例>
 > ```
@@ -368,7 +368,7 @@ EOF
 **人工介入报告格式：**
 
 ```
-⛔ 自动修复已达到极限，需要人工介入
+自动修复已达到极限，需要人工介入
 
 【当前编译错误（最近 50 行）】
 <粘贴 $WORK_DIR/logs/build_N.log 末尾 50 行>
@@ -405,7 +405,7 @@ EOF
 # 1. 清理临时 WORKSPACE（避免误提交到版本库）
 [ -e "$PROJECT_ROOT/WORKSPACE" ] && {
     rm $PROJECT_ROOT/WORKSPACE
-    echo "✅ 临时 WORKSPACE 已清理"
+    echo "临时 WORKSPACE 已清理"
 }
 
 # 2. 保存最终修改清单
@@ -415,7 +415,7 @@ git -C $PROJECT_ROOT diff 2>/dev/null >> $FINAL_CHANGES
 echo "修改清单已保存：$FINAL_CHANGES"
 
 # 3. 记录成功信息
-echo "✅ ARM 编译成功（第 ${ATTEMPT} 次）：$(date)" >> $WORK_DIR/reports/build_summary.txt
+echo "ARM 编译成功（第 ${ATTEMPT} 次）：$(date)" >> $WORK_DIR/reports/build_summary.txt
 
 # 4. 统计修改概要
 echo "=== 修改概要 ==="
@@ -423,14 +423,14 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null | tail -5
 
 # 5. 提示 x86 双架构验证
 echo ""
-echo "⚠️  请验证 x86 编译未被破坏："
+echo " 请验证 x86 编译未被破坏："
 echo "   在 x86 机器上执行以下命令之一："
 echo "   - 方式1：使用项目的构建脚本（若已添加架构自动检测，在 x86 上会自动走 x86 路径）"
 echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures --config=linux_x86"
 
 # 6. 引导进入阶段 F
 echo ""
-echo "📋 阶段 E 完成，进入阶段 F：生成迁移总结报告"
+echo "阶段 E 完成，进入阶段 F：生成迁移总结报告"
 echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 ```
 

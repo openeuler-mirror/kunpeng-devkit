@@ -8,7 +8,7 @@
 >
 > `arm_confirmed.md` 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/URL），按依赖库名定位即命中。不记录 x86 端版本，也不记录全局编译配置（ABI/工具链/构建命令是主仓级约束）。
 
-> ⚠️ **顺序约束**：登记可逆（仅改一个清单文件），必须在用户通过 `AskUserQuestion` 明确确认后才执行；切换会修改项目源码树，必须在登记后、用户逐项确认切换后立即执行，并在进入阶段 D 前完成校验。把切换前置到阶段 C 末尾，是为了在用户信息最全时一次性落地，避免与阶段 D 的源码适配交织。
+> **顺序约束**：登记可逆（仅改一个清单文件），必须在用户通过 `AskUserQuestion` 明确确认后才执行；切换会修改项目源码树，必须在登记后、用户逐项确认切换后立即执行，并在进入阶段 D 前完成校验。把切换前置到阶段 C 末尾，是为了在用户信息最全时一次性落地，避免与阶段 D 的源码适配交织。
 
 ---
 
@@ -75,7 +75,7 @@
 | 阶段 B 命中 [arm_confirmed.md](../../references/arm_confirmed.md)（common-arm-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
 | 阶段 C 新登记 | 刚写入清单的记录 |
 
-#### 🚨 切换前必须用户确认（不可跳过）
+#### 切换前必须用户确认（不可跳过）
 
 > **为什么必须确认**：清单记录的 ARM 分支未必与当前项目实际情况一致（仓库可能新增/调整了 ARM 分支），一旦切错，编译错误会在「x86 残留」和「找不到 ARM 符号」之间反复横跳，极难定位，迁移成本陡增。因此**任何依赖的分支/commit/URL 切换，都必须先经用户确认，不得自动执行**。
 
@@ -84,16 +84,16 @@
 ```
 question: "<依赖名> 清单记录的 ARM 适配为 <ARM 分支/commit>，是否切换？"
 options:
-  - "✅ 确认切换到 <ARM 分支/commit>"
-  - "⏸ 我要先核对，暂不切换该依赖"
-  - "❌ 不切换（保持现状）"
+  - "确认切换到 <ARM 分支/commit>"
+  - "我要先核对，暂不切换该依赖"
+  - "不切换（保持现状）"
 ```
 
 - 用户选「确认切换」→ 执行下面对应构建系统的切换命令
 - 用户选「暂不切换 / 保持现状」→ 该依赖**不切换**，记录到 `$WORK_DIR/reports/user_decisions.txt`，编译时若因此报错再回头处理
 - 用户可在确认时修正 ARM 分支名（若他掌握更准确的分支）→ 按用户修正值切换，并回写清单该依赖库的记录
 
-> ⛔ **未获得用户逐项确认前，不得执行任何切换命令。** 这是阶段 C 的硬门控。
+> **未获得用户逐项确认前，不得执行任何切换命令。** 这是阶段 C 的硬门控。
 
 确认全部完成后，对每个「确认切换」的依赖，按其构建系统执行下面对应的切换命令。**切换前先完成「备注」列里的前置操作**（如 CMake 注释自动签出）。
 
@@ -115,16 +115,16 @@ DST="$PROJECT_ROOT/thirdparty/$COMP"
 if [ -d "$ARM_SRC" ]; then
     # 把 ARM 子目录拷贝/链接到 thirdparty 下
     cp -rn "$ARM_SRC"/* "$DST"/
-    echo "✅ $COMP 已从 thirdparty_arm 回迁到 thirdparty"
+    echo "$COMP 已从 thirdparty_arm 回迁到 thirdparty"
 else
-    echo "⚠️ $COMP 在 thirdparty_arm 下未找到 ARM 版本"
+    echo "$COMP 在 thirdparty_arm 下未找到 ARM 版本"
 fi
 
 # 3. 切换 BUILD 文件到 ARM 版（若项目采用 BUILD/BUILD.x86 双架构分离）
 if [ -f "$DST/BUILD.arm" ]; then
     [ -f "$DST/BUILD" ] && mv "$DST/BUILD" "$DST/BUILD.x86"
     cp "$DST/BUILD.arm" "$DST/BUILD"
-    echo "✅ $COMP BUILD 已切换到 ARM 版"
+    echo "$COMP BUILD 已切换到 ARM 版"
 fi
 ```
 
@@ -143,7 +143,7 @@ cd $PROJECT_ROOT
 # 2. 切到 ARM 版（若项目使用 software.sh 等封装则源码已自动处理，跳过此步）
 if [ -f WORKSPACE_arm ]; then
     cp WORKSPACE_arm WORKSPACE
-    echo "✅ WORKSPACE 已切换到 ARM 版"
+    echo "WORKSPACE 已切换到 ARM 版"
 fi
 
 # 3. 把待切换清单中 git 类依赖切到清单记录的 ARM 分支
@@ -157,17 +157,17 @@ if [ -d "$DEP_DIR" ]; then
 fi
 ```
 
-> ⚠️ **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify.md](../e-build-verify/sourcecode-build-verify.md) E.8 节落实。
+> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify.md](../e-build-verify/sourcecode-build-verify.md) E.8 节落实。
 
 ### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
 CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②**子模块自动签出在 cmake 阶段把手动切的 ARM 分支默默重置回去**。
 
-> 🚨 **关自动签出 + 钉定子模块分支是 CMake 项目阶段 C 末尾的关键关卡 —— 不可跳过**：
+> **关自动签出 + 钉定子模块分支是 CMake 项目阶段 C 末尾的关键关卡 —— 不可跳过**：
 >
 > 阶段 B 依赖分析报告中已识别到的自动签出逻辑（`execute_process(... git submodule update ...)` 等），**必须在切换子模块分支之前先改为可控开关并关闭**。否则下面第 4 步的 `cmake -B build` 会"恢复"未初始化子模块的初衷把刚切到 ARM 分支的子模块重置回默认分支，且**全程不报错**——后续编译会出现"明明切了 ARM 分支但报 x86 残留错误"的诡异现象，极易误判为依赖问题，浪费数小时。
 >
-> ⚠️ **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
+> **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
 >
 > 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-cmake.md](build-systems/dependency-analysis-cmake.md)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
 >
@@ -183,14 +183,14 @@ cd $PROJECT_ROOT
 # 1. 完全清理 build 目录（不要只 rm CMakeCache.txt，部分模块会有自己的缓存）
 rm -rf build/
 
-# 2. 🚨 关掉 cmake 的动态重置：把自动签出改为 AUTO_SUBMODULE 开关（持久改造，非一次性注释）
+# 2. 关掉 cmake 的动态重置：把自动签出改为 AUTO_SUBMODULE 开关（持久改造，非一次性注释）
 #    将 CMakeLists.txt 中类似语句改为可控开关，让 ARM 路径（OFF）跳过 execute_process：
 #      option(AUTO_SUBMODULE "Auto checkout submodules" ON)
 #      if(AUTO_SUBMODULE)
 #        execute_process(COMMAND git submodule update --init --recursive ...)
 #      endif()
-#    ⚠️ 不要直接删除原语句，保留开关让 x86 编译路径不受影响（双架构兼容原则）
-#    ⚠️ 开关加在含自动签出逻辑的那个 CMakeLists.txt、且在 execute_process 之前；
+#    不要直接删除原语句，保留开关让 x86 编译路径不受影响（双架构兼容原则）
+#    开关加在含自动签出逻辑的那个 CMakeLists.txt、且在 execute_process 之前；
 #       若项目已有同名 option/变量，改用项目前缀命名（如 <PROJ>_AUTO_SUBMODULE）避免冲突
 
 # 3. 逐个把子模块钉到清单记录的 ARM 分支/commit
@@ -203,7 +203,7 @@ for SUB in <待切换清单中每个 git 类子模块路径>; do
     git -C "$SUB" checkout "$ARM_REF"
     # 嵌套子模块同样要逐层钉定（父模块 cmake 会重置它们），对 $SUB 下的子模块重复本循环
 done
-# ⚠️ 钉定后不得再跑 git submodule update（会重置回默认 commit），分支维持靠第 2 步的 OFF 开关
+# 钉定后不得再跑 git submodule update（会重置回默认 commit），分支维持靠第 2 步的 OFF 开关
 
 # 4. 重新生成（带 ARM 工具链参数 + 关闭自动签出）
 cmake -B build -S $PROJECT_ROOT \
@@ -223,14 +223,14 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 
 #### 切换后校验（一句话提醒）
 
-> ⚠️ 切换完别忘了校验：每个依赖是否真切到了清单记录的 ARM 分支/路径——切错或没切上，后续编译错误会极难排查。逐项核对下方清单后再进入阶段 D。
+> 切换完别忘了校验：每个依赖是否真切到了清单记录的 ARM 分支/路径——切错或没切上，后续编译错误会极难排查。逐项核对下方清单后再进入阶段 D。
 
 进入阶段 D（DevKit 扫描）前，先做完以下基础校验，避免把简单的路径/分支错误带进扫描与编译：
 
 - [ ] 待切换清单中每个依赖，对应的 ARM 分支/路径/URL 在项目里**确实存在**（git 类依赖确认清单记录的分支能 `git fetch` 到）
 - [ ] Blade：`thirdparty/<组件>/` 下能找到 `lib*.so` 且 `file lib*.so` 输出含 `aarch64`
 - [ ] Bazel：`WORKSPACE` 当前内容来自 `WORKSPACE_arm`（`diff WORKSPACE WORKSPACE_arm` 应无差异）
-- [ ] CMake：`rm -rf build/` 已执行；🚨 自动签出已改为 `AUTO_SUBMODULE` 开关且 ARM 传 `-DAUTO_SUBMODULE=OFF`；每个子模块已钉到清单记录的 ARM 分支/commit（在 user_decisions.txt 留痕）；`cmake -B build` 后 `git branch --show-current`/`git describe --all` 验证子模块未被重置
+- [ ] CMake：`rm -rf build/` 已执行；自动签出已改为 `AUTO_SUBMODULE` 开关且 ARM 传 `-DAUTO_SUBMODULE=OFF`；每个子模块已钉到清单记录的 ARM 分支/commit（在 user_decisions.txt 留痕）；`cmake -B build` 后 `git branch --show-current`/`git describe --all` 验证子模块未被重置
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 

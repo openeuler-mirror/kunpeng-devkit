@@ -20,7 +20,7 @@ description: 将 C/C++ 项目从 x86 迁移到 ARM（aarch64/鲲鹏），实现�
 
 > **阶段 A（环境检测与准备，subagent）** → **阶段 B（依赖分析，subagent）** → **阶段 C（汇总 subagent 待确认项，等待用户回复）** → **阶段 D（DevKit 扫描 → 源码 & 构建适配，严格串行）** → **阶段 E（编译验证循环）** → **阶段 F1（知识库自更新，调用 case-collector skill）** → **阶段 F2（迁移总结报告）**
 
-> ⚠️ **关键约束**：
+> **关键约束**：
 > - 阶段 A、B 的 subagent **不调用 `AskUserQuestion`**，待确认项写入中间文件，由主编排在阶段 C 统一提问
 > - 阶段 B 完成后，进入阶段 C 暂停等待用户回复，**未获得用户明确确认前不进入阶段 D**
 > - 阶段 D 内部**严格串行**：必须先完成 DevKit 扫描并拿到报告，再开始源码/构建修改，**不可并行**
@@ -107,7 +107,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ## 阶段 A：环境检测与准备（subagent）
 
-> ⛔ **硬性约束：阶段 A 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 A 的检测命令。**
+> **硬性约束：阶段 A 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 A 的检测命令。**
 >
 > **subagent 边界**：阶段 A 以 subagent 模式执行 environment-prepare.md。subagent **不调用 `AskUserQuestion`**，检测到的版本不一致项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
 
@@ -165,7 +165,7 @@ task(
 )
 ```
 
-> ⚠️ 主编排在调用 `task` 时，必须将 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后传入 prompt。
+> 主编排在调用 `task` 时，必须将 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后传入 prompt。
 
 **待确认项场景**（每个冲突项 = 一条待确认项，subagent 写入中间文件而非直接提问）：
 
@@ -180,7 +180,7 @@ task(
 
 ## 阶段 B：依赖分析与 ARM 兼容性探测（subagent）
 
-> ⛔ **硬性约束：阶段 B 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 B 的依赖分析步骤。**
+> **硬性约束：阶段 B 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 B 的依赖分析步骤。**
 >
 > **subagent 边界**：阶段 B 以 subagent 模式执行 dependency-analysis.md。subagent **不调用 `AskUserQuestion`**，检测到的依赖冲突项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `arm_confirmed.md` 的依赖（已知 ARM 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
 
@@ -259,7 +259,7 @@ task(
 )
 ```
 
-> ⚠️ 主编排在调用 `task` 时，必须将 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后传入 prompt。
+> 主编排在调用 `task` 时，必须将 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后传入 prompt。
 
 **待确认项场景**（每个冲突项 = 一条待确认项，subagent 写入中间文件而非直接提问）：
 
@@ -275,7 +275,7 @@ task(
 
 ## 阶段 C：汇总 subagent 待确认项 + 等待用户确认
 
-> ⛔ **硬性约束**：本阶段**必须调用 `AskUserQuestion` 工具**向用户提问，**严禁跳过直接进入阶段 D**。阶段 A、B 的 subagent 已将待确认项写入中间文件，本阶段由主编排统一收集并提问。即使没有疑问项，也必须通过 `AskUserQuestion` 确认"是否继续"，**不得在用户明确回复前自行推进**。
+> **硬性约束**：本阶段**必须调用 `AskUserQuestion` 工具**向用户提问，**严禁跳过直接进入阶段 D**。阶段 A、B 的 subagent 已将待确认项写入中间文件，本阶段由主编排统一收集并提问。即使没有疑问项，也必须通过 `AskUserQuestion` 确认"是否继续"，**不得在用户明确回复前自行推进**。
 
 ### C.1 汇总两份待确认项清单
 
@@ -296,9 +296,9 @@ cat $WORK_DIR/reports/stage_b_pending_items.md
 question id="confirm_proceed"
 prompt="以上是环境检测与依赖分析摘要，是否确认开始 ARM 迁移？"
 options:
-  - id="yes"   label="✅ 确认，开始迁移"
-  - id="review" label="⏸ 我需要先确认某些依赖，请等待"
-  - id="abort"  label="❌ 中止"
+  - id="yes"   label="确认，开始迁移"
+  - id="review" label="我需要先确认某些依赖，请等待"
+  - id="abort"  label="中止"
 ```
 
 > 若待确认项数量超过 `AskUserQuestion` 单次上限（4 个 question），分批提问，每批不超过 4 个。
@@ -311,14 +311,14 @@ options:
 
 ### C.4 登记清单 + 确认切换 + 校验
 
-> ⚡ **`read_file("stages/b-dependency-analysis/arm-confirmed-write.md")` 获取完整执行步骤。**
+> **`read_file("stages/b-dependency-analysis/arm-confirmed-write.md")` 获取完整执行步骤。**
 
 本步骤在阶段 C 末尾一次性完成三件事：
 1. **登记**：把用户确认的依赖 ARM 适配信息按依赖库写入 [arm_confirmed.md](references/arm_confirmed.md)
 2. **确认切换**：把待切换清单**逐项调用 `AskUserQuestion` 让用户确认**后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本
 3. **校验**：切换后逐项核对分支是否真切到 ARM 版（一句话提醒：切错会让后续编译错误极难排查）
 
-> ⛔ **分支切换必须用户确认**：清单记录的 ARM 分支未必与当前项目实际一致，切错会导致编译错误极难排查、迁移成本陡增——未获用户逐项确认不得执行任何切换命令。切换在阶段 C 末尾完成，阶段 D 不再涉及分支切换。
+> **分支切换必须用户确认**：清单记录的 ARM 分支未必与当前项目实际一致，切错会导致编译错误极难排查、迁移成本陡增——未获用户逐项确认不得执行任何切换命令。切换在阶段 C 末尾完成，阶段 D 不再涉及分支切换。
 
 **校验通过后**，阶段 C 结束，进入阶段 D。
 
@@ -326,11 +326,11 @@ options:
 
 ## 阶段 D：DevKit 扫描 → 构建配置 + 源码适配（严格串行）
 
-> ⚡ **立即 `read_file("stages/d-devkit-scan/sourcecode-devkit-scan.md")` 获取完整执行步骤。**
+> **立即 `read_file("stages/d-devkit-scan/sourcecode-devkit-scan.md")` 获取完整执行步骤。**
 
 **本阶段目标**：先运行 DevKit 扫描发现源码 x86 专属问题，**扫描结束后**再根据报告结果完成构建系统配置适配与源码修改。
 
-> ⛔ **硬性约束（严格串行，不可并行）**：
+> **硬性约束（严格串行，不可并行）**：
 >
 > 阶段 D 内部分为**两个不可并行的子步骤**：
 >
@@ -350,15 +350,15 @@ options:
 
 ## 阶段 E：编译验证循环
 
-> ⚡ **立即 `read_file("stages/e-build-verify/sourcecode-build-verify.md")` 获取完整执行步骤。**
+> **立即 `read_file("stages/e-build-verify/sourcecode-build-verify.md")` 获取完整执行步骤。**
 
 **本阶段目标**：循环执行编译验证，直到编译成功或人工介入。
 
 **错误修复优先级（两级查询，详见 stages/e-build-verify/sourcecode-build-verify.md E.2/E.5 节）**：
 - **第1级**：查 [build-error-quickfix.md](references/build-error-quickfix.md) 速查表（扁平关键字表，扫描快），命中则按「修复」列描述修复
 - **第2级**：速查表未命中时，查 [migration-cases/](references/migration-cases/) 案例库（01/02/03 路由索引 → G/V/P-cases，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 stages/e-build-verify/sourcecode-build-verify.md E.5 节）
-- **代码仓权限问题**：⛔ 遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须用 `AskUserQuestion` 提问用户提供已下载的代码仓路径（详见 stages/e-build-verify/sourcecode-build-verify.md E.2.1 节）
-- **报告目录不存在**：⛔ 回到阶段 D 重新执行 DevKit 扫描，不得跳过
+- **代码仓权限问题**：遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须用 `AskUserQuestion` 提问用户提供已下载的代码仓路径（详见 stages/e-build-verify/sourcecode-build-verify.md E.2.1 节）
+- **报告目录不存在**：回到阶段 D 重新执行 DevKit 扫描，不得跳过
 
 **阶段 E 完成后**（编译成功或触发人工介入），进入阶段 F1。
 
@@ -368,8 +368,8 @@ options:
 
 **本阶段目标**：将本次迁移中实际修复的典型编译错误提取为标准案例，经用户勾选确认后写入案例库，实现知识库持续积累。
 
-> ⚠️ **强制执行**：阶段 E 结束后（无论编译成功还是触发人工介入），**必须**执行阶段 F1，不得跳过。  
-> ⛔ **强制等待用户确认**：必须通过 `AskQuestion` 工具让用户**逐条勾选**要写入的案例，未收到勾选结果前不得执行写入，不得自行判断全部写入或跳过。
+> **强制执行**：阶段 E 结束后（无论编译成功还是触发人工介入），**必须**执行阶段 F1，不得跳过。  
+> **强制等待用户确认**：必须通过 `AskQuestion` 工具让用户**逐条勾选**要写入的案例，未收到勾选结果前不得执行写入，不得自行判断全部写入或跳过。
 
 ### F1.1 来源判断
 
@@ -382,7 +382,7 @@ options:
 
 ### F1.2 调用 case-collector skill 执行步骤
 
-> ⚡ **调用方式**：直接通过 skill 调用机制触发 `kunpeng-migration-case-collector` skill（使用 `fetch_rules` 工具加载，**不得使用 `read_file` 读取其 SKILL.md 文件**），按其定义的流程执行：
+> **调用方式**：直接通过 skill 调用机制触发 `kunpeng-migration-case-collector` skill（使用 `fetch_rules` 工具加载，**不得使用 `read_file` 读取其 SKILL.md 文件**），按其定义的流程执行：
 
 1. **Step 1（diff 采集）**：当前迁移场景为"无本地 x86/ARM 分支，使用当前对话上下文"，在 case-collector skill 的 Step 1.1 问询步骤中选择 `context_only`，跳过 diff patch 生成，直接进入 Step 2
 2. **Step 2（AI 主动分析）**：从本次迁移对话上下文中提取所有「编译报错 → 解决方案」对，逐条分析，归类为 G-/V-/P- 三类，输出分析摘要
@@ -391,18 +391,18 @@ options:
    **必须先在对话界面输出案例预览**，每条格式如下：
 
    ```
-   📋 知识库更新清单（共 N 条新案例）
+   知识库更新清单（共 N 条新案例）
 
    案例 1 ｜ <G/V/P-XX>：<简短标题>
-   　🔴 错误现象：
+   　错误现象：
    　　<关键报错信息，1~2 行>
-   　🔍 根因：
+   　根因：
    　　<一句话>
 
    案例 2 ｜ <G/V/P-XX>：<简短标题>
-   　🔴 错误现象：
+   　错误现象：
    　　<关键报错信息，1~2 行>
-   　🔍 根因：
+   　根因：
    　　<一句话>
    ...
    ```
@@ -420,8 +420,8 @@ options:
            { id: "1", label: "<G/V/P-XX>：<简短标题>" },
            { id: "2", label: "<G/V/P-XX>：<简短标题>" },
            ...
-           { id: "all", label: "✅ 全部写入" },
-           { id: "none", label: "❌ 本次跳过，不更新知识库" }
+           { id: "all", label: "全部写入" },
+           { id: "none", label: "本次跳过，不更新知识库" }
          ]
        },
        {
@@ -437,14 +437,14 @@ options:
    })
    ```
 
-4. **Step 3（写入）**：收到用户勾选结果后，仅写入用户确认的案例；若用户选择跳过，输出 `⏭️ 本次迁移无新案例写入知识库`，直接进入 F1.3
+4. **Step 3（写入）**：收到用户勾选结果后，仅写入用户确认的案例；若用户选择跳过，输出 `本次迁移无新案例写入知识库`，直接进入 F1.3
 5. **Step 4（更新扫描规则）**：对每条 G- 类案例，按 case-collector skill Step 4 流程询问用户是否加入 `arm-scan-rules.json`
 6. **Step 5（收集 ARM 分支信息）**：将本次迁移验证可用的 ARM 依赖版本信息追加写入 `arm_confirmed.md`
 
 ### F1.3 完成提示
 
 ```
-✅ 知识库更新完成（或：⏭️ 本次迁移无新案例写入知识库）
+知识库更新完成（或：本次迁移无新案例写入知识库）
 - 新增案例：<G/V/P-XX>、...（或：无）
 - 案例库路径：migration-cases/
 ```
@@ -455,7 +455,7 @@ options:
 
 ## 阶段 F2：迁移总结报告
 
-> ⚡ **立即 `read_file("stages/f-summary/migration-summary-report.md")` 获取完整执行步骤。**
+> **立即 `read_file("stages/f-summary/migration-summary-report.md")` 获取完整执行步骤。**
 
 **本阶段目标**：汇总整个迁移过程，生成结构化总结报告，包含各阶段执行时长、修改文件清单及修改点描述、重要提示与建议。
 

@@ -45,7 +45,7 @@ REPORT="$WORK_DIR/reports/environment_check_report.md"
 cat "$REPORT"
 ```
 
-> ⚠️ **若环境检测报告不存在**（用户跳过阶段 A 直接执行阶段 B），则回退到自行检测：
+> **若环境检测报告不存在**（用户跳过阶段 A 直接执行阶段 B），则回退到自行检测：
 > ```bash
 > find <项目根目录> -maxdepth 3 \
 >   \( -name "WORKSPACE" -o -name "CMakeLists.txt" \
@@ -65,7 +65,7 @@ cat "<cpp-arm-migration skill目录>/references/arm_confirmed.md" 2>/dev/null
 
 将免检清单的内容缓存在上下文中，供后续每次调用 [common-arm-probe.md](common-arm-probe.md) 时使用（Section 5 比对）。
 
-> ✅ **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
+> **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
 
 ---
 
@@ -123,9 +123,9 @@ cat "<cpp-arm-migration skill目录>/references/arm_confirmed.md" 2>/dev/null
 **只要存在任何待确认项，此章节不可省略**：
 
 ```markdown
-## ⚠️ 待用户手动确认清单
+## 待用户手动确认清单
 
-> 🚀 **移植提速建议：优先推动私有子仓库完成 ARM 适配，再编译主仓库**
+> **移植提速建议：优先推动私有子仓库完成 ARM 适配，再编译主仓库**
 >
 > 当项目存在私有仓库依赖时，应优先联系各子仓库维护团队完成 ARM 适配并发布稳定版本，
 > 主仓库只需更新构建配置中对应的版本号即可直接构建，无需在主仓库侧做任何代码改动。
@@ -137,7 +137,7 @@ cat "<cpp-arm-migration skill目录>/references/arm_confirmed.md" 2>/dev/null
 ```
 
 > 强制要求：
-> - 所有 🔴 标记的依赖**必须**出现在此清单中
+> - 所有 标记的依赖**必须**出现在此清单中
 > - 「配置与 `arm_confirmed.md` 不一致」的依赖也**必须**在此清单中提示
 > - 建议按依赖深度标注优先级（P0 = 基础通信/IO 库，P1 = 核心基础设施客户端，P2 = 通用工具类库）
 

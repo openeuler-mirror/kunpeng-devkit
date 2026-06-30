@@ -1,6 +1,6 @@
 # CMake 构建系统依赖分析
 
-> ⚠️ **按需加载**：仅当 [analyze-one-repo.md](../analyze-one-repo.md) Step 1 识别到构建系统为 **CMake** 时加载本文件，否则跳过。
+> **按需加载**：仅当 [analyze-one-repo.md](../analyze-one-repo.md) Step 1 识别到构建系统为 **CMake** 时加载本文件，否则跳过。
 
 ---
 
@@ -10,7 +10,7 @@ CMake 项目常通过 `execute_process(... git submodule update ...)` 或 `find_
 
 ```bash
 # 检查是否存在 git submodule 自动签出（含子目录 CMakeLists.txt，不只顶层）
-# ⚠️ 不要把 FetchContent_MakeAvailable 算进来——它是构建期下载依赖的正当机制
+# 不要把 FetchContent_MakeAvailable 算进来——它是构建期下载依赖的正当机制
 #    （见下方「解析 CMake 依赖声明」表），误当自动签出去注释会直接破坏依赖拉取
 grep -rn "git submodule\|GIT_SUBMODULE" \
   --include="CMakeLists.txt" --include="*.cmake" \
@@ -18,7 +18,7 @@ grep -rn "git submodule\|GIT_SUBMODULE" \
   <项目根目录>/ 2>/dev/null
 
 # 检查是否有 cmake 阶段调用 git reset / git checkout
-# ⚠️ execute_process 可能跨行书写，grep 不跨行——命中数偏少时需人工翻看 execute_process 块
+# execute_process 可能跨行书写，grep 不跨行——命中数偏少时需人工翻看 execute_process 块
 grep -rn "execute_process.*git\|git reset\|git checkout" \
   --include="CMakeLists.txt" --include="*.cmake" \
   --exclude-dir=build --exclude-dir=.git \
@@ -27,9 +27,9 @@ grep -rn "execute_process.*git\|git reset\|git checkout" \
 
 **若存在自动签出逻辑**：
 
-> 🚨 **CMake 项目 ARM 迁移最高频踩坑点 —— 必须在依赖分析报告头部以醒目方式提示用户**
+> **CMake 项目 ARM 迁移最高频踩坑点 —— 必须在依赖分析报告头部以醒目方式提示用户**
 >
-> - 在依赖分析报告**最前面**单独成节标注 ⚠️ 警告，不要混在普通依赖列表里
+> - 在依赖分析报告**最前面**单独成节标注 警告，不要混在普通依赖列表里
 > - 根因：`cmake -B build` 配置期会执行这段 `git submodule update`，以"修复未初始化子模块"的名义把已手动切到 ARM 分支的子模块**默默重置回默认分支**，而且**不会报错**。每次 cmake 重新配置都重置一次——不只第一次，清 build 目录重来也会
 > - 症状极具迷惑性：`git submodule status` 显示分支正确，但 cmake 重新配置后回退；编译错误在"x86 残留"与"找不到 ARM 符号"间反复横跳，极易误判为依赖问题
 >
@@ -89,7 +89,7 @@ CMake 通过以下命令声明外部依赖，每种对应不同的来源类型�
 | `FetchContent_Declare` + `FetchContent_MakeAvailable` | 远端 Git/HTTP（构建期下载） | 检查远端是否有 ARM 分支或源码可重编 |
 | `ExternalProject_Add` | 远端 Git/HTTP（编译期独立构建） | 同上，且需检查 `CONFIGURE_COMMAND`/`BUILD_COMMAND` 中是否硬编码 x86 标志 |
 | `add_subdirectory(third_party/xxx)` | 仓库内嵌源码 | 检查内嵌源码是否含 x86 专属指令 |
-| `target_link_libraries(... /path/to/libxxx.a)` | 硬编码二进制路径 | ⚠️ 大概率是 x86 预编译，需找 ARM 版替代 |
+| `target_link_libraries(... /path/to/libxxx.a)` | 硬编码二进制路径 | 大概率是 x86 预编译，需找 ARM 版替代 |
 | `link_directories(/usr/lib64/...)` | 硬编码库目录 | 检查路径在 ARM 上是否存在（ARM 通常为 `/usr/lib/aarch64-linux-gnu`） |
 
 **各命令需提取的关键字段**：

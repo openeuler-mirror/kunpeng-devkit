@@ -50,10 +50,10 @@ done
 
 | `file` 输出关键字 | 架构 | ARM 可用性 |
 |-----------------|------|----------|
-| `x86-64` / `x86_64` / `Intel 80386` | x86 | ❌ 不可用，需替换，**进入 Section 3 溯源** |
-| `aarch64` / `ARM aarch64` / `ARM64` | ARM64 | ✅ 可直接使用 |
-| `ARM` (32-bit) | ARM32 | ⚠️ 需确认是否兼容 64-bit 环境 |
-| `universal binary` / `fat binary` | 多架构 | ✅ 含 ARM，可使用 |
+| `x86-64` / `x86_64` / `Intel 80386` | x86 | 不可用，需替换，**进入 Section 3 溯源** |
+| `aarch64` / `ARM aarch64` / `ARM64` | ARM64 | 可直接使用 |
+| `ARM` (32-bit) | ARM32 | 需确认是否兼容 64-bit 环境 |
+| `universal binary` / `fat binary` | 多架构 | 含 ARM，可使用 |
 | `current ar archive` | 静态库（需进一步检查内部） | 按上述规则检查内部 `.o` 文件 |
 
 > 所有判定为 **x86 架构**的二进制文件，必须进入 Section 3 执行源码溯源。
@@ -147,10 +147,10 @@ yum --enablerepo=kunpeng search <依赖名> 2>/dev/null
 
 | 查询结果 | 溯源结论 |
 |----------|---------|
-| 系统包管理器中存在 ARM 包 | ✅ **第4级**：`yum/apt install <包名>` 直接安装 ARM 版本 |
-| 鲲鹏软件仓中存在 ARM 二进制 | ✅ **第4级**：从鲲鹏软件仓下载，链接：`<url>` |
-| 开源仓库存在源码，无预编译包 | 🟡 **第4级**：需从源码自行交叉编译，参考上游构建文档 |
-| 均未找到 | 🔴 **第4级**：需联系该库维护团队，确认是否支持 ARM/aarch64 |
+| 系统包管理器中存在 ARM 包 | **第4级**：`yum/apt install <包名>` 直接安装 ARM 版本 |
+| 鲲鹏软件仓中存在 ARM 二进制 | **第4级**：从鲲鹏软件仓下载，链接：`<url>` |
+| 开源仓库存在源码，无预编译包 | **第4级**：需从源码自行交叉编译，参考上游构建文档 |
+| 均未找到 | **第4级**：需联系该库维护团队，确认是否支持 ARM/aarch64 |
 
 ---
 
@@ -173,12 +173,12 @@ done
 
 | spec 文件情况 | 降级 | 处理建议 |
 |-------------|------|---------|
-| Source0 为公开 URL，且含 `%ifarch aarch64` 适配段 | ✅ 可自助打包 | 在 aarch64 上直接 `rpmbuild -ba <name>.spec` |
-| Source0 为公开 URL，无 `%ifarch aarch64` 段 | 🟡 大概率可打包 | 在 aarch64 上尝试 `rpmbuild -ba <name>.spec` |
-| Source0 为私有地址 | 🟡 需确认源码可访问性 | 确认私有源码地址在 aarch64 环境可访问后再执行 |
-| 未找到对应 spec 文件 | 🔴 不变 | 继续走第四优先级公开来源查询 |
+| Source0 为公开 URL，且含 `%ifarch aarch64` 适配段 | 可自助打包 | 在 aarch64 上直接 `rpmbuild -ba <name>.spec` |
+| Source0 为公开 URL，无 `%ifarch aarch64` 段 | 大概率可打包 | 在 aarch64 上尝试 `rpmbuild -ba <name>.spec` |
+| Source0 为私有地址 | 需确认源码可访问性 | 确认私有源码地址在 aarch64 环境可访问后再执行 |
+| 未找到对应 spec 文件 | 不变 | 继续走第四优先级公开来源查询 |
 
-> ✅ 找到 spec 且 `Source0` 为公开 URL 的，在报告中标注「spec 已就绪，可在 aarch64 上自助 `rpmbuild -ba <name>.spec` 打包」。
+> 找到 spec 且 `Source0` 为公开 URL 的，在报告中标注「spec 已就绪，可在 aarch64 上自助 `rpmbuild -ba <name>.spec` 打包」。
 
 ---
 
@@ -205,7 +205,7 @@ done
 ```markdown
 ## 6. 仓库内置二进制（直接提交的 .so/.a）
 
-> ⚠️ 共发现 **87** 个预编译二进制文件，按目录分组展示，每组最多 10 条。完整列表见「附录 A」。
+> 共发现 **87** 个预编译二进制文件，按目录分组展示，每组最多 10 条。完整列表见「附录 A」。
 
 ### 来自 `lib/`（共 52 个，展示前 10 条）
 
