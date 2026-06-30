@@ -120,11 +120,11 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     【第1级】查 build-error-quickfix.md 速查表
-    路径：$SKILL_DIR/references/build-error-quickfix.md（扁平关键字表，扫描快）
+    路径：references/build-error-quickfix.md（扁平关键字表，扫描快）
     若速查表命中 → 按「修复」列描述修复
 
     【第2级】速查表未命中 → 查 migration-cases 案例库（详细兜底）
-    路由：$SKILL_DIR/references/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
+    路由：references/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
     若案例库命中 → 按案例修复方法修复
 
     每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 E.5 节），
@@ -291,8 +291,8 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 ## E.5 错误修复查询（两级）
 
 > **修复优先级（两级查询）**：
-> 1. **第1级 — 速查表**：查 [build-error-quickfix.md](../../references/build-error-quickfix.md)（扁平关键字表，扫描快）；命中则按「修复」列描述修复
-> 2. **第2级 — 案例库**：速查表未命中时，查 [migration-cases/](../../references/migration-cases/) 案例库（结构化教案，详细兜底）；命中则按案例修复方法修复
+> 1. **第1级 — 速查表**：查 [build-error-quickfix.md](references/build-error-quickfix.md)（扁平关键字表，扫描快）；命中则按「修复」列描述修复
+> 2. **第2级 — 案例库**：速查表未命中时，查 [migration-cases/](references/migration-cases/) 案例库（结构化教案，详细兜底）；命中则按案例修复方法修复
 >
 > **醒目标识要求（强制）**：每次执行第2级案例库查询时，**必须**在 agent 交互界面输出醒目标识，便于核验 skill 是否实际使用了案例库知识。无论命中与否都要输出，格式如下：
 >
@@ -304,17 +304,17 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 ### 第1级：速查表
 
-速查表已独立为 [build-error-quickfix.md](../../references/build-error-quickfix.md)，按错误类别分表（头文件 / 类型符号 / 链接 / Bazel / 编译严格性），扁平关键字匹配，扫描快。命中即按「修复」列描述修复，未命中进入第2级。
+速查表已独立为 [build-error-quickfix.md](references/build-error-quickfix.md)，按错误类别分表（头文件 / 类型符号 / 链接 / Bazel / 编译严格性），扁平关键字匹配，扫描快。命中即按「修复」列描述修复，未命中进入第2级。
 
 ### 第2级：案例库路由查询流程
 
-案例库位于 `$SKILL_DIR/references/migration-cases/`，按错误类别分三系列，每系列有「路由索引 + 案例库」两文件：
+案例库位于 `references/migration-cases/`，按错误类别分三系列，每系列有「路由索引 + 案例库」两文件：
 
 | 系列 | 路由索引文件 | 案例库文件 | 适用错误 |
 |------|------------|----------|---------|
-| 通用 ARM 适配 | [generic-arm-migration-index.md](../../references/migration-cases/generic-arm-migration-index.md) | [generic-arm-migration-cases.md](../../references/migration-cases/generic-arm-migration-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
-| 版本兼容性 | [version-compatibility-index.md](../../references/migration-cases/version-compatibility-index.md) | [version-compatibility-cases.md](../../references/migration-cases/version-compatibility-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
-| 项目特有 | [project-specific-index.md](../../references/migration-cases/project-specific-index.md) | [project-specific-cases.md](../../references/migration-cases/project-specific-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
+| 通用 ARM 适配 | [generic-arm-migration-index.md](references/migration-cases/generic-arm-migration-index.md) | [generic-arm-migration-cases.md](references/migration-cases/generic-arm-migration-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
+| 版本兼容性 | [version-compatibility-index.md](references/migration-cases/version-compatibility-index.md) | [version-compatibility-cases.md](references/migration-cases/version-compatibility-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
+| 项目特有 | [project-specific-index.md](references/migration-cases/project-specific-index.md) | [project-specific-cases.md](references/migration-cases/project-specific-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
 
 **查询步骤**：
 
@@ -330,7 +330,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 > - 错误含部署 / manifest / so 路径 / 流水线 → **项目特有系列**
 > - 不确定时三个路由索引都扫一遍
 
-> **新增修复方法的归属**：速查表未覆盖的新错误，若修复方法具备通用性，应补录到 [migration-cases/](../../references/migration-cases/) 案例库（按通用/版本/项目系列格式新增案例并更新路由索引），而非扩充速查表——速查表仅承载扁平关键字映射，结构化教案归案例库。
+> **新增修复方法的归属**：速查表未覆盖的新错误，若修复方法具备通用性，应补录到 [migration-cases/](references/migration-cases/) 案例库（按通用/版本/项目系列格式新增案例并更新路由索引），而非扩充速查表——速查表仅承载扁平关键字映射，结构化教案归案例库。
 
 ---
 
