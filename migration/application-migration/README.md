@@ -97,9 +97,8 @@ cpp-arm-migration/
 │       ├── dependency-analysis-blade.md              # Blade 专用分析
 │       └── dependency-analysis-scons.md              # SCons 专用分析
 ├── devkit-scan/                                      # 阶段 D 子 Skill：DevKit 扫描与源码/构建适配
-│   ├── SKILL.md
+│   ├── SKILL.md                                      # 完整扫描 + 适配流程
 │   ├── references/
-│   │   ├── sourcecode-devkit-scan.md                 # 完整扫描 + 适配流程
 │   │   └── devkit-download.md                        # DevKit CLI 下载说明
 │   └── scripts/
 │       └── devkit-download.sh                        # DevKit 自动下载安装脚本
@@ -116,7 +115,7 @@ cpp-arm-migration/
 │           ├── version-compatibility-cases.md        # 版本兼容性详细案例
 │           └── project-specific-cases.md             # 项目特定详细案例
 └── migration-summary/                                # 阶段 F：迁移总结报告
-    └── migration-summary-report.md
+    └── SKILL.md
 ```
 （prompt.md 位于父目录 application-migration/ 下）
 ---
@@ -205,7 +204,7 @@ Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 C
 
 ### 步骤二：提供项目信息并触发 Skill
 
-在对话窗口中填入项目信息并发送，参考 [prompt.md](cpp-arm-migration/prompt.md) 模板：
+在对话窗口中填入项目信息并发送，参考 [prompt.md](prompt.md) 模板：
 
 ```text
 请帮我将以下 C/C++ 项目从 x86 迁移到 ARM（鲲鹏 aarch64）。
@@ -353,4 +352,4 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 - [鲲鹏 DevKit](https://www.hikunpeng.com/developer/devkit) — 获取 DevKit 工具
 - [SKILL.md](cpp-arm-migration/SKILL.md) — 完整的六阶段流程编排文档
-- [prompt.md](cpp-arm-migration/prompt.md) — 使用提示词模板
+- [prompt.md](prompt.md) — 使用提示词模板

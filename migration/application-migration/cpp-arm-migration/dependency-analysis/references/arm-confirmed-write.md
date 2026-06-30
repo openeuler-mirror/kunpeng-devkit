@@ -234,7 +234,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [sourcecode-devkit-scan.md](../../devkit-scan/references/sourcecode-devkit-scan.md)）。
+校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [SKILL.md](../../devkit-scan/SKILL.md)）。
 
 ---
 

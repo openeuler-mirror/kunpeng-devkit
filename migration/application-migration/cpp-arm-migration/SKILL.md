@@ -224,7 +224,7 @@ options:
 >
 > **不可并行的原因**：DevKit 扫描结果对后续修改有**直接指导作用**——它会定位需要修改的源文件、指出问题类型（内联汇编 / intrinsics / 头文件 / 类型大小等）、给出修改建议。如果先修改再扫描，可能遗漏问题或做重复/冲突修改。因此**必须先等扫描结束、拿到报告，再开始源码和构建适配**。
 >
-> `which devkit` 返回空时不允许跳过扫描，必须通过 `AskUserQuestion` 让用户决策：手动提供安装路径 / 由 Skill 自动下载安装 / 中止（详见 sourcecode-devkit-scan.md D.1.1）。
+> `which devkit` 返回空时不允许跳过扫描，必须通过 `AskUserQuestion` 让用户决策：手动提供安装路径 / 由 Skill 自动下载安装 / 中止（详见 devkit-scan/SKILL.md D.1.1）。
 >
 > 阶段 D 只做 DevKit 扫描与源码/构建适配——依赖分支切换已在阶段 C 末尾完成，此处不再切换。
 >
@@ -340,7 +340,7 @@ options:
 
 ## 阶段 F2：迁移总结报告
 
-> **立即 `read_file("migration-summary/migration-summary-report.md")` 获取完整执行步骤。**
+> **立即 `read_file("migration-summary/SKILL.md")` 获取完整执行步骤。**
 
 **本阶段目标**：汇总整个迁移过程，生成结构化总结报告，包含各阶段执行时长、修改文件清单及修改点描述、重要提示与建议。
 
@@ -378,6 +378,6 @@ options:
 | [environment-check-agent.md](agents/environment-check-agent.md) | 阶段 A subagent 提示词模板（环境检测与准备） |
 | [dependency-analysis-agent.md](agents/dependency-analysis-agent.md) | 阶段 B subagent 提示词模板（依赖分析与 ARM 兼容性探测） |
 | [dependency-analysis/arm-confirmed-write.md](dependency-analysis/references/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
-| [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（`references/` 下含 sourcecode-devkit-scan.md 扫描流程、devkit-download.md 下载说明） |
+| [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见本 SKILL.md，`references/` 下含 devkit-download.md 下载说明） |
 | `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
-| [migration-summary-report.md](migration-summary/migration-summary-report.md) | 阶段 F2：迁移总结报告生成步骤 |
+| [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 F2：迁移总结报告生成子 Skill |
