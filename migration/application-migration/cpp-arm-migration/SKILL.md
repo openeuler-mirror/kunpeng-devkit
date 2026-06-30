@@ -1,5 +1,5 @@
 ---
-name: cpp-arm-migration
+name: cpp-kunpeng-migration
 description: 将 C/C++ 项目从 x86 迁移到 ARM（aarch64/鲲鹏），实现双架构同时兼容编译运行。当用户要求把 C/C++ 项目适配/迁移到 ARM、鲲鹏、aarch64，或需要项目同时支持 x86 与 ARM 架构时调用。支持 Bazel/CMake/Make/Blade/SCons 构建系统，五阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环）。
 ---
 
@@ -18,7 +18,7 @@ description: 将 C/C++ 项目从 x86 迁移到 ARM（aarch64/鲲鹏），实现�
 
 ## 整体流程
 
-> **阶段 A（环境检测与准备，subagent）** → **阶段 B（依赖分析，subagent）** → **阶段 C（汇总 subagent 待确认项，等待用户回复）** → **阶段 D（DevKit 扫描 → 源码 & 构建适配，严格串行）** → **阶段 E（编译验证循环）** → **阶段 F（迁移总结报告）**
+> **阶段 A（环境检测与准备，subagent）** → **阶段 B（依赖分析，subagent）** → **阶段 C（汇总 subagent 待确认项，等待用户回复）** → **阶段 D（DevKit 扫描 → 源码 & 构建适配，严格串行）** → **阶段 E（编译验证循环）** → **阶段 F1（知识库自更新，调用 case-collector skill）** → **阶段 F2（迁移总结报告）**
 
 > ⚠️ **关键约束**：
 > - 阶段 A、B 的 subagent **不调用 `AskUserQuestion`**，待确认项写入中间文件，由主编排在阶段 C 统一提问
@@ -360,9 +360,100 @@ options:
 - **代码仓权限问题**：⛔ 遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须用 `AskUserQuestion` 提问用户提供已下载的代码仓路径（详见 stages/e-build-verify/sourcecode-build-verify.md E.2.1 节）
 - **报告目录不存在**：⛔ 回到阶段 D 重新执行 DevKit 扫描，不得跳过
 
+**阶段 E 完成后**（编译成功或触发人工介入），进入阶段 F1。
+
 ---
 
-## 阶段 F：迁移总结报告
+## 阶段 F1：知识库自更新（调用 arm-migration-case-collector skill）
+
+**本阶段目标**：将本次迁移中实际修复的典型编译错误提取为标准案例，经用户勾选确认后写入案例库，实现知识库持续积累。
+
+> ⚠️ **强制执行**：阶段 E 结束后（无论编译成功还是触发人工介入），**必须**执行阶段 F1，不得跳过。  
+> ⛔ **强制等待用户确认**：必须通过 `AskQuestion` 工具让用户**逐条勾选**要写入的案例，未收到勾选结果前不得执行写入，不得自行判断全部写入或跳过。
+
+### F1.1 来源判断
+
+根据阶段 E 的结束状态选择采集来源：
+
+| 阶段 E 结束状态 | 采集来源 |
+|---|---|
+| 编译成功（正常结束） | 从本次迁移的完整对话上下文提取所有「编译报错 → 解决方案」对 |
+| 触发人工介入（E.7 报告已输出） | 从已修复的轮次中提取成功修复的错误对，未解决的错误不纳入 |
+
+### F1.2 调用 case-collector skill 执行步骤
+
+> ⚡ **调用方式**：直接通过 skill 调用机制触发 `kunpeng-migration-case-collector` skill（使用 `fetch_rules` 工具加载，**不得使用 `read_file` 读取其 SKILL.md 文件**），按其定义的流程执行：
+
+1. **Step 1（diff 采集）**：当前迁移场景为"无本地 x86/ARM 分支，使用当前对话上下文"，在 case-collector skill 的 Step 1.1 问询步骤中选择 `context_only`，跳过 diff patch 生成，直接进入 Step 2
+2. **Step 2（AI 主动分析）**：从本次迁移对话上下文中提取所有「编译报错 → 解决方案」对，逐条分析，归类为 G-/V-/P- 三类，输出分析摘要
+3. **Step 3（生成更新清单并勾选确认）**：
+
+   **必须先在对话界面输出案例预览**，每条格式如下：
+
+   ```
+   📋 知识库更新清单（共 N 条新案例）
+
+   案例 1 ｜ <G/V/P-XX>：<简短标题>
+   　🔴 错误现象：
+   　　<关键报错信息，1~2 行>
+   　🔍 根因：
+   　　<一句话>
+
+   案例 2 ｜ <G/V/P-XX>：<简短标题>
+   　🔴 错误现象：
+   　　<关键报错信息，1~2 行>
+   　🔍 根因：
+   　　<一句话>
+   ...
+   ```
+
+   **然后调用 `AskQuestion` 工具进行勾选确认（强制，不得跳过）**：
+
+   ```
+   AskQuestion({
+     questions: [
+       {
+         id: "cases",
+         prompt: "请勾选要写入知识库的案例（可多选）：",
+         allow_multiple: true,
+         options: [
+           { id: "1", label: "<G/V/P-XX>：<简短标题>" },
+           { id: "2", label: "<G/V/P-XX>：<简短标题>" },
+           ...
+           { id: "all", label: "✅ 全部写入" },
+           { id: "none", label: "❌ 本次跳过，不更新知识库" }
+         ]
+       },
+       {
+         id: "action",
+         prompt: "确认执行：",
+         allow_multiple: false,
+         options: [
+           { id: "write", label: "写入上方勾选的案例" },
+           { id: "skip",  label: "跳过，本次不更新知识库" }
+         ]
+       }
+     ]
+   })
+   ```
+
+4. **Step 3（写入）**：收到用户勾选结果后，仅写入用户确认的案例；若用户选择跳过，输出 `⏭️ 本次迁移无新案例写入知识库`，直接进入 F1.3
+5. **Step 4（更新扫描规则）**：对每条 G- 类案例，按 case-collector skill Step 4 流程询问用户是否加入 `arm-scan-rules.json`
+6. **Step 5（收集 ARM 分支信息）**：将本次迁移验证可用的 ARM 依赖版本信息追加写入 `arm_confirmed.md`
+
+### F1.3 完成提示
+
+```
+✅ 知识库更新完成（或：⏭️ 本次迁移无新案例写入知识库）
+- 新增案例：<G/V/P-XX>、...（或：无）
+- 案例库路径：migration-cases/
+```
+
+**阶段 F1 完成后**，进入阶段 F2。
+
+---
+
+## 阶段 F2：迁移总结报告
 
 > ⚡ **立即 `read_file("stages/f-summary/migration-summary-report.md")` 获取完整执行步骤。**
 
@@ -388,7 +479,8 @@ options:
 | [stages/b-dependency-analysis/arm-confirmed-write.md](stages/b-dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [sourcecode-devkit-scan.md](stages/d-devkit-scan/sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
 | [sourcecode-build-verify.md](stages/e-build-verify/sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.2 两级查询：build-error-quickfix 速查表 → migration-cases 案例库兜底） |
-| [migration-summary-report.md](stages/f-summary/migration-summary-report.md) | 阶段 F：迁移总结报告生成步骤 |
+| `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
+| [migration-summary-report.md](stages/f-summary/migration-summary-report.md) | 阶段 F2：迁移总结报告生成步骤 |
 | [build-error-quickfix.md](references/build-error-quickfix.md) | 阶段 E 第1级：编译错误快速修复速查表（扁平关键字表，按错误类别分表） |
 | [arm_confirmed.md](references/arm_confirmed.md) | 已确认 ARM 适配的依赖库清单（按依赖库索引，阶段 B 查询命中 / 阶段 C 登记 + 确认切换分支） |
 | [migration-cases/](references/migration-cases/) | ARM 迁移案例库：3 个路由索引 + 3 个详细案例文件（G/V/P 系列） |
