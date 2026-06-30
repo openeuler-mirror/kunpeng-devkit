@@ -12,7 +12,7 @@
 - [前置条件](#前置条件)
 - [Skill 目录结构](#skill-目录结构)
 - [安装方式](#安装方式)
-  - [Trae IDE](#trae-ide)
+  - [CatPaw IDE](#catpaw-ide)
   - [VS Code (GitHub Copilot)](#vs-code-github-copilot)
   - [Claude Code](#claude-code)
   - [其他编程 Agent](#其他编程-agent)
@@ -65,7 +65,7 @@
 | 源环境 | x86_64 服务器（用于环境信息对比） |
 | DevKit | 鲲鹏 DevKit 已安装（阶段 D 扫描所需，`which devkit` 可查） |
 | 构建工具 | GCC / Make / CMake / Bazel / Blade / SCons（按项目实际使用的构建系统准备） |
-| Trae IDE | 版本 ≥ 3.3.21（如使用 Trae IDE 运行 Skill） |
+| CatPaw IDE | 版本 ≥ 3.3.21（如使用 CatPaw IDE 运行 Skill） |
 
 ---
 
@@ -114,21 +114,21 @@ cpp-arm-migration/
 
 ## 安装方式
 
-`cpp-arm-migration` 遵循开放 Skill 标准（核心为 `SKILL.md` + YAML 前置声明），可在 Trae IDE、VS Code、Claude Code 等支持 Skill 的编程 Agent 中通用。
+`cpp-arm-migration` 遵循开放 Skill 标准（核心为 `SKILL.md` + YAML 前置声明），可在 CatPaw IDE、VS Code、Claude Code 等支持 Skill 的编程 Agent 中通用。
 
-### Trae IDE
+### CatPaw IDE
 
 #### 方式一：项目级安装（推荐，随项目共享）
 
-将 `cpp-arm-migration` 整个文件夹复制到项目根目录的 `.trae/skills/` 下：
+将 `cpp-arm-migration` 整个文件夹复制到项目根目录的 `.catpaw/skills/` 下：
 
 ```bash
 # 在项目根目录执行
-mkdir -p .trae/skills
-cp -r <path-to>/cpp-arm-migration .trae/skills/
+mkdir -p .catpaw/skills
+cp -r <path-to>/cpp-arm-migration .catpaw/skills/
 ```
 
-安装后重启 Trae IDE，在 AI 对话窗口调用技能，出现"调用 skills"提示即成功。
+安装后重启 CatPaw IDE，在 AI 对话窗口调用技能，出现"调用 skills"提示即成功。
 
 #### 方式二：全局级安装（跨项目复用）
 
@@ -136,18 +136,18 @@ cp -r <path-to>/cpp-arm-migration .trae/skills/
 
 ```bash
 # Windows
-C:\Users\<你的用户名>\.trae\skills\
+C:\Users\<你的用户名>\.catpaw\skills\
 
 # macOS / Linux
-~/.trae/skills/
+~/.catpaw/skills/
 ```
 
-安装后重启 Trae IDE 即可全局调用。
+安装后重启 CatPaw IDE 即可全局调用。
 
 #### 方式三：ZIP 包可视化导入
 
 1. 将 `cpp-arm-migration` 文件夹打包为 ZIP（根目录需包含 `SKILL.md`）
-2. 打开 Trae → 设置（齿轮图标）→ 规则与技能 → 技能
+2. 打开 CatPaw → 设置（齿轮图标）→ 规则与技能 → 技能
 3. 点击「+ 创建」→ 选择压缩包导入，AI 自动解析配置
 4. 选择"项目级"或"全局级"，确认安装
 
@@ -192,7 +192,7 @@ Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 C
 
 ### 步骤一：打开 AI 对话窗口
 
-在已安装 Skill 的 IDE 中打开 AI 对话窗口（Trae IDE 按 `Ctrl+L` / `Cmd+L`）。
+在已安装 Skill 的 IDE 中打开 AI 对话窗口（CatPaw IDE 按 `Ctrl+L` / `Cmd+L`）。
 
 ### 步骤二：提供项目信息并触发 Skill
 
@@ -316,7 +316,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: Skill 没有被触发怎么办？
 
-确认 `SKILL.md` 文件名全大写，且位于正确的技能目录下。Trae IDE 需重启后识别新安装的 Skill。也可在对话中显式点名："使用 `cpp-arm-migration` 技能，帮我迁移项目"。
+确认 `SKILL.md` 文件名全大写，且位于正确的技能目录下。CatPaw IDE 需重启后识别新安装的 Skill。也可在对话中显式点名："使用 `cpp-arm-migration` 技能，帮我迁移项目"。
 
 ### Q: DevKit 未安装怎么办？
 

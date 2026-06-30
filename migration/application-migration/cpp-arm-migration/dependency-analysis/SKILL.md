@@ -106,7 +106,7 @@ cat "<cpp-arm-migration skill目录>/dependency-analysis/arm_confirmed.md" 2>/de
 > ```bash
 > # 报告写入路径
 > REPORT_FILE="$WORK_DIR/reports/dependency_analysis_<项目名>.md"
-> # 使用 write 工具将报告内容写入该路径
+> # 使用文件写入将报告内容写入该路径
 > ```
 
 #### 报告精简原则
@@ -162,7 +162,7 @@ cat "<cpp-arm-migration skill目录>/dependency-analysis/arm_confirmed.md" 2>/de
 
 **阶段 C 末尾（登记 + 确认切换 + 校验，一次性完成）**：
 1. **登记**：在 `arm_confirmed.md` 中按**依赖库名**找到或新建区块（`## <依赖库名>`，不按主仓、不写全局配置、不记 x86 版本），写入该依赖库唯一的 ARM 适配记录，来源项目填当前主仓名
-2. **确认切换**：把待切换清单逐项调用 `AskUserQuestion` 让用户确认后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本（回迁 thirdparty_arm、修改 WORKSPACE、切换子模块分支等）
+2. **确认切换**：把待切换清单逐项向用户确认后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本（回迁 thirdparty_arm、修改 WORKSPACE、切换子模块分支等）
 3. **校验**：逐项核对分支是否真切到 ARM 版，再进入阶段 D
 
 ---

@@ -1,7 +1,7 @@
 # DevKit CLI 包下载与安装
 
 > **做什么**：从华为云镜像站动态匹配并下载最新 DevKit CLI 包，解压验证后输出 `DEVKIT` 路径变量。
-> **何时调用**：由 [SKILL.md](../SKILL.md) D.1.1 节用户选择 `download` 时，经 `read_file` 加载执行。
+> **何时调用**：由 [SKILL.md](../SKILL.md) D.1.1 节用户选择 `download` 时，经读取文件加载执行。
 
 ## 输入 / 输出契约
 
@@ -23,13 +23,13 @@
 agent **优先以脚本形式一次性调用** [devkit-download.sh](../scripts/devkit-download.sh)，不要逐段执行下方说明中的 bash 片段。脚本已内建参数校验、重试、完整性校验与语义化退出码。
 
 ```bash
-# 由 agent 通过 RunCommand 调用，工作目录使用 WORK_DIR
+# 由 agent 通过执行 shell 命令调用，工作目录使用 WORK_DIR
 WORK_DIR="<工作目录>" bash $SKILL_DIR/devkit-scan/scripts/devkit-download.sh
 ```
 
 调用约定：
 
-1. 通过 `RunCommand` 在 `bash` 下执行；`WORK_DIR` 通过环境变量传入。
+1. 通过执行 shell 命令在 `bash` 下运行；`WORK_DIR` 通过环境变量传入。
 2. 捕获 stdout 末行形如 `DEVKIT=<路径>` 的输出，解析出 `DEVKIT` 变量。
 3. 捕获进程退出码，按下表进行异常分支处理；只有退出码为 `0` 才视为成功。
 
@@ -46,7 +46,7 @@ WORK_DIR="<工作目录>" bash $SKILL_DIR/devkit-scan/scripts/devkit-download.sh
 | 6 | `devkit --version` 验证失败 | 多为动态库缺失或架构不匹配。让用户检查 `LD_LIBRARY_PATH`、目标架构是否为 aarch64；无法解决则回到 D.1.1 提问 |
 | 7 | 持久化路径写入失败 | 检查 `$WORK_DIR/reports/` 目录权限与磁盘空间后重试一次；仍失败则回退 D.1.1 提问 |
 
-> 任何非 0 退出码均**不得**继续 D.1.2。agent 应先按上表尝试一次自愈重试，仍失败则回到 D.1.1 通过 `AskUserQuestion` 让用户决策。
+> 任何非 0 退出码均**不得**继续 D.1.2。agent 应先按上表尝试一次自愈重试，仍失败则**必须**回到 D.1.1 向用户提问让其决策（不得自行跳过）。
 
 > **变量传播说明**：`DEVKIT` 在调用脚本的 shell 内通过 stdout 输出。若 D.1.2 起的步骤在另一 shell 执行，应从 `$WORK_DIR/reports/devkit_path.txt` 读取后重新 `export DEVKIT`。
 
@@ -59,4 +59,4 @@ WORK_DIR="<工作目录>" bash $SKILL_DIR/devkit-scan/scripts/devkit-download.sh
 | 解压后结构异常 | 回到 D.1.1 提问，引导 provide_path / abort |
 | `--version` 失败 | 检查 `LD_LIBRARY_PATH` 与目标架构（须 aarch64） |
 
-> 若镜像站下载失败，agent 应通过 `AskUserQuestion` 提示用户手动下载安装包到 `$WORK_DIR/downloads/` 后继续。
+> 若镜像站下载失败，agent 应**必须**向用户提问，提示用户手动下载安装包到 `$WORK_DIR/downloads/` 后继续。

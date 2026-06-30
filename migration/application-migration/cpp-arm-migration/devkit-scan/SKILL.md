@@ -30,7 +30,7 @@ find /opt /usr/local -name "devkit" -maxdepth 8 -type f 2>/dev/null | head -3
 <devkit路径> --version
 ```
 
-若上述均未找到，**不得跳过扫描**。通过 `AskUserQuestion` 向用户决策如何处理（与 SKILL.md 阶段 D 硬性约束一致）：
+若上述均未找到，**不得跳过扫描**，**必须**向用户提问让其决策如何处理（与 SKILL.md 阶段 D 硬性约束一致）：
 
 ```
 question: "未在系统中检测到 DevKit，如何继续阶段 D 扫描？"
@@ -48,7 +48,7 @@ options:
 
 #### D.1.1.1 自动下载安装 DevKit
 
-用户选择 `download` 时，agent `read_file("devkit-download.md")` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 D.1.2 使用。失败时回到 D.1.1 提问。
+用户选择 `download` 时，agent **必须读取文件** `devkit-download.md` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 D.1.2 使用。失败时回到 D.1.1 提问。
 
 ### D.1.2 确认扫描参数
 
