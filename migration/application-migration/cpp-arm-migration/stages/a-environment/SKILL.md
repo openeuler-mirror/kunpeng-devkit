@@ -1,3 +1,8 @@
+---
+name: environment-prepare
+description: C/C++ 项目 ARM 迁移的阶段 A 子 Skill：环境检测、修复与编译环境准备。检测 arm64 目标环境的编译器（gcc/glibc/内核/操作系统）、构建工具（Make/CMake/Bazel/Blade/SCons/JDK）版本与可用性，对不满足要求的项自动安装或升级（优先内部定制版，次选官方链接），处理 Blade arm64/Python3 兼容性、Bazel 版本约束匹配、Protobuf 版本一致性问题，最终生成环境检测报告与待确认项清单。作为 cpp-kunpeng-migration 主 Skill 的阶段 A 子 Skill 调用。
+---
+
 # 阶段 A：环境检测、修复与准备编译环境
 
 本阶段用于检测 arm64 目标环境的编译器、构建工具和基础依赖，对不满足要求的项自动修复（安装/升级），准备编译环境，确保项目在 arm64 上具备编译条件。执行本阶段前，请确认已满足 SKILL.md 中的前置条件。

@@ -33,7 +33,7 @@ COMPILE_CMD="bazel build <主编译目标> --verbose_failures --config=linux_aar
 COMPILE_CMD="bash $PROJECT_ROOT/build.sh"
 ```
 
-> **编译目标来源**：来自阶段 A environment-prepare.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
+> **编译目标来源**：来自阶段 A stages/a-environment/SKILL.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
 
 ### CMake 项目
 

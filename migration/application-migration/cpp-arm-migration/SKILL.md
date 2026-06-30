@@ -109,7 +109,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 > **硬性约束：阶段 A 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 A 的检测命令。**
 >
-> **subagent 边界**：阶段 A 以 subagent 模式执行 environment-prepare.md。subagent **不调用 `AskUserQuestion`**，检测到的版本不一致项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
+> **subagent 边界**：阶段 A 以 subagent 模式执行 stages/a-environment/SKILL.md（子 Skill environment-prepare）。subagent **不调用 `AskUserQuestion`**，检测到的版本不一致项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
 
 **本阶段目标**：确认 ARM 环境具备编译条件，输出环境检测报告到 `$WORK_DIR/reports/environment_check_report.md`，并输出待确认项清单到 `$WORK_DIR/reports/stage_a_pending_items.md`。
 
@@ -131,9 +131,9 @@ task(
 - SKILL_DIR = <cpp-arm-migration skill 目录绝对路径>（主编排传入）
 
 ## 你的执行步骤
-1. 先 read_file("$SKILL_DIR/stages/a-environment/environment-prepare.md") 获取完整执行步骤
+1. 先 read_file("$SKILL_DIR/stages/a-environment/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
 2. 先 read_file("$SKILL_DIR/references/build-tools-reference.md") 获取构建工具下载链接
-3. 按照 environment-prepare.md 的 1.1 ~ 1.7 步骤逐一执行环境检测
+3. 按照 SKILL.md 的 1.1 ~ 1.7 步骤逐一执行环境检测
 4. 使用 run_terminal_cmd 执行所有检测命令
 5. 使用 read_file / grep 等工具读取项目构建配置
 
@@ -182,7 +182,7 @@ task(
 
 > **硬性约束：阶段 B 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 B 的依赖分析步骤。**
 >
-> **subagent 边界**：阶段 B 以 subagent 模式执行 dependency-analysis.md。subagent **不调用 `AskUserQuestion`**，检测到的依赖冲突项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `arm_confirmed.md` 的依赖（已知 ARM 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
+> **subagent 边界**：阶段 B 以 subagent 模式执行 stages/b-dependency-analysis/SKILL.md（子 Skill dependency-analysis）。subagent **不调用 `AskUserQuestion`**，检测到的依赖冲突项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `arm_confirmed.md` 的依赖（已知 ARM 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
 
 **本阶段目标**：全面分析项目所有外部依赖，评估每个依赖的 ARM 兼容性，输出依赖分析报告，并输出待确认项清单与待切换清单。
 
@@ -204,7 +204,7 @@ task(
 - SKILL_DIR = <cpp-arm-migration skill 目录绝对路径>（主编排传入）
 
 ## 你的执行步骤
-1. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/dependency-analysis.md") 获取完整执行步骤（主编排文档）
+1. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
 2. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/analyze-one-repo.md") 获取单仓库分析闭环步骤
 3. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/common-arm-probe.md") 获取 ARM 兼容性探测步骤
 4. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/common-binary-detect.md") 获取预编译二进制识别步骤
@@ -469,13 +469,24 @@ options:
 
 ---
 
+## 子 Skill
+
+本主 Skill 包含以下子 Skill，可作为独立 Skill 单独调用，也可由主编排通过 `task` 工具拉起 subagent 执行：
+
+| 子 Skill | SKILL.md | 用途 |
+|----------|----------|------|
+| `environment-prepare` | [stages/a-environment/SKILL.md](stages/a-environment/SKILL.md) | 阶段 A：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
+| `dependency-analysis` | [stages/b-dependency-analysis/SKILL.md](stages/b-dependency-analysis/SKILL.md) | 阶段 B：依赖分析与 ARM 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+
+---
+
 ## 附加资源
 
 | 文档 | 用途 |
 |------|------|
-| [environment-prepare.md](stages/a-environment/environment-prepare.md) | 阶段 A：环境检测与准备 |
+| [stages/a-environment/SKILL.md](stages/a-environment/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（environment-prepare） |
 | [build-tools-reference.md](references/build-tools-reference.md) | 阶段 A 配套：构建工具下载链接（内部定制版优先） |
-| [stages/b-dependency-analysis/dependency-analysis.md](stages/b-dependency-analysis/dependency-analysis.md) | 阶段 B：依赖分析与兼容性探测主编排 |
+| [stages/b-dependency-analysis/SKILL.md](stages/b-dependency-analysis/SKILL.md) | 阶段 B 子 Skill：依赖分析与兼容性探测主编排（dependency-analysis） |
 | [stages/b-dependency-analysis/arm-confirmed-write.md](stages/b-dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [sourcecode-devkit-scan.md](stages/d-devkit-scan/sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
 | [sourcecode-build-verify.md](stages/e-build-verify/sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.2 两级查询：build-error-quickfix 速查表 → migration-cases 案例库兜底） |

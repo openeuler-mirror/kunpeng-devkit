@@ -1,4 +1,9 @@
 
+---
+name: dependency-analysis
+description: C/C++ 项目 ARM 迁移的阶段 B 子 Skill：依赖分析与 ARM 兼容性探测。全面分析项目所有外部依赖（支持 Bazel/CMake/Blade/SCons/Git Submodule/手动脚本/系统包管理），递归扫描主仓库及子模块（默认最大深度 2 层），对每个依赖评估 ARM 兼容性：私有 URL 判断、远端 ARM 分支检查、提交历史检查、免检清单（arm_confirmed.md）比对、预编译二进制识别与四级源码溯源。命中免检清单的依赖记录待切换清单，未知兼容性的依赖生成待确认项。作为 cpp-kunpeng-migration 主 Skill 的阶段 B 子 Skill 调用；当用户需要单独分析 C++ 项目依赖的 ARM 兼容性、排查预编译二进制架构问题、或查询私有仓库 ARM 适配状态时也应直接调用本子 Skill。
+---
+
 # C++ 项目依赖分析（主编排）
 
 支持以下 C++ 构建系统的依赖分析：
@@ -21,7 +26,7 @@
 
 | 文件 | 职责 |
 |------|------|
-| **本文件** | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告 |
+| **本文件（SKILL.md）** | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告 |
 | [analyze-one-repo.md](analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
 | [common-arm-probe.md](common-arm-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
 | [common-binary-detect.md](common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
