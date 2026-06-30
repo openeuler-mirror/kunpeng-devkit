@@ -196,7 +196,7 @@ options:
 
 ### C.4 登记清单 + 确认切换 + 校验
 
-> **`read_file("dependency-analysis/arm-confirmed-write.md")` 获取完整执行步骤。**
+> **`read_file("dependency-analysis/references/arm-confirmed-write.md")` 获取完整执行步骤。**
 
 本步骤在阶段 C 末尾一次性完成三件事：
 1. **登记**：把用户确认的依赖 ARM 适配信息按依赖库写入 [arm_confirmed.md](dependency-analysis/references/arm_confirmed.md)
@@ -211,7 +211,7 @@ options:
 
 ## 阶段 D：DevKit 扫描 → 构建配置 + 源码适配（严格串行）
 
-> **立即 `read_file("devkit-scan/sourcecode-devkit-scan.md")` 获取完整执行步骤。**
+> **立即 `read_file("devkit-scan/SKILL.md")` 获取完整执行步骤。**
 
 **本阶段目标**：先运行 DevKit 扫描发现源码 x86 专属问题，**扫描结束后**再根据报告结果完成构建系统配置适配与源码修改。
 
@@ -362,6 +362,7 @@ options:
 |----------|----------|------|
 | `environment-prepare` | [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 A：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
 | `dependency-analysis` | [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 B：依赖分析与 ARM 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+| `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
 
 ---
 
@@ -376,7 +377,7 @@ options:
 | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 E 子 Skill：编译验证与循环修复（`references/` 下含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
 | [environment-check-agent.md](agents/environment-check-agent.md) | 阶段 A subagent 提示词模板（环境检测与准备） |
 | [dependency-analysis-agent.md](agents/dependency-analysis-agent.md) | 阶段 B subagent 提示词模板（依赖分析与 ARM 兼容性探测） |
-| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
-| [sourcecode-devkit-scan.md](devkit-scan/sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
+| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/references/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
+| [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（`references/` 下含 sourcecode-devkit-scan.md 扫描流程、devkit-download.md 下载说明） |
 | `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
 | [migration-summary-report.md](migration-summary/migration-summary-report.md) | 阶段 F2：迁移总结报告生成步骤 |

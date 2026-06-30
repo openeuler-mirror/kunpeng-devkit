@@ -20,11 +20,11 @@
 
 ## 调用方式：优先执行脚本
 
-agent **优先以脚本形式一次性调用** [scripts/devkit-download.sh](../../scripts/devkit-download.sh)，不要逐段执行下方说明中的 bash 片段。脚本已内建参数校验、重试、完整性校验与语义化退出码。
+agent **优先以脚本形式一次性调用** [devkit-download.sh](scripts/devkit-download.sh)，不要逐段执行下方说明中的 bash 片段。脚本已内建参数校验、重试、完整性校验与语义化退出码。
 
 ```bash
 # 由 agent 通过 RunCommand 调用，工作目录使用 WORK_DIR
-WORK_DIR="<工作目录>" bash $SKILL_DIR/scripts/devkit-download.sh
+WORK_DIR="<工作目录>" bash $SKILL_DIR/devkit-scan/scripts/devkit-download.sh
 ```
 
 调用约定：

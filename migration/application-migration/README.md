@@ -74,39 +74,47 @@
 ```
 cpp-arm-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
-├── scripts/                                          # 可执行脚本
-│   └── devkit-download.sh                            # DevKit CLI 自动下载安装脚本
-├── references/                                       # 跨阶段复用参考
-│   ├── arm_confirmed.md                              # 已确认 ARM 适配的依赖库清单
-│   ├── bazel-dual-arch-pattern.md                    # Bazel 双架构切换模式参考
-│   ├── build-tools-reference.md                      # 构建工具下载链接
-│   ├── build-error-quickfix.md                       # 编译错误快速修复速查表
-│   └── migration-cases/                              # ARM 迁移案例库
-│       ├── generic-arm-migration-index.md            # 路由索引：通用迁移问题
-│       ├── version-compatibility-index.md            # 路由索引：版本兼容性
-│       ├── project-specific-index.md                 # 路由索引：项目特定问题
-│       ├── generic-arm-migration-cases.md            # 通用 ARM 适配详细案例
-│       ├── version-compatibility-cases.md            # 版本兼容性详细案例
-│       └── project-specific-cases.md                 # 项目特定详细案例
-├── environment-prepare/                              # 阶段 A：环境检测与准备
-│   └── SKILL.md
-├── dependency-analysis/                              # 阶段 B：依赖分析
+├── agents/                                           # subagent 提示词模板
+│   ├── environment-check-agent.md                    # 阶段 A subagent（环境检测与准备）
+│   └── dependency-analysis-agent.md                  # 阶段 B subagent（依赖分析与探测）
+├── environment-prepare/                              # 阶段 A 子 Skill：环境检测与准备
+│   ├── SKILL.md
+│   └── references/
+│       └── build-tools-reference.md                  # 构建工具下载链接
+├── dependency-analysis/                              # 阶段 B 子 Skill：依赖分析与 ARM 兼容性探测
 │   ├── SKILL.md                                      # 依赖分析主编排
-│   ├── analyze-one-repo.md                           # 单仓库分析闭环步骤
-│   ├── common-arm-probe.md                           # 通用 ARM 兼容性探测
-│   ├── common-binary-detect.md                       # 预编译二进制识别
-│   ├── arm-confirmed-write.md                        # 阶段 C：写入确认清单 + 执行切换
-│   ├── dependency-analysis-report-template-example.md
+│   ├── references/
+│   │   ├── analyze-one-repo.md                       # 单仓库分析闭环步骤
+│   │   ├── common-arm-probe.md                       # 通用 ARM 兼容性探测
+│   │   ├── common-binary-detect.md                   # 预编译二进制识别
+│   │   ├── arm-confirmed-write.md                    # 阶段 C：写入确认清单 + 执行切换
+│   │   └── arm_confirmed.md                          # 已确认 ARM 适配的依赖库清单
+│   ├── assets/
+│   │   └── dependency-analysis-report-template-example.md  # 报告输出模板
 │   └── build-systems/
 │       ├── dependency-analysis-bazel.md              # Bazel 专用分析
 │       ├── dependency-analysis-cmake.md              # CMake 专用分析
 │       ├── dependency-analysis-blade.md              # Blade 专用分析
 │       └── dependency-analysis-scons.md              # SCons 专用分析
-├── devkit-scan/                                      # 阶段 D：DevKit 扫描与源码/构建适配
-│   ├── sourcecode-devkit-scan.md
-│   └── devkit-download.md
-├── build-verify/                                     # 阶段 E：编译验证与循环修复
-│   └── sourcecode-build-verify.md
+├── devkit-scan/                                      # 阶段 D 子 Skill：DevKit 扫描与源码/构建适配
+│   ├── SKILL.md
+│   ├── references/
+│   │   ├── sourcecode-devkit-scan.md                 # 完整扫描 + 适配流程
+│   │   └── devkit-download.md                        # DevKit CLI 下载说明
+│   └── scripts/
+│       └── devkit-download.sh                        # DevKit 自动下载安装脚本
+├── sourcecode-build-verify/                          # 阶段 E 子 Skill：编译验证与循环修复
+│   ├── SKILL.md
+│   └── references/
+│       ├── build-error-quickfix.md                   # 编译错误快速修复速查表
+│       ├── bazel-dual-arch-pattern.md                # Bazel 双架构切换模式参考
+│       └── migration-cases/                          # ARM 迁移案例库
+│           ├── generic-arm-migration-index.md        # 路由索引：通用迁移问题
+│           ├── version-compatibility-index.md        # 路由索引：版本兼容性
+│           ├── project-specific-index.md             # 路由索引：项目特定问题
+│           ├── generic-arm-migration-cases.md        # 通用 ARM 适配详细案例
+│           ├── version-compatibility-cases.md        # 版本兼容性详细案例
+│           └── project-specific-cases.md             # 项目特定详细案例
 └── migration-summary/                                # 阶段 F：迁移总结报告
     └── migration-summary-report.md
 ```
@@ -337,7 +345,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: 如何复用已确认的 ARM 适配依赖？
 
-阶段 C 会将用户确认的依赖 ARM 适配信息写入 [arm_confirmed.md](cpp-arm-migration/arm_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
+阶段 C 会将用户确认的依赖 ARM 适配信息写入 [arm_confirmed.md](cpp-arm-migration/dependency-analysis/references/arm_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
 
 ---
 

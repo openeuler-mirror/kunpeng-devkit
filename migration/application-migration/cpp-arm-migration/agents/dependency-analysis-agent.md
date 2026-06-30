@@ -27,9 +27,9 @@ task(
 
 ## 你的执行步骤
 1. 先 read_file("$SKILL_DIR/dependency-analysis/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
-2. 先 read_file("$SKILL_DIR/dependency-analysis/analyze-one-repo.md") 获取单仓库分析闭环步骤
-3. 先 read_file("$SKILL_DIR/dependency-analysis/common-arm-probe.md") 获取 ARM 兼容性探测步骤
-4. 先 read_file("$SKILL_DIR/dependency-analysis/common-binary-detect.md") 获取预编译二进制识别步骤
+2. 先 read_file("$SKILL_DIR/dependency-analysis/references/analyze-one-repo.md") 获取单仓库分析闭环步骤
+3. 先 read_file("$SKILL_DIR/dependency-analysis/references/common-arm-probe.md") 获取 ARM 兼容性探测步骤
+4. 先 read_file("$SKILL_DIR/dependency-analysis/references/common-binary-detect.md") 获取预编译二进制识别步骤
 5. 根据阶段 A 识别的构建系统，read_file 对应的专用分析文件：
    - Bazel: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-bazel.md"
    - CMake: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-cmake.md"

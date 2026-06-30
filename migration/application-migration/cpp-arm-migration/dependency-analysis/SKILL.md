@@ -27,15 +27,15 @@ description: C/C++ 项目 ARM 迁移的阶段 B 子 Skill：依赖分析与 ARM 
 | 文件 | 职责 |
 |------|------|
 | **本文件（SKILL.md）** | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告 |
-| [analyze-one-repo.md](analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [common-arm-probe.md](common-arm-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
-| [common-binary-detect.md](common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
+| [analyze-one-repo.md](references/analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
+| [common-arm-probe.md](references/common-arm-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
+| [common-binary-detect.md](references/common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
 | [dependency-analysis-bazel.md](build-systems/dependency-analysis-bazel.md) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
 | [dependency-analysis-cmake.md](build-systems/dependency-analysis-cmake.md) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
 | [dependency-analysis-blade.md](build-systems/dependency-analysis-blade.md) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
 | [dependency-analysis-scons.md](build-systems/dependency-analysis-scons.md) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
-| [arm-confirmed-write.md](arm-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
-| [dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md) | 报告输出模板示例 |
+| [arm-confirmed-write.md](references/arm-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
+| [dependency-analysis-report-template-example.md](assets/dependency-analysis-report-template-example.md) | 报告输出模板示例 |
 
 ---
 
@@ -68,7 +68,7 @@ cat "$REPORT"
 cat "<cpp-arm-migration skill目录>/dependency-analysis/references/arm_confirmed.md" 2>/dev/null
 ```
 
-将免检清单的内容缓存在上下文中，供后续每次调用 [common-arm-probe.md](common-arm-probe.md) 时使用（Section 5 比对）。
+将免检清单的内容缓存在上下文中，供后续每次调用 [common-arm-probe.md](references/common-arm-probe.md) 时使用（Section 5 比对）。
 
 > **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
 
@@ -76,7 +76,7 @@ cat "<cpp-arm-migration skill目录>/dependency-analysis/references/arm_confirme
 
 ### 第三步：主循环 — 递归分析所有仓库
 
-加载 [analyze-one-repo.md](analyze-one-repo.md)，对**主仓库**执行完整分析：
+加载 [analyze-one-repo.md](references/analyze-one-repo.md)，对**主仓库**执行完整分析：
 
 ```
 输入：
@@ -90,8 +90,8 @@ cat "<cpp-arm-migration skill目录>/dependency-analysis/references/arm_confirme
 
 `analyze-one-repo.md` 内部会自动：
 - 检测主仓构建系统，加载对应专用分析文件
-- 调用 [common-arm-probe.md](common-arm-probe.md) 执行 ARM 兼容性探测
-- 调用 [common-binary-detect.md](common-binary-detect.md) 执行预编译二进制识别与溯源
+- 调用 [common-arm-probe.md](references/common-arm-probe.md) 执行 ARM 兼容性探测
+- 调用 [common-binary-detect.md](references/common-binary-detect.md) 执行预编译二进制识别与溯源
 - 递归处理所有子模块（最多 `MAX_DEPTH` 层），每个子仓**独立检测构建系统**
 
 最终返回包含所有层级信息的结构化结果，用于第四步聚合。
@@ -148,13 +148,13 @@ cat "<cpp-arm-migration skill目录>/dependency-analysis/references/arm_confirme
 
 #### 报告模板
 
-见 [dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md)。
+见 [dependency-analysis-report-template-example.md](assets/dependency-analysis-report-template-example.md)。
 
 ---
 
 ## 用户确认后写入清单并在阶段 C 末尾切换分支
 
-依赖的 ARM 适配信息有两条来源，都按 [arm-confirmed-write.md](arm-confirmed-write.md) 处理：
+依赖的 ARM 适配信息有两条来源，都按 [arm-confirmed-write.md](references/arm-confirmed-write.md) 处理：
 
 - **阶段 B 命中清单**的依赖（common-arm-probe.md Section 5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 C 末尾的待切换清单
 - **阶段 C 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `arm_confirmed.md`
