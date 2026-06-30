@@ -33,7 +33,7 @@ COMPILE_CMD="bazel build <主编译目标> --verbose_failures --config=linux_aar
 COMPILE_CMD="bash $PROJECT_ROOT/build.sh"
 ```
 
-> **编译目标来源**：来自阶段 A stages/a-environment/SKILL.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
+> **编译目标来源**：来自阶段 A environment-prepare/SKILL.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
 
 ### CMake 项目
 
@@ -298,8 +298,8 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 >
 > ```
 > [案例库查询] 错误关键字：<从日志提取的关键字>
->    查询路由：<01-generic / 02-version / 03-project> → <G-cases / V-cases / P-cases>
->    查询结果：<命中 G-XX / V-XX / P-XX，将按案例修复> 或 <未命中，需人工介入或新增案例>
+>    查询路由：<generic-index / version-index / project-index> → <generic-cases / version-cases / project-cases>
+>    查询结果：<命中 GENERIC-XX / VERSION-XX / PROJECT-XX，将按案例修复> 或 <未命中，需人工介入或新增案例>
 > ```
 
 ### 第1级：速查表
@@ -312,25 +312,25 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 | 系列 | 路由索引文件 | 案例库文件 | 适用错误 |
 |------|------------|----------|---------|
-| G 系列 | [01-generic-arm-migration.md](../../references/migration-cases/01-generic-arm-migration.md) | [G-cases.md](../../references/migration-cases/G-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
-| V 系列 | [02-version-compatibility.md](../../references/migration-cases/02-version-compatibility.md) | [V-cases.md](../../references/migration-cases/V-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
-| P 系列 | [03-project-specific.md](../../references/migration-cases/03-project-specific.md) | [P-cases.md](../../references/migration-cases/P-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
+| 通用 ARM 适配 | [generic-arm-migration-index.md](../../references/migration-cases/generic-arm-migration-index.md) | [generic-arm-migration-cases.md](../../references/migration-cases/generic-arm-migration-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
+| 版本兼容性 | [version-compatibility-index.md](../../references/migration-cases/version-compatibility-index.md) | [version-compatibility-cases.md](../../references/migration-cases/version-compatibility-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
+| 项目特有 | [project-specific-index.md](../../references/migration-cases/project-specific-index.md) | [project-specific-cases.md](../../references/migration-cases/project-specific-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
 
 **查询步骤**：
 
 1. 从编译错误日志（`$WORK_DIR/logs/build_<N>.log`）提取关键字（如 `immintrin.h not found`、`File in wrong format`、`undefined reference`）
-2. 按错误类别选路由索引文件，扫描「摘要」列匹配关键字 → 定位案例 ID（如 `G-01`）
+2. 按错误类别选路由索引文件，扫描「摘要」列匹配关键字 → 定位案例 ID（如 `GENERIC-01`）
 3. 跳到对应案例库文件，按 ID 查看完整修复方法（错误现象 / 根因 / 修复方法 / 验证方式）
 4. **输出醒目标识**（见上方格式），命中与否都要输出
 5. 命中 → 按案例修复方法执行；未命中 → 跳到 E.6 记录后进入 E.7 人工介入
 
 > **类别判定速查**：
-> - 错误含 x86 编译标志 / intrinsics 头文件 / 内联汇编 → **G 系列**
-> - 错误含依赖库版本 / ABI / 头文件版本不一致 → **V 系列**
-> - 错误含部署 / manifest / so 路径 / 流水线 → **P 系列**
+> - 错误含 x86 编译标志 / intrinsics 头文件 / 内联汇编 → **通用 ARM 适配系列**
+> - 错误含依赖库版本 / ABI / 头文件版本不一致 → **版本兼容性系列**
+> - 错误含部署 / manifest / so 路径 / 流水线 → **项目特有系列**
 > - 不确定时三个路由索引都扫一遍
 
-> **新增修复方法的归属**：速查表未覆盖的新错误，若修复方法具备通用性，应补录到 [migration-cases/](../../references/migration-cases/) 案例库（按 G/V/P 系列格式新增案例并更新路由索引），而非扩充速查表——速查表仅承载扁平关键字映射，结构化教案归案例库。
+> **新增修复方法的归属**：速查表未覆盖的新错误，若修复方法具备通用性，应补录到 [migration-cases/](../../references/migration-cases/) 案例库（按通用/版本/项目系列格式新增案例并更新路由索引），而非扩充速查表——速查表仅承载扁平关键字映射，结构化教案归案例库。
 
 ---
 

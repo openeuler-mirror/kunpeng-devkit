@@ -109,7 +109,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 > **硬性约束：阶段 A 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 A 的检测命令。**
 >
-> **subagent 边界**：阶段 A 以 subagent 模式执行 stages/a-environment/SKILL.md（子 Skill environment-prepare）。subagent **不调用 `AskUserQuestion`**，检测到的版本不一致项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
+> **subagent 边界**：阶段 A 以 subagent 模式执行 environment-prepare/SKILL.md（子 Skill environment-prepare）。subagent **不调用 `AskUserQuestion`**，检测到的版本不一致项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
 
 **本阶段目标**：确认 ARM 环境具备编译条件，输出环境检测报告到 `$WORK_DIR/reports/environment_check_report.md`，并输出待确认项清单到 `$WORK_DIR/reports/stage_a_pending_items.md`。
 
@@ -131,7 +131,7 @@ task(
 - SKILL_DIR = <cpp-arm-migration skill 目录绝对路径>（主编排传入）
 
 ## 你的执行步骤
-1. 先 read_file("$SKILL_DIR/stages/a-environment/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
+1. 先 read_file("$SKILL_DIR/environment-prepare/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
 2. 先 read_file("$SKILL_DIR/references/build-tools-reference.md") 获取构建工具下载链接
 3. 按照 SKILL.md 的 1.1 ~ 1.7 步骤逐一执行环境检测
 4. 使用 run_terminal_cmd 执行所有检测命令
@@ -182,7 +182,7 @@ task(
 
 > **硬性约束：阶段 B 必须通过 `task` 工具拉起 subagent 执行，严禁在主编排中直接执行阶段 B 的依赖分析步骤。**
 >
-> **subagent 边界**：阶段 B 以 subagent 模式执行 stages/b-dependency-analysis/SKILL.md（子 Skill dependency-analysis）。subagent **不调用 `AskUserQuestion`**，检测到的依赖冲突项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `arm_confirmed.md` 的依赖（已知 ARM 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
+> **subagent 边界**：阶段 B 以 subagent 模式执行 dependency-analysis/SKILL.md（子 Skill dependency-analysis）。subagent **不调用 `AskUserQuestion`**，检测到的依赖冲突项按「subagent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `arm_confirmed.md` 的依赖（已知 ARM 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
 
 **本阶段目标**：全面分析项目所有外部依赖，评估每个依赖的 ARM 兼容性，输出依赖分析报告，并输出待确认项清单与待切换清单。
 
@@ -204,15 +204,15 @@ task(
 - SKILL_DIR = <cpp-arm-migration skill 目录绝对路径>（主编排传入）
 
 ## 你的执行步骤
-1. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
-2. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/analyze-one-repo.md") 获取单仓库分析闭环步骤
-3. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/common-arm-probe.md") 获取 ARM 兼容性探测步骤
-4. 先 read_file("$SKILL_DIR/stages/b-dependency-analysis/common-binary-detect.md") 获取预编译二进制识别步骤
+1. 先 read_file("$SKILL_DIR/dependency-analysis/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
+2. 先 read_file("$SKILL_DIR/dependency-analysis/analyze-one-repo.md") 获取单仓库分析闭环步骤
+3. 先 read_file("$SKILL_DIR/dependency-analysis/common-arm-probe.md") 获取 ARM 兼容性探测步骤
+4. 先 read_file("$SKILL_DIR/dependency-analysis/common-binary-detect.md") 获取预编译二进制识别步骤
 5. 根据阶段 A 识别的构建系统，read_file 对应的专用分析文件：
-   - Bazel: "$SKILL_DIR/stages/b-dependency-analysis/build-systems/dependency-analysis-bazel.md"
-   - CMake: "$SKILL_DIR/stages/b-dependency-analysis/build-systems/dependency-analysis-cmake.md"
-   - Blade: "$SKILL_DIR/stages/b-dependency-analysis/build-systems/dependency-analysis-blade.md"
-   - SCons: "$SKILL_DIR/stages/b-dependency-analysis/build-systems/dependency-analysis-scons.md"
+   - Bazel: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-bazel.md"
+   - CMake: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-cmake.md"
+   - Blade: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-blade.md"
+   - SCons: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-scons.md"
 6. 先 read_file("$SKILL_DIR/references/arm_confirmed.md") 读取免检清单
 7. 按照上述文档的步骤逐一执行依赖分析
 8. 使用 run_terminal_cmd / read_file / grep 等工具收集信息
@@ -311,7 +311,7 @@ options:
 
 ### C.4 登记清单 + 确认切换 + 校验
 
-> **`read_file("stages/b-dependency-analysis/arm-confirmed-write.md")` 获取完整执行步骤。**
+> **`read_file("dependency-analysis/arm-confirmed-write.md")` 获取完整执行步骤。**
 
 本步骤在阶段 C 末尾一次性完成三件事：
 1. **登记**：把用户确认的依赖 ARM 适配信息按依赖库写入 [arm_confirmed.md](references/arm_confirmed.md)
@@ -326,7 +326,7 @@ options:
 
 ## 阶段 D：DevKit 扫描 → 构建配置 + 源码适配（严格串行）
 
-> **立即 `read_file("stages/d-devkit-scan/sourcecode-devkit-scan.md")` 获取完整执行步骤。**
+> **立即 `read_file("devkit-scan/sourcecode-devkit-scan.md")` 获取完整执行步骤。**
 
 **本阶段目标**：先运行 DevKit 扫描发现源码 x86 专属问题，**扫描结束后**再根据报告结果完成构建系统配置适配与源码修改。
 
@@ -350,14 +350,14 @@ options:
 
 ## 阶段 E：编译验证循环
 
-> **立即 `read_file("stages/e-build-verify/sourcecode-build-verify.md")` 获取完整执行步骤。**
+> **立即 `read_file("build-verify/sourcecode-build-verify.md")` 获取完整执行步骤。**
 
 **本阶段目标**：循环执行编译验证，直到编译成功或人工介入。
 
-**错误修复优先级（两级查询，详见 stages/e-build-verify/sourcecode-build-verify.md E.2/E.5 节）**：
+**错误修复优先级（两级查询，详见 build-verify/sourcecode-build-verify.md E.2/E.5 节）**：
 - **第1级**：查 [build-error-quickfix.md](references/build-error-quickfix.md) 速查表（扁平关键字表，扫描快），命中则按「修复」列描述修复
-- **第2级**：速查表未命中时，查 [migration-cases/](references/migration-cases/) 案例库（01/02/03 路由索引 → G/V/P-cases，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 stages/e-build-verify/sourcecode-build-verify.md E.5 节）
-- **代码仓权限问题**：遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须用 `AskUserQuestion` 提问用户提供已下载的代码仓路径（详见 stages/e-build-verify/sourcecode-build-verify.md E.2.1 节）
+- **第2级**：速查表未命中时，查 [migration-cases/](references/migration-cases/) 案例库（generic/version/project 路由索引 → 详细案例，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 build-verify/sourcecode-build-verify.md E.5 节）
+- **代码仓权限问题**：遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须用 `AskUserQuestion` 提问用户提供已下载的代码仓路径（详见 build-verify/sourcecode-build-verify.md E.2.1 节）
 - **报告目录不存在**：回到阶段 D 重新执行 DevKit 扫描，不得跳过
 
 **阶段 E 完成后**（编译成功或触发人工介入），进入阶段 F1。
@@ -393,13 +393,13 @@ options:
    ```
    知识库更新清单（共 N 条新案例）
 
-   案例 1 ｜ <G/V/P-XX>：<简短标题>
+   案例 1 ｜ <GENERIC/VERSION/PROJECT-XX>：<简短标题>
    　错误现象：
    　　<关键报错信息，1~2 行>
    　根因：
    　　<一句话>
 
-   案例 2 ｜ <G/V/P-XX>：<简短标题>
+   案例 2 ｜ <GENERIC/VERSION/PROJECT-XX>：<简短标题>
    　错误现象：
    　　<关键报错信息，1~2 行>
    　根因：
@@ -417,8 +417,8 @@ options:
          prompt: "请勾选要写入知识库的案例（可多选）：",
          allow_multiple: true,
          options: [
-           { id: "1", label: "<G/V/P-XX>：<简短标题>" },
-           { id: "2", label: "<G/V/P-XX>：<简短标题>" },
+           { id: "1", label: "<GENERIC/VERSION/PROJECT-XX>：<简短标题>" },
+           { id: "2", label: "<GENERIC/VERSION/PROJECT-XX>：<简短标题>" },
            ...
            { id: "all", label: "全部写入" },
            { id: "none", label: "本次跳过，不更新知识库" }
@@ -438,14 +438,14 @@ options:
    ```
 
 4. **Step 3（写入）**：收到用户勾选结果后，仅写入用户确认的案例；若用户选择跳过，输出 `本次迁移无新案例写入知识库`，直接进入 F1.3
-5. **Step 4（更新扫描规则）**：对每条 G- 类案例，按 case-collector skill Step 4 流程询问用户是否加入 `arm-scan-rules.json`
+5. **Step 4（更新扫描规则）**：对每条通用 ARM 适配类案例，按 case-collector skill Step 4 流程询问用户是否加入 `arm-scan-rules.json`
 6. **Step 5（收集 ARM 分支信息）**：将本次迁移验证可用的 ARM 依赖版本信息追加写入 `arm_confirmed.md`
 
 ### F1.3 完成提示
 
 ```
 知识库更新完成（或：本次迁移无新案例写入知识库）
-- 新增案例：<G/V/P-XX>、...（或：无）
+- 新增案例：<GENERIC/VERSION/PROJECT-XX>、...（或：无）
 - 案例库路径：migration-cases/
 ```
 
@@ -455,7 +455,7 @@ options:
 
 ## 阶段 F2：迁移总结报告
 
-> **立即 `read_file("stages/f-summary/migration-summary-report.md")` 获取完整执行步骤。**
+> **立即 `read_file("migration-summary/migration-summary-report.md")` 获取完整执行步骤。**
 
 **本阶段目标**：汇总整个迁移过程，生成结构化总结报告，包含各阶段执行时长、修改文件清单及修改点描述、重要提示与建议。
 
@@ -475,8 +475,8 @@ options:
 
 | 子 Skill | SKILL.md | 用途 |
 |----------|----------|------|
-| `environment-prepare` | [stages/a-environment/SKILL.md](stages/a-environment/SKILL.md) | 阶段 A：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
-| `dependency-analysis` | [stages/b-dependency-analysis/SKILL.md](stages/b-dependency-analysis/SKILL.md) | 阶段 B：依赖分析与 ARM 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+| `environment-prepare` | [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 A：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
+| `dependency-analysis` | [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 B：依赖分析与 ARM 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
 
 ---
 
@@ -484,15 +484,15 @@ options:
 
 | 文档 | 用途 |
 |------|------|
-| [stages/a-environment/SKILL.md](stages/a-environment/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（environment-prepare） |
+| [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（environment-prepare） |
 | [build-tools-reference.md](references/build-tools-reference.md) | 阶段 A 配套：构建工具下载链接（内部定制版优先） |
-| [stages/b-dependency-analysis/SKILL.md](stages/b-dependency-analysis/SKILL.md) | 阶段 B 子 Skill：依赖分析与兼容性探测主编排（dependency-analysis） |
-| [stages/b-dependency-analysis/arm-confirmed-write.md](stages/b-dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
-| [sourcecode-devkit-scan.md](stages/d-devkit-scan/sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
-| [sourcecode-build-verify.md](stages/e-build-verify/sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.2 两级查询：build-error-quickfix 速查表 → migration-cases 案例库兜底） |
+| [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 B 子 Skill：依赖分析与兼容性探测主编排（dependency-analysis） |
+| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
+| [sourcecode-devkit-scan.md](devkit-scan/sourcecode-devkit-scan.md) | 阶段 D：DevKit 扫描与源码/构建适配 |
+| [sourcecode-build-verify.md](build-verify/sourcecode-build-verify.md) | 阶段 E：编译验证与循环修复（E.2 两级查询：build-error-quickfix 速查表 → migration-cases 案例库兜底） |
 | `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
-| [migration-summary-report.md](stages/f-summary/migration-summary-report.md) | 阶段 F2：迁移总结报告生成步骤 |
+| [migration-summary-report.md](migration-summary/migration-summary-report.md) | 阶段 F2：迁移总结报告生成步骤 |
 | [build-error-quickfix.md](references/build-error-quickfix.md) | 阶段 E 第1级：编译错误快速修复速查表（扁平关键字表，按错误类别分表） |
 | [arm_confirmed.md](references/arm_confirmed.md) | 已确认 ARM 适配的依赖库清单（按依赖库索引，阶段 B 查询命中 / 阶段 C 登记 + 确认切换分支） |
-| [migration-cases/](references/migration-cases/) | ARM 迁移案例库：3 个路由索引 + 3 个详细案例文件（G/V/P 系列） |
+| [migration-cases/](references/migration-cases/) | ARM 迁移案例库：3 个路由索引 + 3 个详细案例文件（通用/版本/项目 系列） |
 | [bazel-dual-arch-pattern.md](references/bazel-dual-arch-pattern.md) | Bazel x86/ARM 双架构切换模式参考（5 层架构 + 通用模板） |

@@ -6,9 +6,9 @@
 
 ## 1. 三类案例分类标准
 
-### 类型一：通用 ARM 适配问题（`G-` 系列）
+### 类型一：通用 ARM 适配问题（GENERIC 系列）
 
-**写入文件**：`migration-cases/01-generic-arm-migration.md`
+**写入文件**：`migration-cases/generic-arm-migration-index.md`
 
 **判断标准**：根本原因是 **x86 与 ARM 指令集 / ABI / 内存模型 / 系统环境的架构差异**，换一个项目到 ARM 上仍然会碰到同类问题。
 
@@ -29,14 +29,14 @@
 - ARM 环境全局对象析构顺序不同导致的崩溃
 
 **不属于此类（要区分）：**
-- 工具链版本升级导致的问题 → 归入 V- 系列
-- 项目特有依赖组合问题 → 归入 P- 系列
+- 工具链版本升级导致的问题 → 归入 VERSION 系列
+- 项目特有依赖组合问题 → 归入 PROJECT 系列
 
 ---
 
 ### 类型二：版本兼容性问题（`V-` 系列）
 
-**写入文件**：`migration-cases/02-version-compatibility.md`
+**写入文件**：`migration-cases/version-compatibility-index.md`
 
 **判断标准**：根本原因是**新旧版本之间的不兼容变更**，与 ARM/x86 架构本身无关——即使在同一架构上升级工具版本也会遇到同类问题。在 ARM 迁移中"被触发"，是因为 ARM 系统环境自带的工具版本更新。
 
@@ -52,7 +52,7 @@
 
 ### 类型三：项目特有问题（`P-` 系列）
 
-**写入文件**：`migration-cases/03-project-specific.md`
+**写入文件**：`migration-cases/project-specific-index.md`
 
 **判断标准**：根本原因是**该项目特有的业务依赖组合、配置遗漏或历史欠债**，换一个不同业务的项目不会遇到同类问题。
 
@@ -104,10 +104,10 @@
 <验证命令，确认修复已生效>
 ```
 
-**扫描规则：**（仅 G- 系列案例填写，V-/P- 系列留空）
+**扫描规则：**（仅通用 ARM 适配类案例填写，版本兼容性/项目特有类留空）
 ```
 <用户确认后由 AI 填入以下内容，或写“未加入扫描规则” / “DevKit 已覆盖”>
-规则 ID：SCAN-G<NN>-01
+规则 ID：SCAN-GENERIC<NN>-01
 匹配文件类型：<如 .cpp .h .cc .hpp>
 匹配模式：<正则表达式描述>
 已写入 arm-scan-rules.json：<是 / 否>
@@ -118,8 +118,8 @@
 
 ### 格式要求
 
-1. **ID 格式**：`G-NN`、`V-NN`、`P-NN`（两位数字，不足补零），从文件现有最大 ID + 1 开始
-8. **扫描规则**（仅 G- 系列）：
+1. **ID 格式**：`GENERIC-NN`、`VERSION-NN`、`PROJECT-NN`（两位数字，不足补零），从文件现有最大 ID + 1 开始
+8. **扫描规则**（仅通用 ARM 适配类）：
    - 入库后必须调用 `AskQuestion` 询问用户是否将匹配规则加入 `arm-scan-rules.json`
    - 用户确认后填入扫描规则字段：规则 ID、匹配文件类型、匹配模式和写入状态
    - 用户选择「否」或「DevKit 已覆盖」时，填写对应原因
@@ -146,7 +146,7 @@
 
 ```bash
 # 检查当前最大 ID
-grep "^### G-" migration-cases/01-generic-arm-migration.md | tail -1
+grep "^### GENERIC-" migration-cases/generic-arm-migration-index.md | tail -1
 # 确定新 ID = 最大 ID + 1
 ```
 
@@ -156,8 +156,8 @@ grep "^### G-" migration-cases/01-generic-arm-migration.md | tail -1
 
 ```markdown
 案例分组：
-- **G-01 系列**：xxx
-- **G-02 系列**：xxx（新增）
+- **GENERIC-01 系列**：xxx
+- **GENERIC-02 系列**：xxx（新增）
 ```
 
 ### 3.3 同时更新 sourcecode-error-patterns.md（可选）
@@ -172,19 +172,19 @@ grep "^### G-" migration-cases/01-generic-arm-migration.md | tail -1
 遇到一个迁移改动，如何分类？
 
 是否是工具链/库版本升级导致的 API 变化？
-├─ YES → V- 系列（版本兼容性）
+├─ YES → VERSION 系列（版本兼容性）
 │         示例：Bison 3.x 废弃指令、Python 3 语法变化、GCC 更严格警告
 └─ NO ↓
 
 改动是否只在这一个特定项目中发生、换个项目不会有？
-├─ YES → P- 系列（项目特有）
+├─ YES → PROJECT 系列（项目特有）
 │         示例：特定 RPC 框架 BUILD 欠债、特定业务协议类型不一致
 └─ NO ↓
 
 是否根本原因是 x86/ARM 架构差异（指令集/ABI/内存模型/系统环境）？
-├─ YES → G- 系列（通用 ARM 适配）
+├─ YES → GENERIC 系列（通用 ARM 适配）
 │         示例：x86 汇编→ARM 汇编、内存序、char 符号性、ABI 不兼容
-└─ 不确定 → 归入 G- 系列并在根因中注明不确定性
+└─ 不确定 → 归入 GENERIC 系列并在根因中注明不确定性
 ```
 
 ---

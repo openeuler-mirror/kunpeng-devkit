@@ -2,7 +2,7 @@
 
 > **作用**：按**依赖库**索引的跨项目复用知识库。每个依赖库记录其在 ARM (aarch64) 上验证可用的适配分支/commit/路径；迁移新项目时按依赖库名定位即命中，在阶段 C 末尾经用户确认后切换，无需重新探测。
 >
-> **结构约定**：每个依赖库一个 `## <依赖库名>` 区块，一条 ARM 适配记录。依赖库已确认过则直接复用，不重复登记。不记录 x86 端版本，也不记录全局编译配置（ABI/工具链/构建命令是主仓级约束）。查询/写入/切换流程见 [common-arm-probe.md](../stages/b-dependency-analysis/common-arm-probe.md) Section 5 与 [arm-confirmed-write.md](../stages/b-dependency-analysis/arm-confirmed-write.md)。
+> **结构约定**：每个依赖库一个 `## <依赖库名>` 区块，一条 ARM 适配记录。依赖库已确认过则直接复用，不重复登记。不记录 x86 端版本，也不记录全局编译配置（ABI/工具链/构建命令是主仓级约束）。查询/写入/切换流程见 [common-arm-probe.md](../dependency-analysis/common-arm-probe.md) Section 5 与 [arm-confirmed-write.md](../dependency-analysis/arm-confirmed-write.md)。
 
 | ARM 适配分支/commit | ARM URL/路径 | 来源项目 | 备注 |
 |--------|--------|--------|--------|

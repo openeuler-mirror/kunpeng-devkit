@@ -24,7 +24,7 @@ Step 1（diff 采集）  →  Step 2（AI 分析）  →  Step 3（案例入库�
 - **Step 1**：从 x86 / ARM 分支（或当前迁移上下文）获取 diff，见 [diff-collection.md](diff-collection.md)
 - **Step 2**：AI 主动分析 diff 中每处改动的"为什么"，归类到三类案例，并识别是否可加入自定义扫描规则
 - **Step 3**：按三类规范写入对应案例库文件，见 [case-collection-guide.md](case-collection-guide.md)
-- **Step 4**：（仅对通用 G- 案例）询问用户是否将此案例的匹配模式加入 `arm-scan-rules.json`
+- **Step 4**：（仅对通用 ARM 适配类案例）询问用户是否将此案例的匹配模式加入 `arm-scan-rules.json`
 - **Step 5**：收集本次迁移成功使用的 ARM 分支/库版本信息，按主代码仓追加写入 `arm_confirmed.md`
 
 **如果上下文是一次已完成迁移（最终编译成功）：**  
@@ -121,7 +121,7 @@ git log --oneline --all | grep -iE "arm|aarch64|鲲鹏|kunpeng" | head -20
 错误现象：<编译报错信息或运行时错误>
 根因：<为什么 x86 正常但 ARM 出错>
 修复：<改动摘要>
-建议入库 ID：<G-XX / V-XX / P-XX>
+建议入库 ID：<GENERIC-XX / VERSION-XX / PROJECT-XX>
 可加入扫描规则：<是 / 否 / DevKit 已覆盖>
 ```
 
@@ -135,18 +135,18 @@ git log --oneline --all | grep -iE "arm|aarch64|鲲鹏|kunpeng" | head -20
 
 | 分类 | 详情库文件 | ID 前缀 |
 |------|----------|--------|
-| 通用 ARM 适配（含汇编、内存序、char 符号性、SIMD、ABI 等） | `migration-cases/G-cases.md` | `G-` |
-| 版本兼容性（工具链/库版本升级导致，换架构不一定必现） | `migration-cases/V-cases.md` | `V-` |
-| 项目特有（业务特定依赖组合、私有库、历史欠债） | `migration-cases/P-cases.md` | `P-` |
+| 通用 ARM 适配（含汇编、内存序、char 符号性、SIMD、ABI 等） | `migration-cases/generic-arm-migration-cases.md` | `GENERIC-` |
+| 版本兼容性（工具链/库版本升级导致，换架构不一定必现） | `migration-cases/version-compatibility-cases.md` | `VERSION-` |
+| 项目特有（业务特定依赖组合、私有库、历史欠债） | `migration-cases/project-specific-cases.md` | `PROJECT-` |
 
-> ⚠️ `01-generic-arm-migration.md`、`02-version-compatibility.md`、`03-project-specific.md` 是**路由索引文件**，只存摘要和行号，**不是案例正文的写入目标**。
+> ⚠️ `generic-arm-migration-index.md`、`version-compatibility-index.md`、`project-specific-index.md` 是**路由索引文件**，只存摘要和行号，**不是案例正文的写入目标**。
 
 ### 3.2 案例写入格式规范
 
 每条案例必须包含四要素，追加到对应 `*-cases.md` 文件末尾（紧接最后一个 `---` 之后）：
 
 ````markdown
-## <G-XX|V-XX|P-XX>：<简明标题>（不含项目名、业务名）
+## <GENERIC-XX|VERSION-XX|PROJECT-XX>：<简明标题>（不含项目名、业务名）
 
 **错误现象：**
 ```
@@ -173,45 +173,45 @@ git log --oneline --all | grep -iE "arm|aarch64|鲲鹏|kunpeng" | head -20
 **写入步骤：**
 
 1. 写入案例正文前，先确认新案例 ID（取当前最大 ID + 1）
-2. 用 `wc -l migration-cases/G-cases.md` 确认当前总行数
+2. 用 `wc -l migration-cases/generic-arm-migration-cases.md` 确认当前总行数
 3. 新案例起始行 = 当前总行数 + 2（追加后 `---` 占 1 行、空行占 1 行，`##` 标题从第 3 行开始）
 4. 将案例正文追加到文件末尾
 5. **在文件头部索引表追加一行**：
    ```
-   | G-XX | <起始行> | <摘要（核心错误关键词，≤30字）> |
+   | GENERIC-XX | <起始行> | <摘要（核心错误关键词，≤30字）> |
    ```
-6. **同步更新路由索引文件**中对应的摘要表（G 类更新 `01-generic-arm-migration.md`，V 类更新 `02-version-compatibility.md`，P 类更新 `03-project-specific.md`）
+6. **同步更新路由索引文件**中对应的摘要表（通用 ARM 适配类更新 `generic-arm-migration-index.md`，版本兼容类更新 `version-compatibility-index.md`，项目特有类更新 `project-specific-index.md`）
 
-> ⚠️ 行号必须准确——AI 依赖行号执行 `read_file(offset=<起始行>, limit=70)` 精准读取，行号偏差会导致读取到错误内容。写入后用 `sed -n '<起始行>p' migration-cases/G-cases.md` 验证该行确实是 `## G-XX` 标题行。
-
----
+> ⚠️ 行号必须准确——AI 依赖行号执行 `read_file(offset=<起始行>, limit=70)` 精准读取，行号偏差会导致读取到错误内容。写入后用 `sed -n '<起始行>p' migration-cases/generic-arm-migration-cases.md` 验证该行确实是 `## GENERIC-XX` 标题行。
 
 ---
 
-## Step 4：更新自定义扫描规则（仅通用 G- 案例）
+---
+
+## Step 4：更新自定义扫描规则（仅通用 ARM 适配类案例）
 
 ### 4.1 判断是否适合加入扫描规则
 
 以下情况**不**加入扫描规则：
 - DevKit 已完整覆盖该类型（如汇编、intrinsics、immintrin 系头文件、类型大小、内存对齐）
 - 错误现象无法用正则表达式匹配（如纯适配逻辑问题、运行时崩溃）
-- V-（版本兼容）或 P-（项目特有）类型案例
+- VERSION（版本兼容）或 PROJECT（项目特有）类型案例
 
 以下情况**适合**加入扫描规则：
-- 属于 G-（通用 ARM 适配）案例
+- 属于 GENERIC（通用 ARM 适配）案例
 - 错误模式可用正则表达式匹配（如特定头文件、宣娊模式、特定字符串）
 - DevKit 未覆盖或仅部分覆盖（`devkit_covered: false` 或 `partial`）
 
 ### 4.2 必须询问用户确认
 
-**对每个通用 G- 案例，AI 必须调用 `AskQuestion` 询问用户**，不得自行判断是否加入扫描规则：
+**对每个通用 ARM 适配类案例，AI 必须调用 `AskQuestion` 询问用户**，不得自行判断是否加入扫描规则：
 
 ```
 AskQuestion({
   title: "扫描规则确认",
   questions: [{
     id: "add_scan_rule",
-    prompt: "案例 [G-XX: <标题>] 已入库。
+    prompt: "案例 [GENERIC-XX: <标题>] 已入库。
 该问题可用正则匹配：<简述匹配模式>。
 是否将此案例的扫描规则加入 arm-scan-rules.json，
 以便未来新项目迁移时快速扫描定位该问题？",
@@ -230,8 +230,8 @@ AskQuestion({
 
 ```json
 {
-  "id": "SCAN-G<NN>-01",
-  "case_ref": "G-<NN>",
+  "id": "SCAN-GENERIC<NN>-01",
+  "case_ref": "GENERIC-<NN>",
   "title": "<案例标题，不含项目名>",
   "description": "<问题简述，说明为什么 x86 正常但 ARM 出错>",
   "file_types": ["<扫描的文件后缀列表，如 .cpp .h .cc>"],
@@ -405,15 +405,15 @@ grep -n "^## " <skill-dir>/case-collector/arm_confirmed.md
 
 **详情库（案例正文写入目标）：**
 
-- **G 类详情库**：[migration-cases/G-cases.md](migration-cases/G-cases.md)（G-01~G-30+，通用 x86→ARM 架构差异）
-- **V 类详情库**：[migration-cases/V-cases.md](migration-cases/V-cases.md)（V-01~V-06+，构建工具链版本兼容问题）
-- **P 类详情库**：[migration-cases/P-cases.md](migration-cases/P-cases.md)（P-01~P-15+，项目特有依赖与编译问题）
+- **通用 ARM 适配详情库**：[migration-cases/generic-arm-migration-cases.md](migration-cases/generic-arm-migration-cases.md)（GENERIC-01~GENERIC-30+，通用 x86→ARM 架构差异）
+- **版本兼容性详情库**：[migration-cases/version-compatibility-cases.md](migration-cases/version-compatibility-cases.md)（VERSION-01~VERSION-06+，构建工具链版本兼容问题）
+- **项目特有详情库**：[migration-cases/project-specific-cases.md](migration-cases/project-specific-cases.md)（PROJECT-01~PROJECT-15+，项目特有依赖与编译问题）
 
 **路由索引（仅存摘要+行号，不写入案例正文）：**
 
-- **通用 ARM 适配路由**：[migration-cases/01-generic-arm-migration.md](migration-cases/01-generic-arm-migration.md)（A~F 系列快速路由 + G 系列摘要索引）
-- **版本兼容性路由**：[migration-cases/02-version-compatibility.md](migration-cases/02-version-compatibility.md)（V 系列摘要索引）
-- **项目特有路由**：[migration-cases/03-project-specific.md](migration-cases/03-project-specific.md)（P 系列摘要索引）
+- **通用 ARM 适配路由**：[migration-cases/generic-arm-migration-index.md](migration-cases/generic-arm-migration-index.md)（通用 ARM 适配摘要索引）
+- **版本兼容性路由**：[migration-cases/version-compatibility-index.md](migration-cases/version-compatibility-index.md)（版本兼容性摘要索引）
+- **项目特有路由**：[migration-cases/project-specific-index.md](migration-cases/project-specific-index.md)（项目特有摘要索引）
 
 **其他资源：**
 

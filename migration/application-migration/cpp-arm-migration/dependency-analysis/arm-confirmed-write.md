@@ -157,7 +157,7 @@ if [ -d "$DEP_DIR" ]; then
 fi
 ```
 
-> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify.md](../e-build-verify/sourcecode-build-verify.md) E.8 节落实。
+> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify.md](../build-verify/sourcecode-build-verify.md) E.8 节落实。
 
 ### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
@@ -234,7 +234,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [sourcecode-devkit-scan.md](../d-devkit-scan/sourcecode-devkit-scan.md)）。
+校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [sourcecode-devkit-scan.md](../devkit-scan/sourcecode-devkit-scan.md)）。
 
 ---
 

@@ -47,7 +47,7 @@ options:
 
 ### D.1.2 确认扫描参数
 
-根据阶段 A `stages/a-environment/SKILL.md` 的构建系统检测结果，确定 `-b` 参数：
+根据阶段 A `environment-prepare/SKILL.md` 的构建系统检测结果，确定 `-b` 参数：
 
 | 构建系统           | `-b` 参数值 |
 | -------------- | -------- |
