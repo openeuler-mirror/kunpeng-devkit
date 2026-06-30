@@ -105,7 +105,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ## 阶段 A：环境检测与准备（子 agent）
 
-> **执行方式：阶段 A 以子 agent 模式执行 environment-prepare/SKILL.md（子 Skill environment-prepare），调起方式见文末「调起约定与跨助手适配」。**
+> **执行方式：阶段 A 以子 agent 模式执行 environment-prepare/environment-check-agent.md（子 agent environment-prepare），调起方式见文末「调起约定与跨助手适配」。**
 >
 > **子 agent 边界**：子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
 
@@ -115,9 +115,9 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 阶段 A 子 agent 调用指令
 
-主编排拉起阶段 A 子 agent 执行。提示词模板见 [environment-check-agent.md](environment-prepare/environment-check-agent.md)。
+主编排拉起阶段 A 子 agent 执行。完整提示词见 [environment-check-agent.md](environment-prepare/environment-check-agent.md)。
 
-读取该文件的「提示词正文」，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段A-环境检测与准备"`）。
+读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段A-环境检测与准备"`）。
 
 **待确认项场景**（每个冲突项 = 一条待确认项，子 agent 写入中间文件而非直接提问）：
 
@@ -132,7 +132,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ## 阶段 B：依赖分析与 ARM 兼容性探测（子 agent）
 
-> **执行方式：阶段 B 以子 agent 模式执行 dependency-analysis/SKILL.md（子 Skill dependency-analysis），调起方式见文末「调起约定与跨助手适配」。**
+> **执行方式：阶段 B 以子 agent 模式执行 dependency-analysis/dependency-analysis-agent.md（子 agent dependency-analysis），调起方式见文末「调起约定与跨助手适配」。**
 >
 > **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `arm_confirmed.md` 的依赖（已知 ARM 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
 
@@ -142,9 +142,9 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 阶段 B 子 agent 调用指令
 
-主编排拉起阶段 B 子 agent 执行。提示词模板见 [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md)。
+主编排拉起阶段 B 子 agent 执行。完整提示词见 [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md)。
 
-读取该文件的「提示词正文」，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段B-依赖分析与ARM兼容性探测"`）。
+读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段B-依赖分析与ARM兼容性探测"`）。
 
 **待确认项场景**（每个冲突项 = 一条待确认项，子 agent 写入中间文件而非直接提问）：
 
@@ -160,7 +160,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ## 阶段 C：汇总子 agent 待确认项 + 等待用户确认
 
-> **硬性约束**：本阶段**必须向用户提问**（用你运行环境的提问机制，见文末「调起约定与跨助手适配」），**严禁跳过直接进入阶段 D**。阶段 A、B 的子 agent 已将待确认项写入中间文件，本阶段由主编排统一收集并提问。即使没有疑问项，也必须向用户确认"是否继续"，**不得在用户明确回复前自行推进**。
+> **硬性约束**：本阶段**必须调用运行环境的交互式提问工具**（Claude Code 的 `AskUserQuestion` / CatPaw 的 `AskQuestion` 等，全表见文末「调起约定与跨助手适配」）**阻塞等待用户真实回复**，**严禁以纯文本输出问题代替**——纯文本无结构化选项、不阻塞、易被自答，会架空本阶段确认闸门。阶段 A、B 的子 agent 已将待确认项写入中间文件，本阶段由主编排统一收集并提问。即使没有疑问项，也必须向用户确认"是否继续"，**严禁跳过直接进入阶段 D，不得在用户明确回复前自行推进**。
 
 ### C.1 汇总两份待确认项清单
 
@@ -174,6 +174,8 @@ cat $WORK_DIR/reports/stage_b_pending_items.md
 合并去重后形成统一待确认清单。每条待确认项含 `id`、`category`（环境检测 / 依赖分析）、`question`、`options`。
 
 ### C.2 向用户提问（强制）
+
+> 「向用户提问」指调用交互式提问工具提交结构化 question（含 `id`/`prompt`/`options`）并阻塞，**不是在回复正文里打一段问句**。
 
 **每个独立决策点 = 一个 question 条目**。即使全部可自动推断，也要至少追加：
 
@@ -356,13 +358,13 @@ options:
 
 ## 子 Skill
 
-本主 Skill 包含以下子 Skill，可作为独立 Skill 单独调用，也可由主编排拉起子 agent 执行（调起方式见文末「调起约定与跨助手适配」）：
+本主 Skill 包含以下子模块，阶段 A、B 为子 agent 提示词包（含完整方法与输入/输出契约，由主编排拉起子 agent 执行），devkit-scan 为子 Skill：
 
-| 子 Skill | SKILL.md | 用途 |
+| 子模块 | 入口文件 | 用途 |
 |----------|----------|------|
-| `environment-prepare` | [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 A：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
-| `dependency-analysis` | [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 B：依赖分析与 ARM 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
-| `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
+| `environment-prepare` | [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A 子 agent：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
+| `dependency-analysis` | [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent：依赖分析与 ARM 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+| `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
 
 ---
 
@@ -376,13 +378,13 @@ options:
 
 ### 各助手映射（示例，可扩展）
 
-| 编程助手 | 子 agent 调起方式 | 读取文件 | 写入文件 | 执行 shell 命令 | 向用户提问 |
+| 编程助手 | 子 agent 调起方式 | 读取文件 | 写入文件 | 执行 shell 命令 | 向用户提问（必须用此工具，不得以纯文本代替） |
 |---|---|---|---|---|---|
-| Claude Code | Agent 工具（`subagent_type: general-purpose`） | Read | Write | Bash | AskUserQuestion |
-| OpenCode | `task` 工具 | read | write | bash | TUI 专用提问弹窗（Question.Service，非 tool call；headless/run 模式下不可用） |
-| CatPaw IDE | 以官方文档为准 | 以官方文档为准 | 以官方文档为准 | 以官方文档为准 | 以官方文档为准 |
+| Claude Code | Agent 工具（`subagent_type: general-purpose`） | Read | Write | Bash | `AskUserQuestion`（阻塞，headless 可用） |
+| OpenCode | `task` 工具 | read | write | bash | Question.Service（TUI 弹窗，阻塞；**headless/run 模式不可用**） |
+| CatPaw IDE | `task` 工具（`subagent_type` / `prompt` / `description`） | `read_file` | `write` | `run_terminal_cmd` | `AskQuestion` |
 
-> 本 Skill 正文及 agent 模板中一律用「读取文件 / 写入文件 / 执行 shell 命令 / 向用户提问」等语义动词表述，运行时请按下表映射到你所用助手的对应工具。
+> 本 Skill 正文及 agent 模板中一律用「读取文件 / 写入文件 / 执行 shell 命令 / 向用户提问」等语义动词表述，运行时请按下表映射到你所用助手的对应工具。其中「向用户提问」是唯一可能被纯文本输出"假装"完成的动作——**必须落到上表工具，不得用回复正文代替**。
 
 ---
 
@@ -392,11 +394,9 @@ options:
 
 | 文档 | 用途 |
 |------|------|
-| [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（含构建工具下载链接 build-tools-reference.md） |
-| [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 B 子 Skill：依赖分析与兼容性探测（含 arm_confirmed.md 免检清单） |
+| [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A 子 agent 完整提示词：环境检测与编译环境准备（含方法、输入/输出契约、待确认项格式、构建工具下载链接 build-tools-reference.md） |
+| [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent 完整提示词：依赖分析与 ARM 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、arm_confirmed.md 免检清单） |
 | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 E 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
-| [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A 子 agent 提示词模板（环境检测与准备） |
-| [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent 提示词模板（依赖分析与 ARM 兼容性探测） |
 | [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见本 SKILL.md，含 devkit-download.md 下载说明） |
 | `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
