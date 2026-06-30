@@ -169,7 +169,7 @@ CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②*
 >
 > **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
 >
-> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-cmake.md](../build-systems/dependency-analysis-cmake.md)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
+> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](../build-systems/dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
 >
 > 该步骤完成后，必须在 `$WORK_DIR/reports/user_decisions.txt` 留痕（记录**每个子模块钉定的分支/commit**，不只是"是否已禁用"）：
 > ```

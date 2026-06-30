@@ -1,7 +1,7 @@
-# 构建系统依赖分析（合并版）
+# 构建系统依赖分析
 
-> **使用方式**：根据 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 1 识别到的构建系统，跳转到下方对应章节。
->
+本文件按构建系统分章节收录 Bazel / CMake / Blade / SCons 四类项目的依赖分析流程。各章节相互独立，**按需加载**：根据 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 1 识别到的构建系统，只读取下方对应章节，其余跳过——不要整篇载入，避免占用上下文。
+
 > **章节索引**：
 > - [CMake 构建系统依赖分析](#cmake-构建系统依赖分析)
 > - [Blade 构建系统依赖分析](#blade-构建系统依赖分析)
@@ -309,7 +309,7 @@ grep -rn '"#.*"' <项目根目录>/thirdparty/*/BUILD <项目根目录>/*/BUILD 
 - BLADE_ROOT 中 `extra_incs`/`cxxflags` 是否指向 ARM 版路径
 - 检查 BUILD/BUILD.x86 双架构分离是否完整（每个有 BUILD.x86 的组件都应有 ARM 版 BUILD）
 - ARM 库查找顺序：先查 `thirdparty/<组件名>/` 下是否有 `*_arm` 子目录，若无则查 `thirdparty_arm/<组件名>/`；找到后需回迁到 `thirdparty/` 下构建系统才能识别
-- 若项目目录下同时存在 `SConstruct` 文件，需额外检查其中的 x86 编译标志（`-msse`/`-mavx`/`-m64`）；参考 [dependency-analysis-scons.md](dependency-analysis-scons.md) 中「SCons 关键检查项」一节
+- 若项目目录下同时存在 `SConstruct` 文件，需额外检查其中的 x86 编译标志（`-msse`/`-mavx`/`-m64`）；参考本文 [SCons 构建系统依赖分析](#scons-构建系统依赖分析) 中「SCons 关键检查项」一节
 
 ---
 

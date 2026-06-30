@@ -30,10 +30,11 @@ description: C/C++ 项目 ARM 迁移的阶段 B 子 Skill：依赖分析与 ARM 
 | [analyze-one-repo.md](references/analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
 | [common-arm-probe.md](references/common-arm-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
 | [common-binary-detect.md](references/common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
-| [dependency-analysis-bazel.md](build-systems/dependency-analysis-bazel.md) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
-| [dependency-analysis-cmake.md](build-systems/dependency-analysis-cmake.md) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
-| [dependency-analysis-blade.md](build-systems/dependency-analysis-blade.md) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
-| [dependency-analysis-scons.md](build-systems/dependency-analysis-scons.md) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
+| [dependency-analysis-build-systems.md](build-systems/dependency-analysis-build-systems.md) | 四构建系统合集（按需加载对应章节）：Bazel/CMake/Blade/SCons 依赖扫描、预编译包识别、子模块自动签出检查 |
+| └ [#bazel](build-systems/dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
+| └ [#cmake](build-systems/dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
+| └ [#blade](build-systems/dependency-analysis-build-systems.md#blade-构建系统依赖分析) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
+| └ [#scons](build-systems/dependency-analysis-build-systems.md#scons-构建系统依赖分析) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
 | [arm-confirmed-write.md](references/arm-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
 | [dependency-analysis-report-template-example.md](assets/dependency-analysis-report-template-example.md) | 报告输出模板示例 |
 

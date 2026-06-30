@@ -30,11 +30,11 @@ task(
 2. 先 read_file("$SKILL_DIR/dependency-analysis/references/analyze-one-repo.md") 获取单仓库分析闭环步骤
 3. 先 read_file("$SKILL_DIR/dependency-analysis/references/common-arm-probe.md") 获取 ARM 兼容性探测步骤
 4. 先 read_file("$SKILL_DIR/dependency-analysis/references/common-binary-detect.md") 获取预编译二进制识别步骤
-5. 根据阶段 A 识别的构建系统，read_file 对应的专用分析文件：
-   - Bazel: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-bazel.md"
-   - CMake: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-cmake.md"
-   - Blade: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-blade.md"
-   - SCons: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-scons.md"
+5. 根据阶段 A 识别的构建系统，read_file 合并版文件并定位到对应章节（四构建系统依赖分析合一）：
+   - Bazel: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-build-systems.md"（# Bazel 构建系统依赖分析 章节）
+   - CMake: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-build-systems.md"（# CMake 构建系统依赖分析 章节）
+   - Blade: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-build-systems.md"（# Blade 构建系统依赖分析 章节）
+   - SCons: "$SKILL_DIR/dependency-analysis/build-systems/dependency-analysis-build-systems.md"（# SCons 构建系统依赖分析 章节）
 6. 先 read_file("$SKILL_DIR/dependency-analysis/references/arm_confirmed.md") 读取免检清单
 7. 按照上述文档的步骤逐一执行依赖分析
 8. 使用 run_terminal_cmd / read_file / grep 等工具收集信息

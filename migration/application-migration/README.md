@@ -92,10 +92,7 @@ cpp-arm-migration/
 │   ├── assets/
 │   │   └── dependency-analysis-report-template-example.md  # 报告输出模板
 │   └── build-systems/
-│       ├── dependency-analysis-bazel.md              # Bazel 专用分析
-│       ├── dependency-analysis-cmake.md              # CMake 专用分析
-│       ├── dependency-analysis-blade.md              # Blade 专用分析
-│       └── dependency-analysis-scons.md              # SCons 专用分析
+│       └── dependency-analysis-build-systems.md     # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
 ├── devkit-scan/                                      # 阶段 D 子 Skill：DevKit 扫描与源码/构建适配
 │   ├── SKILL.md                                      # 完整扫描 + 适配流程
 │   ├── references/
