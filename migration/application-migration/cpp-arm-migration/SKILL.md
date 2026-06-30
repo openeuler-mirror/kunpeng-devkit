@@ -3,7 +3,7 @@ name: cpp-kunpeng-migration
 description: 将 C/C++ 项目从 x86 迁移到 ARM（aarch64/鲲鹏），实现双架构同时兼容编译运行。当用户要求把 C/C++ 项目适配/迁移到 ARM、鲲鹏、aarch64，或需要项目同时支持 x86 与 ARM 架构时调用。支持 Bazel/CMake/Make/Blade/SCons 构建系统，五阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环）。
 ---
 
-# C/C++ 项目 ARM 迁移主控 Skill
+# C/C++ 项目 Kunpeng 迁移主控 Skill
 
 ## 核心原则
 
@@ -12,7 +12,7 @@ description: 将 C/C++ 项目从 x86 迁移到 ARM（aarch64/鲲鹏），实现�
 - **非侵入式工作目录**：所有临时产物放到项目目录之外的专用工作目录，不污染源码树
 - **子 agent 边界**：阶段 A、B 以子 agent 模式执行，子 agent **不直接向用户提问**，所有需用户决策的项以结构化"待确认项"写入中间文件，由主编排在阶段 C 统一提问
 - **一次性信息收集**：所有需要用户提供的信息**在阶段 C 一次性问清楚**，不在后续流程中反复打断用户
-- **子仓库优先**：存在私有仓库依赖时，优先推动子仓库完成 ARM 适配后再编译主仓库
+- **子仓库优先**：存在私有仓库依赖时，优先推动子仓库完成 Kunpeng 适配后再编译主仓库
 
 ---
 
@@ -42,7 +42,7 @@ mkdir -p $WORK_DIR/{reports,downloads,build,logs,devkit}
 | 目录 | 用途 |
 |------|------|
 | `reports/` | DevKit 扫描报告、依赖分析报告、修改清单 |
-| `downloads/` | 依赖源码包、ARM 预编译库下载 |
+| `downloads/` | 依赖源码包、Kunpeng 预编译库下载 |
 | `build/` | 第三方库临时编译安装目录 |
 | `logs/` | 每轮编译日志（`build_1.log`、`build_2.log`…） |
 | `devkit/` | DevKit CLI 包解压安装目录（`devkit` 可执行文件所在） |
@@ -75,7 +75,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 |------|------------|------|
 | 阶段 A | `$WORK_DIR/reports/stage_a_pending_items.md` | 环境检测版本不一致项 |
 | 阶段 B | `$WORK_DIR/reports/stage_b_pending_items.md` | 依赖冲突项 |
-| 阶段 B | `$WORK_DIR/reports/stage_b_switch_list.md` | 命中 `arm_confirmed.md` 的待切换依赖（已知 ARM 适配，无需提问，供阶段 C.4 切换） |
+| 阶段 B | `$WORK_DIR/reports/stage_b_switch_list.md` | 命中 `kunpeng_confirmed.md` 的待切换依赖（已知 Kunpeng 适配，无需提问，供阶段 C.4 切换） |
 
 ### 待确认项格式（YAML 风格代码块）
 
@@ -99,7 +99,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 ### 输出规则
 
 1. 无待确认项时文件标注"无待确认项"（主编排据此跳过提问）；用户回复由主编排写入 `$WORK_DIR/reports/user_decisions.txt`
-2. **命中 `arm_confirmed.md` 的依赖不生成待确认项**：改为写入待切换清单（stage_b_switch_list.md）
+2. **命中 `kunpeng_confirmed.md` 的依赖不生成待确认项**：改为写入待切换清单（stage_b_switch_list.md）
 
 ---
 
@@ -109,7 +109,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 >
 > **子 agent 边界**：子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
 
-**本阶段目标**：确认 ARM 环境具备编译条件，输出环境检测报告到 `$WORK_DIR/reports/environment_check_report.md`，并输出待确认项清单到 `$WORK_DIR/reports/stage_a_pending_items.md`。
+**本阶段目标**：确认 Kunpeng 环境具备编译条件，输出环境检测报告到 `$WORK_DIR/reports/environment_check_report.md`，并输出待确认项清单到 `$WORK_DIR/reports/stage_a_pending_items.md`。
 
 **阶段 A 完成后**：读取待确认项清单，**暂不提问**，直接进入阶段 B（待确认项在阶段 C 统一提问）。
 
@@ -123,20 +123,20 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 | 检测场景 | 问题示例 |
 |---|---|
-| Bazel 项目要求 X.Y，ARM 已装 X'.Y' | `"Bazel 项目需要 X.Y，ARM 已安装 X'.Y'，如何处理？"` 选项：安装项目指定版本 / 使用已安装版本 / 中止 |
+| Bazel 项目要求 X.Y，Kunpeng 已装 X'.Y' | `"Bazel 项目需要 X.Y，ARM 已安装 X'.Y'，如何处理？"` 选项：安装项目指定版本 / 使用已安装版本 / 中止 |
 | protoc 版本与项目 protobuf 版本不匹配 | `"ARM 上 protoc 为 X，项目使用 protobuf Y，如何处理？"` 选项：为 ARM 重新编译匹配版 protoc / 中止 |
 | Blade 版本不支持 arm64 | `"Blade 版本过旧不支持 arm64，需要升级，是否确认？"` 选项：确认升级 / 中止 |
 | 所有工具版本均一致 | 追加一条"确认继续"总项即可 |
 
 ---
 
-## 阶段 B：依赖分析与 ARM 兼容性探测（子 agent）
+## 阶段 B：依赖分析与 Kunpeng 兼容性探测（子 agent）
 
 > **执行方式：阶段 B 以子 agent 模式执行 dependency-analysis/dependency-analysis-agent.md（子 agent dependency-analysis），调起方式见文末「调起约定与跨助手适配」。**
 >
-> **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `arm_confirmed.md` 的依赖（已知 ARM 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
+> **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖（已知 Kunpeng 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
 
-**本阶段目标**：全面分析项目所有外部依赖，评估每个依赖的 ARM 兼容性，输出依赖分析报告，并输出待确认项清单与待切换清单。
+**本阶段目标**：全面分析项目所有外部依赖，评估每个依赖的 Kunpeng 兼容性，输出依赖分析报告，并输出待确认项清单与待切换清单。
 
 **阶段 B 完成后**：读取待确认项清单与待切换清单，**暂不提问**，进入阶段 C（待确认项在阶段 C 统一提问，待切换清单在阶段 C.4 经用户确认后切换）。
 
@@ -150,9 +150,9 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 | 检测场景 | 问题示例 |
 |---|---|
-| 私有库无 ARM 预编译包 | `"libXXX 无 ARM 版本，如何处理？"` 选项：从源码编译 / 提供已有包路径 / 禁用该模块 |
+| 私有库无 Kunpeng 预编译包 | `"libXXX 无 Kunpeng 版本，如何处理？"` 选项：从源码编译 / 提供已有包路径 / 禁用该模块 |
 | 私有库有 ARM 分支但不确定是否可用 | `"@xxx ARM 分支 arm64 是否可用？"` 选项：可用 / 不确定请等待 / 跳过 |
-| 依赖版本冲突（项目需求 A.B， ARM 环境只有 A'.B'） | `"XXX 项目需求版本 A.B，ARM 环境已有 A'.B'，如何处理？"` 选项：使用 A'.B' / 升级 / 中止 |
+| 依赖版本冲突（项目需求 A.B， Kunpeng 环境只有 A'.B'） | `"XXX 项目需求版本 A.B，Kunpeng 环境已有 A'.B'，如何处理？"` 选项：使用 A'.B' / 升级 / 中止 |
 | x86 专属功能（AVX 加速等）在 ARM 是否保留 | `"AVX 加速模块在 ARM 是否保留？"` 选项：保留（NEON 替代）/ 禁用 |
 | 所有依赖均已确认 | 追加一条"确认开始迁移"总项 |
 
@@ -181,7 +181,7 @@ cat $WORK_DIR/reports/stage_b_pending_items.md
 
 ```
 question id="confirm_proceed"
-prompt="以上是环境检测与依赖分析摘要，是否确认开始 ARM 迁移？"
+prompt="以上是环境检测与依赖分析摘要，是否确认开始 Kunpeng 迁移？"
 options:
   - id="yes"   label="确认，开始迁移"
   - id="review" label="我需要先确认某些依赖，请等待"
@@ -198,12 +198,12 @@ options:
 
 ### C.4 登记清单 + 确认切换 + 校验
 
-> **必须读取文件 `dependency-analysis/arm-confirmed-write.md` 获取完整执行步骤。**
+> **必须读取文件 `dependency-analysis/kunpeng-confirmed-write.md` 获取完整执行步骤。**
 
 本步骤在阶段 C 末尾一次性完成三件事：
-1. **登记**：把用户确认的依赖 ARM 适配信息按依赖库写入 [arm_confirmed.md](dependency-analysis/arm_confirmed.md)
-2. **确认切换**：把待切换清单**逐项向用户确认**后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本
-3. **校验**：切换后逐项核对分支是否真切到 ARM 版（一句话提醒：切错会让后续编译错误极难排查）
+1. **登记**：把用户确认的依赖 Kunpeng 适配信息按依赖库写入 [kunpeng_confirmed.md](dependency-analysis/kunpeng_confirmed.md)
+2. **确认切换**：把待切换清单**逐项向用户确认**后，立即把构建配置分支/commit/URL 切换为清单记录的 Kunpeng 版本
+3. **校验**：切换后逐项核对分支是否真切到 Kunpeng 版（一句话提醒：切错会让后续编译错误极难排查）
 
 > **分支切换必须用户确认**：清单记录的 ARM 分支未必与当前项目实际一致，切错会导致编译错误极难排查、迁移成本陡增——未获用户逐项确认不得执行任何切换命令。切换在阶段 C 末尾完成，阶段 D 不再涉及分支切换。
 
@@ -251,7 +251,7 @@ options:
 
 ---
 
-## 阶段 F1：知识库自更新（调用 arm-migration-case-collector skill）
+## 阶段 F1：知识库自更新（调用 kunpeng-migration-case-collector skill）
 
 **本阶段目标**：将本次迁移中实际修复的典型编译错误提取为标准案例，经用户勾选确认后写入案例库，实现知识库持续积累。
 
@@ -325,8 +325,8 @@ options:
    ```
 
 4. **Step 3（写入）**：收到用户勾选结果后，仅写入用户确认的案例；若用户选择跳过，输出 `本次迁移无新案例写入知识库`，直接进入 F1.3
-5. **Step 4（更新扫描规则）**：对每条通用 ARM 适配类案例，按 case-collector skill Step 4 流程询问用户是否加入 `arm-scan-rules.json`
-6. **Step 5（收集 ARM 分支信息）**：将本次迁移验证可用的 ARM 依赖版本信息追加写入 `arm_confirmed.md`
+5. **Step 4（更新扫描规则）**：对每条通用 Kunpeng 适配类案例，按 case-collector skill Step 4 流程询问用户是否加入 `arm-scan-rules.json`
+6. **Step 5（收集 ARM 分支信息）**：将本次迁移验证可用的 ARM 依赖版本信息追加写入 `kunpeng_confirmed.md`
 
 ### F1.3 完成提示
 
@@ -363,7 +363,7 @@ options:
 | 子模块 | 入口文件 | 用途 |
 |----------|----------|------|
 | `environment-prepare` | [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A 子 agent：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
-| `dependency-analysis` | [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent：依赖分析与 ARM 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+| `dependency-analysis` | [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
 | `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
 
 ---
@@ -395,9 +395,9 @@ options:
 | 文档 | 用途 |
 |------|------|
 | [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A 子 agent 完整提示词：环境检测与编译环境准备（含方法、输入/输出契约、待确认项格式、构建工具下载链接 build-tools-reference.md） |
-| [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent 完整提示词：依赖分析与 ARM 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、arm_confirmed.md 免检清单） |
+| [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent 完整提示词：依赖分析与 Kunpeng 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、kunpeng_confirmed.md 免检清单） |
 | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 E 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
-| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
+| [dependency-analysis/kunpeng-confirmed-write.md](dependency-analysis/kunpeng-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见本 SKILL.md，含 devkit-download.md 下载说明） |
 | `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
 | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 F2：迁移总结报告生成子 Skill |

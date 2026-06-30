@@ -1,8 +1,8 @@
 # 单仓库分析入口（analyze-one-repo）
 
-> 本文件是**单个仓库的分析闭环**。主仓库和所有子模块（含嵌套子模块）均通过此文件执行分析，由 [SKILL.md](SKILL.md) 的主循环驱动调用。
+> 本文件是**单个仓库的分析闭环**。主仓库和所有子模块（含嵌套子模块）均通过此文件执行分析，由 [dependency-analysis-agent.md](dependency-analysis-agent.md) 的主循环驱动调用。
 >
-> **不要直接修改此文件中的通用能力逻辑**——二进制识别见 [common-binary-detect.md](common-binary-detect.md)，ARM 探测见 [common-arm-probe.md](common-arm-probe.md)。
+> **不要直接修改此文件中的通用能力逻辑**——二进制识别见 [common-binary-detect.md](common-binary-detect.md)，ARM 探测见 [common-kunpeng-probe.md](common-kunpeng-probe.md)。
 
 ---
 
@@ -75,12 +75,12 @@ grep -rn "yum install\|apt-get install\|apt install" "$REPO_PATH"/*.sh "$REPO_PA
 
 ### Step 3：对 deps_list 执行 ARM 兼容性探测
 
-加载 [common-arm-probe.md](common-arm-probe.md)，对 Step 2 收集的每个依赖执行：
+加载 [common-kunpeng-probe.md](common-kunpeng-probe.md)，对 Step 2 收集的每个依赖执行：
 
 1. 私有 URL 判断（公开平台直接豁免）
 2. 远端分支检查（`git ls-remote --heads`）
 3. 本地提交历史检查（`git log grep arm/aarch64`）
-4. 与 `arm_confirmed.md` 免检清单比对
+4. 与 `kunpeng_confirmed.md` 免检清单比对
 
 输出每个依赖的 `arm_status`（已确认 / 待确认 / 未知）。
 
@@ -134,7 +134,7 @@ git submodule status
 递归执行：Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6
 ```
 
-同时检查每个子模块的 ARM 兼容性（加载 `common-arm-probe.md` 即可，此处无需重复写命令）。
+同时检查每个子模块的 ARM 兼容性（加载 `common-kunpeng-probe.md` 即可，此处无需重复写命令）。
 
 #### 情况 B：`REPO_DEPTH >= MAX_DEPTH`（已达最大深度）
 

@@ -40,14 +40,14 @@
 |------|------|
 | **本文件** | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告 |
 | [analyze-one-repo.md](analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [common-arm-probe.md](common-arm-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
+| [common-kunpeng-probe.md](common-kunpeng-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
 | [common-binary-detect.md](common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
 | [dependency-analysis-build-systems.md](dependency-analysis-build-systems.md) | 四构建系统合集（按需加载对应章节）：Bazel/CMake/Blade/SCons 依赖扫描、预编译包识别、子模块自动签出检查 |
 | └ [#bazel](dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
 | └ [#cmake](dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
 | └ [#blade](dependency-analysis-build-systems.md#blade-构建系统依赖分析) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
 | └ [#scons](dependency-analysis-build-systems.md#scons-构建系统依赖分析) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
-| [arm-confirmed-write.md](arm-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
+| [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
 | [dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md) | 报告输出模板示例 |
 
 ---
@@ -78,10 +78,10 @@ cat "$REPORT"
 **在启动任何仓库分析之前**，先读取全局免检清单，避免对已确认兼容的依赖重复探测：
 
 ```bash
-cat "$SKILL_DIR/dependency-analysis/arm_confirmed.md" 2>/dev/null
+cat "$SKILL_DIR/dependency-analysis/kunpeng_confirmed.md" 2>/dev/null
 ```
 
-将免检清单的内容缓存在上下文中，供后续每次调用 [common-arm-probe.md](common-arm-probe.md) 时使用（Section 5 比对）。
+将免检清单的内容缓存在上下文中，供后续每次调用 [common-kunpeng-probe.md](common-kunpeng-probe.md) 时使用（Section 5 比对）。
 
 > **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
 
@@ -103,7 +103,7 @@ cat "$SKILL_DIR/dependency-analysis/arm_confirmed.md" 2>/dev/null
 
 `analyze-one-repo.md` 内部会自动：
 - 检测主仓构建系统，加载对应专用分析文件
-- 调用 [common-arm-probe.md](common-arm-probe.md) 执行 ARM 兼容性探测
+- 调用 [common-kunpeng-probe.md](common-kunpeng-probe.md) 执行 ARM 兼容性探测
 - 调用 [common-binary-detect.md](common-binary-detect.md) 执行预编译二进制识别与溯源
 - 递归处理所有子模块（最多 `MAX_DEPTH` 层），每个子仓**独立检测构建系统**
 
@@ -134,7 +134,7 @@ cat "$SKILL_DIR/dependency-analysis/arm_confirmed.md" 2>/dev/null
 
 **只要符合上述任意一条，对应依赖在报告的所有章节中完全不出现。**
 
-> **命中 `arm_confirmed.md` 的依赖单独处理**：按依赖库名命中区块的依赖**不属于**「必定兼容、完全省略」，而是在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」（让用户看到哪些依赖复用了历史成果），把 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，**不进入报告末尾的「待用户手动确认清单」**。
+> **命中 `kunpeng_confirmed.md` 的依赖单独处理**：按依赖库名命中区块的依赖**不属于**「必定兼容、完全省略」，而是在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」（让用户看到哪些依赖复用了历史成果），把 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，**不进入报告末尾的「待用户手动确认清单」**。
 
 #### 报告末尾必须输出「待用户手动确认清单」
 
@@ -156,7 +156,7 @@ cat "$SKILL_DIR/dependency-analysis/arm_confirmed.md" 2>/dev/null
 
 > 强制要求：
 > - 所有 标记的依赖**必须**出现在此清单中
-> - 「配置与 `arm_confirmed.md` 不一致」的依赖也**必须**在此清单中提示
+> - 「配置与 `kunpeng_confirmed.md` 不一致」的依赖也**必须**在此清单中提示
 > - 建议按依赖深度标注优先级（P0 = 基础通信/IO 库，P1 = 核心基础设施客户端，P2 = 通用工具类库）
 
 #### 报告模板
@@ -167,13 +167,13 @@ cat "$SKILL_DIR/dependency-analysis/arm_confirmed.md" 2>/dev/null
 
 ## 用户确认后写入清单并在阶段 C 末尾切换分支
 
-依赖的 ARM 适配信息有两条来源，都按 [arm-confirmed-write.md](arm-confirmed-write.md) 处理：
+依赖的 ARM 适配信息有两条来源，都按 [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md) 处理：
 
-- **阶段 B 命中清单**的依赖（common-arm-probe.md Section 5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 C 末尾的待切换清单
-- **阶段 C 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `arm_confirmed.md`
+- **阶段 B 命中清单**的依赖（common-kunpeng-probe.md Section 5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 C 末尾的待切换清单
+- **阶段 C 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `kunpeng_confirmed.md`
 
 **阶段 C 末尾（登记 + 确认切换 + 校验，一次性完成）**：
-1. **登记**：在 `arm_confirmed.md` 中按**依赖库名**找到或新建区块（`## <依赖库名>`，不按主仓、不写全局配置、不记 x86 版本），写入该依赖库唯一的 ARM 适配记录，来源项目填当前主仓名
+1. **登记**：在 `kunpeng_confirmed.md` 中按**依赖库名**找到或新建区块（`## <依赖库名>`，不按主仓、不写全局配置、不记 x86 版本），写入该依赖库唯一的 ARM 适配记录，来源项目填当前主仓名
 2. **确认切换**：把待切换清单逐项向用户确认后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本（回迁 thirdparty_arm、修改 WORKSPACE、切换子模块分支等）
 3. **校验**：逐项核对分支是否真切到 ARM 版，再进入阶段 D
 
@@ -202,7 +202,7 @@ cat "$SKILL_DIR/dependency-analysis/arm_confirmed.md" 2>/dev/null
    - 依赖分析结论摘要
    - 识别到的依赖总数和分类
    - 待确认项数量
-   - 待切换项数量（命中 arm_confirmed.md 的依赖）
+   - 待切换项数量（命中 kunpeng_confirmed.md 的依赖）
    - 报告文件路径
 
 ## 待确认项格式
@@ -230,7 +230,7 @@ cat "$SKILL_DIR/dependency-analysis/arm_confirmed.md" 2>/dev/null
   arm_url: <ARM版本URL（如有）>
   current_ref: <当前构建配置中的引用>
   switch_action: <具体切换操作描述>
-  source: arm_confirmed.md  # 来源
+  source: kunpeng_confirmed.md  # 来源
 ```
 
 现在开始执行阶段 B 依赖分析。

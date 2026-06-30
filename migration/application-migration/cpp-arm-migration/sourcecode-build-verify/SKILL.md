@@ -317,7 +317,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 | 系列 | 路由索引文件 | 案例库文件 | 适用错误 |
 |------|------------|----------|---------|
-| 通用 ARM 适配 | [generic-arm-migration-index.md](references/migration-cases/generic-arm-migration-index.md) | [generic-arm-migration-cases.md](references/migration-cases/generic-arm-migration-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
+| 通用 ARM 适配 | [generic-kunpeng-migration-index.md](references/migration-cases/generic-kunpeng-migration-index.md) | [generic-kunpeng-migration-cases.md](references/migration-cases/generic-kunpeng-migration-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
 | 版本兼容性 | [version-compatibility-index.md](references/migration-cases/version-compatibility-index.md) | [version-compatibility-cases.md](references/migration-cases/version-compatibility-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
 | 项目特有 | [project-specific-index.md](references/migration-cases/project-specific-index.md) | [project-specific-cases.md](references/migration-cases/project-specific-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
 

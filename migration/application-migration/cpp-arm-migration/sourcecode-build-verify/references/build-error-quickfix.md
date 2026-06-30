@@ -15,7 +15,7 @@
 3. **命中** → 按「修复」列描述修复
 4. **未命中** → 回落 [migration-cases/](migration-cases/) 案例库（第2级，查询流程见 [sourcecode-build-verify/SKILL.md](../SKILL.md) E.5 节）
 
-> x86 专属编译标志类错误（`-mf16c`/`-mssse3`/`-mpopcnt` 等在 ARM 不支持）已由案例库 [GENERIC-01](migration-cases/generic-arm-migration-cases.md) 覆盖，不再列入本表，请直接查通用 ARM 适配系列。
+> x86 专属编译标志类错误（`-mf16c`/`-mssse3`/`-mpopcnt` 等在 ARM 不支持）已由案例库 [GENERIC-01](migration-cases/generic-kunpeng-migration-cases.md) 覆盖，不再列入本表，请直接查通用 ARM 适配系列。
 
 ---
 
