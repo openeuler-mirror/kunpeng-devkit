@@ -7,7 +7,7 @@ description: C/C++ 项目 ARM 迁移的阶段 A 子 Skill：环境检测、修�
 
 本阶段用于检测 arm64 目标环境的编译器、构建工具和基础依赖，对不满足要求的项自动修复（安装/升级），准备编译环境，确保项目在 arm64 上具备编译条件。执行本阶段前，请确认已满足 SKILL.md 中的前置条件。
 
-> 构建工具的下载链接参见 [build-tools-reference.md](references/build-tools-reference.md)，安装时优先使用内部定制版链接，无内部定制版时使用官方链接。
+> 构建工具的下载链接参见 [build-tools-reference.md](build-tools-reference.md)，安装时优先使用内部定制版链接，无内部定制版时使用官方链接。
 
 ## 1.1 收集系统环境信息
 
@@ -69,7 +69,7 @@ javac -version
 echo $JAVA_HOME
 ```
 
-如果构建工具未安装或版本不满足要求，**自动尝试安装**（安装流程见下方各构建系统章节），安装时按 [build-tools-reference.md](references/build-tools-reference.md) 中的链接选取规则下载：
+如果构建工具未安装或版本不满足要求，**自动尝试安装**（安装流程见下方各构建系统章节），安装时按 [build-tools-reference.md](build-tools-reference.md) 中的链接选取规则下载：
 1. 优先使用内部定制版下载链接
 2. 如无内部定制版，使用官方下载链接
 
@@ -106,7 +106,7 @@ find . -name "blade.py"
    ```
 
 2. 检查 blade 版本是否支持 arm64 架构。**2.0 之前**的 blade 版本不支持 arm64 和 Python3。如果版本不支持 arm64，**优先升级到 Blade 2.0**（而非直接跳到 3.0），以减少版本跨度过大导致的兼容性问题：
-   - 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版
+   - 从 [build-tools-reference.md](build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版
    - 下载并替换项目中的 blade zip 包：
      ```bash
      # 从 reference 文档获取下载链接
@@ -166,7 +166,7 @@ bazel --version
 
 如果项目所需的 Bazel 版本与系统安装的版本不一致，或系统未安装 Bazel，**自动尝试安装**匹配版本：
 
-1. 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版：
+1. 从 [build-tools-reference.md](build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版：
    ```bash
    BAZEL_VERSION="<项目所需版本>"
    # 从 reference 文档获取下载链接，优先内部定制版

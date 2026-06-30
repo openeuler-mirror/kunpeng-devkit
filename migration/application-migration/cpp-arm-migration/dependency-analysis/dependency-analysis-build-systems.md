@@ -1,6 +1,6 @@
 # 构建系统依赖分析
 
-本文件按构建系统分章节收录 Bazel / CMake / Blade / SCons 四类项目的依赖分析流程。各章节相互独立，**按需加载**：根据 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 1 识别到的构建系统，只读取下方对应章节，其余跳过——不要整篇载入，避免占用上下文。
+本文件按构建系统分章节收录 Bazel / CMake / Blade / SCons 四类项目的依赖分析流程。各章节相互独立，**按需加载**：根据 [analyze-one-repo.md](analyze-one-repo.md) Step 1 识别到的构建系统，只读取下方对应章节，其余跳过——不要整篇载入，避免占用上下文。
 
 > **章节索引**：
 > - [CMake 构建系统依赖分析](#cmake-构建系统依赖分析)
@@ -12,7 +12,7 @@
 
 # CMake 构建系统依赖分析
 
-> **按需加载**：仅当 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 1 识别到构建系统为 **CMake** 时加载本文件，否则跳过。
+> **按需加载**：仅当 [analyze-one-repo.md](analyze-one-repo.md) Step 1 识别到构建系统为 **CMake** 时加载本文件，否则跳过。
 
 ---
 
@@ -66,7 +66,7 @@ grep -rn "execute_process.*git\|git reset\|git checkout" \
 >
 > 关掉动态重置只是"不再被覆盖"，子模块仍停在不确定状态，必须主动钉定，否则 cmake 不重置、但分支本身可能也没切对：
 >
-> - 每个含自动签出的子模块，其 ARM 分支作为**待确认项**在阶段 C 收集，走与其它 Git 依赖相同的确认闭环（见 [common-arm-probe.md](../references/common-arm-probe.md) Section 2/4 与 [arm-confirmed-write.md](../references/arm-confirmed-write.md)）。不同子模块的 ARM 分支名往往不同（`arm64` / `aarch64` / `kunpeng`…），**逐个子模块确认，不共用一个分支**
+> - 每个含自动签出的子模块，其 ARM 分支作为**待确认项**在阶段 C 收集，走与其它 Git 依赖相同的确认闭环（见 [common-arm-probe.md](common-arm-probe.md) Section 2/4 与 [arm-confirmed-write.md](arm-confirmed-write.md)）。不同子模块的 ARM 分支名往往不同（`arm64` / `aarch64` / `kunpeng`…），**逐个子模块确认，不共用一个分支**
 > - 阶段 C 末尾、阶段 E 首次 `cmake -B build` **之前**，先 init 再逐个钉定（init 会把工作区停在默认 commit，随后的 checkout 覆盖为 ARM 分支，故 checkout 必须在后、且为最后一步）：
 >   ```bash
 >   git submodule update --init --recursive                          # 确保子模块工作区就位（含嵌套）
@@ -132,7 +132,7 @@ grep -rn "add_library.*IMPORTED\|set_target_properties.*IMPORTED_LOCATION" \
 grep -rn "set(.*_LIBRARY .*\.\(so\|a\))" <项目根目录>/CMakeLists.txt <项目根目录>/cmake/
 ```
 
-> 检测到的预编译二进制由 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 4 统一交给 [common-binary-detect.md](../references/common-binary-detect.md) 判断架构与溯源源码。
+> 检测到的预编译二进制由 [analyze-one-repo.md](analyze-one-repo.md) Step 4 统一交给 [common-binary-detect.md](common-binary-detect.md) 判断架构与溯源源码。
 
 ---
 
@@ -159,8 +159,8 @@ find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
 
 ## CMake 源码溯源
 
-> 预编译二进制的源码溯源逻辑已统一移入 [common-binary-detect.md](../references/common-binary-detect.md)，此处不再重复。
-> 由 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
+> 预编译二进制的源码溯源逻辑已统一移入 [common-binary-detect.md](common-binary-detect.md)，此处不再重复。
+> 由 [analyze-one-repo.md](analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
 >
 > 对于 CMake 项目，`common-binary-detect.md` Section 3「第一优先级」会在 `$REPO_PATH/CMakeLists.txt` 与 `$REPO_PATH/cmake/*.cmake` 中搜索依赖名，自动找到 `FetchContent_Declare`/`ExternalProject_Add` 中的源码地址。
 
@@ -168,8 +168,8 @@ find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
 
 ## CMake 子模块依赖分析
 
-> 子模块递归逻辑已统一由 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 5 处理。
-> 当子模块被识别为 CMake 项目时，[analyze-one-repo.md](../references/analyze-one-repo.md) 会重新加载本文件对该子模块执行依赖扫描，无需在此重复定义。
+> 子模块递归逻辑已统一由 [analyze-one-repo.md](analyze-one-repo.md) Step 5 处理。
+> 当子模块被识别为 CMake 项目时，[analyze-one-repo.md](analyze-one-repo.md) 会重新加载本文件对该子模块执行依赖扫描，无需在此重复定义。
 
 ---
 
@@ -189,7 +189,7 @@ find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
 
 # Blade 构建系统依赖分析
 
-> **按需加载**：仅当 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 1 识别到构建系统为 **Blade** 时加载本文件，否则跳过。
+> **按需加载**：仅当 [analyze-one-repo.md](analyze-one-repo.md) Step 1 识别到构建系统为 **Blade** 时加载本文件，否则跳过。
 
 ---
 
@@ -241,7 +241,7 @@ find <项目根目录>/thirdparty_arm -maxdepth 2 -type d -name "*_arm*"
 ```
 
 > `thirdparty_arm/` 是 ARM 库的统一管理目录，结构与 `thirdparty/` 一致（`thirdparty_arm/<组件名>/<ARM子目录>`）。
-> 构建前需将所需库从 `thirdparty_arm/` 回迁到 `thirdparty/` 对应位置，详见 [arm-confirmed-write.md](../references/arm-confirmed-write.md)「Blade 项目：thirdparty_arm 回迁」。
+> 构建前需将所需库从 `thirdparty_arm/` 回迁到 `thirdparty/` 对应位置，详见 [arm-confirmed-write.md](arm-confirmed-write.md)「Blade 项目：thirdparty_arm 回迁」。
 
 ---
 
@@ -291,12 +291,12 @@ grep -rn '"#.*"' <项目根目录>/thirdparty/*/BUILD <项目根目录>/*/BUILD 
 
 ## Blade 项目私有依赖补充
 
-对 Blade 项目，[common-arm-probe.md](../references/common-arm-probe.md) 识别私有依赖时还需检查 thirdparty 目录下预编译包（`prebuilt = 1`）的来源。若 thirdparty 中某组件只有 x86 二进制（无 `*_arm` 子目录），且该组件来自内部对象存储（如 `*.internal-storage.example.com` 等内部域名），则标记为私有预编译依赖，需获取 ARM 版本。
+对 Blade 项目，[common-arm-probe.md](common-arm-probe.md) 识别私有依赖时还需检查 thirdparty 目录下预编译包（`prebuilt = 1`）的来源。若 thirdparty 中某组件只有 x86 二进制（无 `*_arm` 子目录），且该组件来自内部对象存储（如 `*.internal-storage.example.com` 等内部域名），则标记为私有预编译依赖，需获取 ARM 版本。
 
 ## 预编译二进制识别与溯源
 
-> Blade 项目中 `prebuilt = 1` 组件的架构判断和源码溯源逻辑已统一移入 [common-binary-detect.md](../references/common-binary-detect.md)，此处不再重复。
-> 由 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
+> Blade 项目中 `prebuilt = 1` 组件的架构判断和源码溯源逻辑已统一移入 [common-binary-detect.md](common-binary-detect.md)，此处不再重复。
+> 由 [analyze-one-repo.md](analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
 >
 > 特别说明：Blade 项目的 `lib64_release/*.so`/`*.a` 文件会在 `common-binary-detect.md` Section 1 的 `find` 命令中被扫描到，Section 2 判断架构，若为 x86 则进入 Section 3 溯源（第一优先级会检查 `BUILD` 文件中的源码来源字段）。
 
@@ -315,7 +315,7 @@ grep -rn '"#.*"' <项目根目录>/thirdparty/*/BUILD <项目根目录>/*/BUILD 
 
 # Bazel 构建系统依赖分析
 
-> **按需加载**：仅当 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 1 识别到构建系统为 **Bazel** 时加载本文件，否则跳过。
+> **按需加载**：仅当 [analyze-one-repo.md](analyze-one-repo.md) Step 1 识别到构建系统为 **Bazel** 时加载本文件，否则跳过。
 
 ---
 
@@ -370,8 +370,8 @@ find <项目根目录> -name "<依赖名>.BUILD" -o -name "BUILD.bazel" | xargs 
 
 ## Bazel 源码溯源
 
-> 预编译二进制的源码溯源逻辑已统一移入 [common-binary-detect.md](../references/common-binary-detect.md)，此处不再重复。
-> 由 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
+> 预编译二进制的源码溯源逻辑已统一移入 [common-binary-detect.md](common-binary-detect.md)，此处不再重复。
+> 由 [analyze-one-repo.md](analyze-one-repo.md) Step 4 统一调用 `common-binary-detect.md` 执行。
 >
 > 对于 Bazel 项目，`common-binary-detect.md` Section 3「第一优先级」会在 `$REPO_PATH/WORKSPACE` 中搜索依赖名，自动找到 `git_repository`/`http_archive` 中的源码地址。
 
@@ -379,8 +379,8 @@ find <项目根目录> -name "<依赖名>.BUILD" -o -name "BUILD.bazel" | xargs 
 
 ## Bazel 子模块依赖分析
 
-> 子模块递归逻辑已统一由 [analyze-one-repo.md](../references/analyze-one-repo.md) Step 5 处理。
-> 当子模块被识别为 Bazel 项目时，[analyze-one-repo.md](../references/analyze-one-repo.md) 会重新加载本文件对该子模块执行依赖扫描，无需在此重复定义。
+> 子模块递归逻辑已统一由 [analyze-one-repo.md](analyze-one-repo.md) Step 5 处理。
+> 当子模块被识别为 Bazel 项目时，[analyze-one-repo.md](analyze-one-repo.md) 会重新加载本文件对该子模块执行依赖扫描，无需在此重复定义。
 
 ---
 

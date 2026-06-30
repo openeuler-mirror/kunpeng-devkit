@@ -74,25 +74,20 @@
 ```
 cpp-arm-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
-├── agents/                                           # subagent 提示词模板
-│   ├── environment-check-agent.md                    # 阶段 A subagent（环境检测与准备）
-│   └── dependency-analysis-agent.md                  # 阶段 B subagent（依赖分析与探测）
 ├── environment-prepare/                              # 阶段 A 子 Skill：环境检测与准备
 │   ├── SKILL.md
-│   └── references/
-│       └── build-tools-reference.md                  # 构建工具下载链接
+│   ├── environment-check-agent.md                    # 阶段 A subagent 提示词模板
+│   └── build-tools-reference.md                  # 构建工具下载链接
 ├── dependency-analysis/                              # 阶段 B 子 Skill：依赖分析与 ARM 兼容性探测
 │   ├── SKILL.md                                      # 依赖分析主编排
-│   ├── references/
-│   │   ├── analyze-one-repo.md                       # 单仓库分析闭环步骤
-│   │   ├── common-arm-probe.md                       # 通用 ARM 兼容性探测
-│   │   ├── common-binary-detect.md                   # 预编译二进制识别
-│   │   ├── arm-confirmed-write.md                    # 阶段 C：写入确认清单 + 执行切换
-│   │   └── arm_confirmed.md                          # 已确认 ARM 适配的依赖库清单
-│   ├── assets/
-│   │   └── dependency-analysis-report-template-example.md  # 报告输出模板
-│   └── build-systems/
-│       └── dependency-analysis-build-systems.md     # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
+│   ├── dependency-analysis-agent.md                  # 阶段 B subagent 提示词模板
+│   ├── analyze-one-repo.md                           # 单仓库分析闭环步骤
+│   ├── common-arm-probe.md                           # 通用 ARM 兼容性探测
+│   ├── common-binary-detect.md                       # 预编译二进制识别
+│   ├── arm-confirmed-write.md                        # 阶段 C：写入确认清单 + 执行切换
+│   ├── arm_confirmed.md                              # 已确认 ARM 适配的依赖库清单
+│   ├── dependency-analysis-build-systems.md          # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
+│   └── dependency-analysis-report-template-example.md  # 报告输出模板
 ├── devkit-scan/                                      # 阶段 D 子 Skill：DevKit 扫描与源码/构建适配
 │   ├── SKILL.md                                      # 完整扫描 + 适配流程
 │   ├── references/
@@ -341,7 +336,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: 如何复用已确认的 ARM 适配依赖？
 
-阶段 C 会将用户确认的依赖 ARM 适配信息写入 [arm_confirmed.md](cpp-arm-migration/dependency-analysis/references/arm_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
+阶段 C 会将用户确认的依赖 ARM 适配信息写入 [arm_confirmed.md](cpp-arm-migration/dependency-analysis/arm_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
 
 ---
 

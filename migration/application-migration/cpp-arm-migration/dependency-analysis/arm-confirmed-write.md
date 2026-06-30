@@ -157,7 +157,7 @@ if [ -d "$DEP_DIR" ]; then
 fi
 ```
 
-> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify/SKILL.md](../../sourcecode-build-verify/SKILL.md) E.8 节落实。
+> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify/SKILL.md](../sourcecode-build-verify/SKILL.md) E.8 节落实。
 
 ### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
@@ -169,7 +169,7 @@ CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②*
 >
 > **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
 >
-> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](../build-systems/dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
+> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
 >
 > 该步骤完成后，必须在 `$WORK_DIR/reports/user_decisions.txt` 留痕（记录**每个子模块钉定的分支/commit**，不只是"是否已禁用"）：
 > ```
@@ -234,7 +234,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [SKILL.md](../../devkit-scan/SKILL.md)）。
+校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [SKILL.md](../devkit-scan/SKILL.md)）。
 
 ---
 

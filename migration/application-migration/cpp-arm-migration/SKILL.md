@@ -115,7 +115,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 阶段 A subagent 调用指令
 
-主编排必须使用 `task` 工具拉起阶段 A subagent。提示词模板见 [agents/environment-check-agent.md](agents/environment-check-agent.md)。
+主编排必须使用 `task` 工具拉起阶段 A subagent。提示词模板见 [environment-check-agent.md](environment-prepare/environment-check-agent.md)。
 
 读取该文件的「提示词正文」，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后，作为 `task` 工具的 `prompt` 参数传入（`subagent_type` 选用框架对应的通用 agent 类型，如 Claude Code 的 `general-purpose` 或 OpenCode 的 `general`；`description: "阶段A-环境检测与准备"`）。
 
@@ -142,7 +142,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 阶段 B subagent 调用指令
 
-主编排必须使用 `task` 工具拉起阶段 B subagent。提示词模板见 [agents/dependency-analysis-agent.md](agents/dependency-analysis-agent.md)。
+主编排必须使用 `task` 工具拉起阶段 B subagent。提示词模板见 [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md)。
 
 读取该文件的「提示词正文」，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后，作为 `task` 工具的 `prompt` 参数传入（`subagent_type` 选用框架对应的通用 agent 类型，如 Claude Code 的 `general-purpose` 或 OpenCode 的 `general`；`description: "阶段B-依赖分析与ARM兼容性探测"`）。
 
@@ -196,10 +196,10 @@ options:
 
 ### C.4 登记清单 + 确认切换 + 校验
 
-> **`read_file("dependency-analysis/references/arm-confirmed-write.md")` 获取完整执行步骤。**
+> **`read_file("dependency-analysis/arm-confirmed-write.md")` 获取完整执行步骤。**
 
 本步骤在阶段 C 末尾一次性完成三件事：
-1. **登记**：把用户确认的依赖 ARM 适配信息按依赖库写入 [arm_confirmed.md](dependency-analysis/references/arm_confirmed.md)
+1. **登记**：把用户确认的依赖 ARM 适配信息按依赖库写入 [arm_confirmed.md](dependency-analysis/arm_confirmed.md)
 2. **确认切换**：把待切换清单**逐项调用 `AskUserQuestion` 让用户确认**后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本
 3. **校验**：切换后逐项核对分支是否真切到 ARM 版（一句话提醒：切错会让后续编译错误极难排查）
 
@@ -372,12 +372,12 @@ options:
 
 | 文档 | 用途 |
 |------|------|
-| [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（`references/` 下含构建工具下载链接 build-tools-reference.md） |
+| [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（含构建工具下载链接 build-tools-reference.md） |
 | [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 B 子 Skill：依赖分析与兼容性探测（`references/` 下含 arm_confirmed.md 免检清单） |
 | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 E 子 Skill：编译验证与循环修复（`references/` 下含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
-| [environment-check-agent.md](agents/environment-check-agent.md) | 阶段 A subagent 提示词模板（环境检测与准备） |
-| [dependency-analysis-agent.md](agents/dependency-analysis-agent.md) | 阶段 B subagent 提示词模板（依赖分析与 ARM 兼容性探测） |
-| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/references/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
+| [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A subagent 提示词模板（环境检测与准备） |
+| [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B subagent 提示词模板（依赖分析与 ARM 兼容性探测） |
+| [dependency-analysis/arm-confirmed-write.md](dependency-analysis/arm-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见本 SKILL.md，`references/` 下含 devkit-download.md 下载说明） |
 | `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
 | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 F2：迁移总结报告生成子 Skill |

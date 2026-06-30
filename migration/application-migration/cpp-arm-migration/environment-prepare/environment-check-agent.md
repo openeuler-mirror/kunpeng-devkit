@@ -27,7 +27,7 @@ task(
 
 ## 你的执行步骤
 1. 先 read_file("$SKILL_DIR/environment-prepare/SKILL.md") 获取完整执行步骤（子 Skill 主编排文档）
-2. 先 read_file("$SKILL_DIR/environment-prepare/references/build-tools-reference.md") 获取构建工具下载链接
+2. 先 read_file("$SKILL_DIR/environment-prepare/build-tools-reference.md") 获取构建工具下载链接
 3. 按照 SKILL.md 的 1.1 ~ 1.7 步骤逐一执行环境检测
 4. 使用 run_terminal_cmd 执行所有检测命令
 5. 使用 read_file / grep 等工具读取项目构建配置
