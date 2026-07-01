@@ -44,7 +44,7 @@
 - **依赖兼容性探测**：自动分析所有外部依赖的 ARM 兼容性，命中免检清单的依赖自动切换，冲突项结构化输出供用户决策
 - **DevKit 扫描集成**：调用鲲鹏 DevKit 工具扫描源码 x86 专属问题（内联汇编 / intrinsics / 头文件 / 类型大小等），生成修改建议
 - **编译错误两级查询**：速查表（`build-error-quickfix.md`）→ 案例库（`migration-cases/`）兜底，快速定位修复方案
-- **ARM 适配知识积累**：`arm_confirmed.md` 持久化已确认的 ARM 适配依赖，跨项目复用
+- **ARM 适配知识积累**：`kunpeng_confirmed.md` 持久化已确认的 ARM 适配依赖，跨项目复用
 
 ---
 
@@ -76,18 +76,19 @@ cpp-arm-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
 ├── environment-prepare/                              # 阶段 A 子 Skill：环境检测与准备
 │   ├── SKILL.md
-│   ├── environment-check-agent.md                    # 阶段 A subagent 提示词模板
-│   └── build-tools-reference.md                  # 构建工具下载链接
+│   └── references/
+│       └── build-tools-reference.md                  # 构建工具下载链接
 ├── dependency-analysis/                              # 阶段 B 子 Skill：依赖分析与 ARM 兼容性探测
 │   ├── SKILL.md                                      # 依赖分析主编排
-│   ├── dependency-analysis-agent.md                  # 阶段 B subagent 提示词模板
-│   ├── analyze-one-repo.md                           # 单仓库分析闭环步骤
-│   ├── common-arm-probe.md                           # 通用 ARM 兼容性探测
-│   ├── common-binary-detect.md                       # 预编译二进制识别
-│   ├── arm-confirmed-write.md                        # 阶段 C：写入确认清单 + 执行切换
-│   ├── arm_confirmed.md                              # 已确认 ARM 适配的依赖库清单
-│   ├── dependency-analysis-build-systems.md          # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
-│   └── dependency-analysis-report-template-example.md  # 报告输出模板
+│   ├── references/
+│   │   ├── analyze-one-repo.md                       # 单仓库分析闭环步骤
+│   │   ├── common-kunpeng-probe.md                   # 通用 Kunpeng 兼容性探测
+│   │   ├── common-binary-detect.md                   # 预编译二进制识别
+│   │   ├── kunpeng-confirmed-write.md                # 阶段 C：写入确认清单 + 执行切换
+│   │   ├── kunpeng_confirmed.md                      # 已确认 Kunpeng 适配的依赖库清单
+│   │   └── dependency-analysis-build-systems.md      # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
+│   └── assets/
+│       └── dependency-analysis-report-template-example.md  # 报告输出模板
 ├── devkit-scan/                                      # 阶段 D 子 Skill：DevKit 扫描与源码/构建适配
 │   ├── SKILL.md                                      # 完整扫描 + 适配流程
 │   ├── references/
@@ -100,10 +101,10 @@ cpp-arm-migration/
 │       ├── build-error-quickfix.md                   # 编译错误快速修复速查表
 │       ├── bazel-dual-arch-pattern.md                # Bazel 双架构切换模式参考
 │       └── migration-cases/                          # ARM 迁移案例库
-│           ├── generic-arm-migration-index.md        # 路由索引：通用迁移问题
+│           ├── generic-kunpeng-migration-index.md    # 路由索引：通用迁移问题
 │           ├── version-compatibility-index.md        # 路由索引：版本兼容性
 │           ├── project-specific-index.md             # 路由索引：项目特定问题
-│           ├── generic-arm-migration-cases.md        # 通用 ARM 适配详细案例
+│           ├── generic-kunpeng-migration-cases.md    # 通用 Kunpeng 适配详细案例
 │           ├── version-compatibility-cases.md        # 版本兼容性详细案例
 │           └── project-specific-cases.md             # 项目特定详细案例
 └── migration-summary/                                # 阶段 F：迁移总结报告
@@ -336,7 +337,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: 如何复用已确认的 ARM 适配依赖？
 
-阶段 C 会将用户确认的依赖 ARM 适配信息写入 [arm_confirmed.md](cpp-arm-migration/dependency-analysis/arm_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
+阶段 C 会将用户确认的依赖 ARM 适配信息写入 [kunpeng_confirmed.md](cpp-arm-migration/dependency-analysis/references/kunpeng_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
 
 ---
 
