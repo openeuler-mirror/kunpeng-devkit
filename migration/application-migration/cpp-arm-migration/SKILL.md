@@ -105,7 +105,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ## 阶段 A：环境检测与准备（子 agent）
 
-> **执行方式：阶段 A 以子 agent 模式执行 environment-prepare/environment-check-agent.md（子 agent environment-prepare），调起方式见文末「调起约定与跨助手适配」。**
+> **执行方式：阶段 A 以子 agent 模式执行 environment-prepare/SKILL.md（子 agent environment-prepare），调起方式见文末「调起约定与跨助手适配」。**
 >
 > **子 agent 边界**：子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
 
@@ -115,7 +115,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 阶段 A 子 agent 调用指令
 
-主编排拉起阶段 A 子 agent 执行。完整提示词见 [environment-check-agent.md](environment-prepare/environment-check-agent.md)。
+主编排拉起阶段 A 子 agent 执行。完整执行步骤见 [SKILL.md](environment-prepare/SKILL.md)。
 
 读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段A-环境检测与准备"`）。
 
@@ -358,11 +358,11 @@ options:
 
 ## 子 Skill
 
-本主 Skill 包含以下子模块，阶段 A、B 为子 agent 提示词包（含完整方法与输入/输出契约，由主编排拉起子 agent 执行），devkit-scan 为子 Skill：
+本主 Skill 包含以下子模块，阶段 A 为子 Skill、阶段 B 为子 agent 提示词包（两者均以子 agent 模式执行，含完整方法与输入/输出契约，由主编排拉起子 agent），阶段 D 为子 Skill（由主编排直接调用）：
 
 | 子模块 | 入口文件 | 用途 |
 |----------|----------|------|
-| `environment-prepare` | [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A 子 agent：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
+| `environment-prepare` | [SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
 | `dependency-analysis` | [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
 | `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
 
@@ -370,7 +370,7 @@ options:
 
 ## 调起约定与跨助手适配
 
-本 Skill 的阶段 A、B 以**子 agent** 模式执行（阶段 A 用 environment-check-agent.md、阶段 B 用 dependency-analysis-agent.md 的提示词模板）。为支持不同编程助手，调起方式与工具调用统一采用语义描述，具体 API 按运行环境映射。
+本 Skill 的阶段 A、B 以**子 agent** 模式执行（阶段 A 用 environment-prepare/SKILL.md、阶段 B 用 dependency-analysis-agent.md 的提示词模板）。为支持不同编程助手，调起方式与工具调用统一采用语义描述，具体 API 按运行环境映射。
 
 ### 子 agent 调起语义
 
@@ -394,7 +394,7 @@ options:
 
 | 文档 | 用途 |
 |------|------|
-| [environment-check-agent.md](environment-prepare/environment-check-agent.md) | 阶段 A 子 agent 完整提示词：环境检测与编译环境准备（含方法、输入/输出契约、待确认项格式、构建工具下载链接 build-tools-reference.md） |
+| [SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（含方法、输入/输出契约、待确认项格式、构建工具下载链接 references/build-tools-reference.md） |
 | [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent 完整提示词：依赖分析与 Kunpeng 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、kunpeng_confirmed.md 免检清单） |
 | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 E 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
 | [dependency-analysis/kunpeng-confirmed-write.md](dependency-analysis/kunpeng-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |

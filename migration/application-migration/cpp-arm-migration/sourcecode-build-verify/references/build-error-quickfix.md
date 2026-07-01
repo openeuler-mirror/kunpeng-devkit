@@ -53,7 +53,7 @@
 | `no such target '//platforms:linux_aarch64'` | 同上 | 同上 |
 | `Unrecognized option: --incompatible_...` | 系统 Bazel 版本过旧 | 确认使用项目内置 Bazel（software.sh 中的 PATH 设置） |
 | `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 向用户提问获取地址 |
-| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 ../../environment-prepare/environment-check-agent.md 1.6 节） |
+| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 ../../environment-prepare/SKILL.md 1.6 节） |
 
 ## 编译严格性差异
 
