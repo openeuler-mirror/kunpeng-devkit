@@ -1,22 +1,27 @@
-# 阶段 B 子 agent 提示词：依赖分析与 ARM 兼容性探测
+---
+name: dependency-analysis
+description: C/C++ 项目 ARM 迁移的阶段 B 子 Skill：依赖分析与 Kunpeng 兼容性探测。全面分析项目所有外部依赖（Bazel/CMake/Blade/SCons/Git Submodule/手动脚本），评估每个依赖的 ARM 兼容性，识别预编译二进制架构，递归分析子模块依赖，命中免检清单的依赖自动记录待切换。作为 cpp-kunpeng-migration 主 Skill 的阶段 B 子 Skill 调用；当用户需要单独分析项目依赖的 ARM 兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也应直接调用本子 Skill。
+---
 
-本文件为阶段 B 子 agent 的完整提示词，由主编排拉起子 agent 执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。主编排读取本文件全文，将下列占位符替换为实际值后作为子 agent 提示词传入：
+# C++ 项目依赖分析
+
+> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 B 子 Skill 调用，由主编排以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独分析项目依赖的 ARM 兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也可直接调用本子 Skill。
+>
+> **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
+
+## 输入参数
+
+主编排读取本文件全文，将下列占位符替换为实际值后作为子 agent 提示词传入：
 
 - `<项目绝对路径>` → `PROJECT_ROOT`
 - `<工作目录绝对路径>` → `WORK_DIR`
 - `<skill目录绝对路径>` → `SKILL_DIR`（cpp-arm-migration skill 目录）
 
-## 输入参数
+参数定义：
 
 - PROJECT_ROOT = <项目绝对路径>（主编排传入）
 - WORK_DIR = <工作目录绝对路径>（主编排传入）
 - SKILL_DIR = <cpp-arm-migration skill 目录绝对路径>（主编排传入）
-
-你是一个 ARM 迁移依赖分析子 agent。请按以下流程执行阶段 B：依赖分析与 ARM 兼容性探测。
-
----
-
-# C++ 项目依赖分析
 
 支持以下 C++ 构建系统的依赖分析：
 
@@ -39,16 +44,16 @@
 | 文件 | 职责 |
 |------|------|
 | **本文件** | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告 |
-| [analyze-one-repo.md](analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [common-kunpeng-probe.md](common-kunpeng-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
-| [common-binary-detect.md](common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
-| [dependency-analysis-build-systems.md](dependency-analysis-build-systems.md) | 四构建系统合集（按需加载对应章节）：Bazel/CMake/Blade/SCons 依赖扫描、预编译包识别、子模块自动签出检查 |
-| └ [#bazel](dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
-| └ [#cmake](dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
-| └ [#blade](dependency-analysis-build-systems.md#blade-构建系统依赖分析) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
-| └ [#scons](dependency-analysis-build-systems.md#scons-构建系统依赖分析) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
-| [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
-| [dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md) | 报告输出模板示例 |
+| [analyze-one-repo.md](references/analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
+| [common-kunpeng-probe.md](references/common-kunpeng-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
+| [common-binary-detect.md](references/common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
+| [dependency-analysis-build-systems.md](references/dependency-analysis-build-systems.md) | 四构建系统合集（按需加载对应章节）：Bazel/CMake/Blade/SCons 依赖扫描、预编译包识别、子模块自动签出检查 |
+| └ [#bazel](references/dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
+| └ [#cmake](references/dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
+| └ [#blade](references/dependency-analysis-build-systems.md#blade-构建系统依赖分析) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
+| └ [#scons](references/dependency-analysis-build-systems.md#scons-构建系统依赖分析) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
+| [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 阶段 C：写入 ARM 确认清单、执行真实切换操作 |
+| [dependency-analysis-report-template-example.md](assets/dependency-analysis-report-template-example.md) | 报告输出模板示例 |
 
 ---
 
@@ -81,7 +86,7 @@ cat "$REPORT"
 cat "$SKILL_DIR/dependency-analysis/kunpeng_confirmed.md" 2>/dev/null
 ```
 
-将免检清单的内容缓存在上下文中，供后续每次调用 [common-kunpeng-probe.md](common-kunpeng-probe.md) 时使用（Section 5 比对）。
+将免检清单的内容缓存在上下文中，供后续每次调用 [common-kunpeng-probe.md](references/common-kunpeng-probe.md) 时使用（Section 5 比对）。
 
 > **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 C 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 C 末尾切换，不再探测、不再询问用户。
 
@@ -89,7 +94,7 @@ cat "$SKILL_DIR/dependency-analysis/kunpeng_confirmed.md" 2>/dev/null
 
 ### 第三步：主循环 — 递归分析所有仓库
 
-加载 [analyze-one-repo.md](analyze-one-repo.md)，对**主仓库**执行完整分析：
+加载 [analyze-one-repo.md](references/analyze-one-repo.md)，对**主仓库**执行完整分析：
 
 ```
 输入：
@@ -103,8 +108,8 @@ cat "$SKILL_DIR/dependency-analysis/kunpeng_confirmed.md" 2>/dev/null
 
 `analyze-one-repo.md` 内部会自动：
 - 检测主仓构建系统，加载对应专用分析文件
-- 调用 [common-kunpeng-probe.md](common-kunpeng-probe.md) 执行 ARM 兼容性探测
-- 调用 [common-binary-detect.md](common-binary-detect.md) 执行预编译二进制识别与溯源
+- 调用 [common-kunpeng-probe.md](references/common-kunpeng-probe.md) 执行 ARM 兼容性探测
+- 调用 [common-binary-detect.md](references/common-binary-detect.md) 执行预编译二进制识别与溯源
 - 递归处理所有子模块（最多 `MAX_DEPTH` 层），每个子仓**独立检测构建系统**
 
 最终返回包含所有层级信息的结构化结果，用于第四步聚合。
@@ -161,13 +166,13 @@ cat "$SKILL_DIR/dependency-analysis/kunpeng_confirmed.md" 2>/dev/null
 
 #### 报告模板
 
-见 [dependency-analysis-report-template-example.md](dependency-analysis-report-template-example.md)。
+见 [dependency-analysis-report-template-example.md](assets/dependency-analysis-report-template-example.md)。
 
 ---
 
 ## 用户确认后写入清单并在阶段 C 末尾切换分支
 
-依赖的 ARM 适配信息有两条来源，都按 [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md) 处理：
+依赖的 ARM 适配信息有两条来源，都按 [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) 处理：
 
 - **阶段 B 命中清单**的依赖（common-kunpeng-probe.md Section 5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 C 末尾的待切换清单
 - **阶段 C 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `kunpeng_confirmed.md`

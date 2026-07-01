@@ -1,6 +1,6 @@
 # 单仓库分析入口（analyze-one-repo）
 
-> 本文件是**单个仓库的分析闭环**。主仓库和所有子模块（含嵌套子模块）均通过此文件执行分析，由 [dependency-analysis-agent.md](dependency-analysis-agent.md) 的主循环驱动调用。
+> 本文件是**单个仓库的分析闭环**。主仓库和所有子模块（含嵌套子模块）均通过此文件执行分析，由 [SKILL.md](../SKILL.md) 的主循环驱动调用。
 >
 > **不要直接修改此文件中的通用能力逻辑**——二进制识别见 [common-binary-detect.md](common-binary-detect.md)，ARM 探测见 [common-kunpeng-probe.md](common-kunpeng-probe.md)。
 

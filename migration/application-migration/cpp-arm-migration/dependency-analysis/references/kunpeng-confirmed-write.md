@@ -1,7 +1,7 @@
 # 写入 ARM 确认清单与执行真实切换
 
 > 本文件是「查到分支 → 用户确认 → 切换并校验」闭环的写入端与切换端，描述阶段 C 中的两个连续动作：
-> 1. **阶段 C 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [kunpeng_confirmed.md](kunpeng_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
+> 1. **阶段 C 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [kunpeng_confirmed.md](../kunpeng_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
 > 2. **阶段 C 末尾切换**：确认通过后，立即把构建配置里这些依赖的分支 / commit / URL 替换为清单记录的 ARM 版本，并做基础校验，让项目在进入阶段 D（DevKit 扫描）前就已是 ARM 版本
 >
 > 切换放在阶段 C 末尾（而非阶段 D）的原因：用户刚确认完、信息最全时顺手切掉，避免拖到阶段 D 与源码适配交织；阶段 D 因此可专注 DevKit 扫描与源码修改。
@@ -234,7 +234,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [SKILL.md](../devkit-scan/SKILL.md)）。
+校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [SKILL.md](../../devkit-scan/SKILL.md)）。
 
 ---
 

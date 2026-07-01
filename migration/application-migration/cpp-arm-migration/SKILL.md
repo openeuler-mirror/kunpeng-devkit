@@ -132,7 +132,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ## 阶段 B：依赖分析与 Kunpeng 兼容性探测（子 agent）
 
-> **执行方式：阶段 B 以子 agent 模式执行 dependency-analysis/dependency-analysis-agent.md（子 agent dependency-analysis），调起方式见文末「调起约定与跨助手适配」。**
+> **执行方式：阶段 B 以子 agent 模式执行 dependency-analysis/SKILL.md（子 agent dependency-analysis），调起方式见文末「调起约定与跨助手适配」。**
 >
 > **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_b_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖（已知 Kunpeng 适配）写入 `$WORK_DIR/reports/stage_b_switch_list.md` 待切换清单，由主编排在阶段 C 统一处理。
 
@@ -142,7 +142,7 @@ echo "PHASE_A_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 阶段 B 子 agent 调用指令
 
-主编排拉起阶段 B 子 agent 执行。完整提示词见 [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md)。
+主编排拉起阶段 B 子 agent 执行。完整执行步骤见 [SKILL.md](dependency-analysis/SKILL.md)。
 
 读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段B-依赖分析与ARM兼容性探测"`）。
 
@@ -198,7 +198,7 @@ options:
 
 ### C.4 登记清单 + 确认切换 + 校验
 
-> **必须读取文件 `dependency-analysis/kunpeng-confirmed-write.md` 获取完整执行步骤。**
+> **必须读取文件 `dependency-analysis/references/kunpeng-confirmed-write.md` 获取完整执行步骤。**
 
 本步骤在阶段 C 末尾一次性完成三件事：
 1. **登记**：把用户确认的依赖 Kunpeng 适配信息按依赖库写入 [kunpeng_confirmed.md](dependency-analysis/kunpeng_confirmed.md)
@@ -358,19 +358,21 @@ options:
 
 ## 子 Skill
 
-本主 Skill 包含以下子模块，阶段 A 为子 Skill、阶段 B 为子 agent 提示词包（两者均以子 agent 模式执行，含完整方法与输入/输出契约，由主编排拉起子 agent），阶段 D 为子 Skill（由主编排直接调用）：
+本主 Skill 包含以下子模块，阶段 A、B 均为子 Skill（以子 agent 模式执行，含完整方法与输入/输出契约，由主编排拉起子 agent），阶段 D、E、F2 为子 Skill（由主编排直接调用）：
 
 | 子模块 | 入口文件 | 用途 |
 |----------|----------|------|
 | `environment-prepare` | [SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
-| `dependency-analysis` | [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+| `dependency-analysis` | [SKILL.md](dependency-analysis/SKILL.md) | 阶段 B 子 Skill：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
 | `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
+| `sourcecode-build-verify` | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 E 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库） |
+| `migration-summary` | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 F2 子 Skill：迁移总结报告生成（含各阶段时长统计、修改文件清单、重要提示） |
 
 ---
 
 ## 调起约定与跨助手适配
 
-本 Skill 的阶段 A、B 以**子 agent** 模式执行（阶段 A 用 environment-prepare/SKILL.md、阶段 B 用 dependency-analysis-agent.md 的提示词模板）。为支持不同编程助手，调起方式与工具调用统一采用语义描述，具体 API 按运行环境映射。
+本 Skill 的阶段 A、B 以**子 agent** 模式执行（阶段 A 用 environment-prepare/SKILL.md、阶段 B 用 dependency-analysis/SKILL.md 的提示词模板）。为支持不同编程助手，调起方式与工具调用统一采用语义描述，具体 API 按运行环境映射。
 
 ### 子 agent 调起语义
 
@@ -395,9 +397,9 @@ options:
 | 文档 | 用途 |
 |------|------|
 | [SKILL.md](environment-prepare/SKILL.md) | 阶段 A 子 Skill：环境检测与编译环境准备（含方法、输入/输出契约、待确认项格式、构建工具下载链接 references/build-tools-reference.md） |
-| [dependency-analysis-agent.md](dependency-analysis/dependency-analysis-agent.md) | 阶段 B 子 agent 完整提示词：依赖分析与 Kunpeng 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、kunpeng_confirmed.md 免检清单） |
+| [SKILL.md](dependency-analysis/SKILL.md) | 阶段 B 子 Skill：依赖分析与 Kunpeng 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、kunpeng_confirmed.md 免检清单） |
 | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 E 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
-| [dependency-analysis/kunpeng-confirmed-write.md](dependency-analysis/kunpeng-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
+| [dependency-analysis/references/kunpeng-confirmed-write.md](dependency-analysis/references/kunpeng-confirmed-write.md) | 阶段 C.4：写入 ARM 确认清单 + 执行真实切换 |
 | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 D 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见本 SKILL.md，含 devkit-download.md 下载说明） |
 | `kunpeng-migration-case-collector`（skill，通过 `fetch_rules` 调用） | 阶段 F1：知识库自更新 skill（案例提取 → 勾选确认 → 写入案例库 → 更新扫描规则 → 收集 ARM 分支信息） |
 | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 F2：迁移总结报告生成子 Skill |
