@@ -82,7 +82,7 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 每条待确认项为一个 YAML 代码块，便于主编排解析：
 
 ```yaml
-- id: env_bazel_version            # 全局唯一，env_ 前缀=阶段A，dep_ 前缀=阶段B
+- id: env_bazel_version            # 全局唯一，env_ 前缀=阶段1，dep_ 前缀=阶段2
   category: 环境检测                # 环境检测 / 依赖分析
   question: "Bazel 项目需要 4.0.0，ARM 已安装 5.0.0，如何处理？"
   options:
@@ -93,7 +93,7 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
     - id: abort
       label: "中止"
   context: "项目 .bazelversion 指定 4.0.0；arm64 bazel --version 输出 5.0.0"  # 可选，决策依据
-  priority: P1                      # 可选，仅阶段B，P0/P1/P2/P3
+  priority: P1                      # 可选，仅阶段2，P0/P1/P2/P3
 ```
 
 ### 输出规则
@@ -117,7 +117,7 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 主编排拉起阶段 1 子 agent 执行。完整执行步骤见 [SKILL.md](environment-prepare/SKILL.md)。
 
-读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段A-环境检测与准备"`）。
+读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段1-环境检测与准备"`）。
 
 **待确认项场景**（每个冲突项 = 一条待确认项，子 agent 写入中间文件而非直接提问）：
 
@@ -144,7 +144,7 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 主编排拉起阶段 2 子 agent 执行。完整执行步骤见 [SKILL.md](dependency-analysis/SKILL.md)。
 
-读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段B-依赖分析与ARM兼容性探测"`）。
+读取该文件全文，将其中 `<项目绝对路径>`、`<工作目录绝对路径>`、`<skill目录绝对路径>` 替换为实际值后作为子 agent 提示词传入（具体调起 API 与工具映射见文末「调起约定与跨助手适配」；`description: "阶段2-依赖分析与ARM兼容性探测"`）。
 
 **待确认项场景**（每个冲突项 = 一条待确认项，子 agent 写入中间文件而非直接提问）：
 

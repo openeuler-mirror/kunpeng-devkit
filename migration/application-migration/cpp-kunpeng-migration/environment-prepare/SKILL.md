@@ -1,6 +1,6 @@
 ---
 name: environment-prepare
-description: C/C++ 项目 ARM 迁移的阶段 A 子 Skill，专注于环境检测与编译环境准备环节。提供检测 arm64 目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf）的能力，对不满足要求的项自动修复（安装/升级），准备编译环境。在作为 cpp-kunpeng-migration 主 Skill 的阶段 A 子 Skill 被调用时触发，当用户需要单独执行环境检测、检查构建工具版本兼容性、准备 ARM 编译环境、或处理 Blade/Bazel 版本不匹配时也应直接触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移的环境准备。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
+description: C/C++ 项目 ARM 迁移的阶段 1 子 Skill，专注于环境检测与编译环境准备环节。提供检测 arm64 目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf）的能力，对不满足要求的项自动修复（安装/升级），准备编译环境。在作为 cpp-kunpeng-migration 主 Skill 的阶段 1 子 Skill 被调用时触发，当用户需要单独执行环境检测、检查构建工具版本兼容性、准备 ARM 编译环境、或处理 Blade/Bazel 版本不匹配时也应直接触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移的环境准备。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
 ---
 
 # 阶段 1：环境检测、修复与准备编译环境
