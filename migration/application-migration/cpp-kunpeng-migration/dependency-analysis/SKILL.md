@@ -15,13 +15,13 @@ description: C/C++ 项目 ARM 迁移的阶段 B 子 Skill：依赖分析与 Kunp
 
 - `<项目绝对路径>` → `PROJECT_ROOT`
 - `<工作目录绝对路径>` → `WORK_DIR`
-- `<skill目录绝对路径>` → `SKILL_DIR`（cpp-arm-migration skill 目录）
+- `<skill目录绝对路径>` → `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
 
 参数定义：
 
 - PROJECT_ROOT = <项目绝对路径>（主编排传入）
 - WORK_DIR = <工作目录绝对路径>（主编排传入）
-- SKILL_DIR = <cpp-arm-migration skill 目录绝对路径>（主编排传入）
+- SKILL_DIR = <cpp-kunpeng-migration skill 目录绝对路径>（主编排传入）
 
 支持以下 C++ 构建系统的依赖分析：
 

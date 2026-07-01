@@ -1,4 +1,4 @@
-# cpp-arm-migration Skill
+# cpp-kunpeng-migration Skill
 
 将 C/C++ 项目从 x86 自动迁移到 ARM（aarch64 / 鲲鹏），实现双架构同时兼容编译运行的 AI 编程技能包。
 
@@ -25,7 +25,7 @@
 
 ## 简介
 
-`cpp-arm-migration` 是一个面向 C/C++ 项目的 ARM 架构迁移自动化 Skill。它将迁移过程拆解为 **六阶段流水线**（环境检测 → 依赖分析 → 用户确认 → DevKit 扫描适配 → 编译验证循环 → 迁移总结报告），由主编排驱动 subagent 协作完成，最大限度减少人工介入。
+`cpp-kunpeng-migration` 是一个面向 C/C++ 项目的 ARM 架构迁移自动化 Skill。它将迁移过程拆解为 **六阶段流水线**（环境检测 → 依赖分析 → 用户确认 → DevKit 扫描适配 → 编译验证循环 → 迁移总结报告），由主编排驱动 subagent 协作完成，最大限度减少人工介入。
 
 **核心设计原则**：
 
@@ -72,7 +72,7 @@
 ## Skill 目录结构
 
 ```
-cpp-arm-migration/
+cpp-kunpeng-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
 ├── environment-prepare/                              # 阶段 A 子 Skill：环境检测与准备
 │   ├── SKILL.md
@@ -115,25 +115,25 @@ cpp-arm-migration/
 
 ## 安装方式
 
-`cpp-arm-migration` 遵循开放 Skill 标准（核心为 `SKILL.md` + YAML 前置声明），可在 CatPaw IDE、VS Code、Claude Code 等支持 Skill 的编程 Agent 中通用。
+`cpp-kunpeng-migration` 遵循开放 Skill 标准（核心为 `SKILL.md` + YAML 前置声明），可在 CatPaw IDE、VS Code、Claude Code 等支持 Skill 的编程 Agent 中通用。
 
 ### CatPaw IDE
 
 #### 方式一：项目级安装（推荐，随项目共享）
 
-将 `cpp-arm-migration` 整个文件夹复制到项目根目录的 `.catpaw/skills/` 下：
+将 `cpp-kunpeng-migration` 整个文件夹复制到项目根目录的 `.catpaw/skills/` 下：
 
 ```bash
 # 在项目根目录执行
 mkdir -p .catpaw/skills
-cp -r <path-to>/cpp-arm-migration .catpaw/skills/
+cp -r <path-to>/cpp-kunpeng-migration .catpaw/skills/
 ```
 
 安装后重启 CatPaw IDE，在 AI 对话窗口调用技能，出现"调用 skills"提示即成功。
 
 #### 方式二：全局级安装（跨项目复用）
 
-将 `cpp-arm-migration` 文件夹复制到全局技能目录：
+将 `cpp-kunpeng-migration` 文件夹复制到全局技能目录：
 
 ```bash
 # Windows
@@ -147,14 +147,14 @@ C:\Users\<你的用户名>\.catpaw\skills\
 
 #### 方式三：ZIP 包可视化导入
 
-1. 将 `cpp-arm-migration` 文件夹打包为 ZIP（根目录需包含 `SKILL.md`）
+1. 将 `cpp-kunpeng-migration` 文件夹打包为 ZIP（根目录需包含 `SKILL.md`）
 2. 打开 CatPaw → 设置（齿轮图标）→ 规则与技能 → 技能
 3. 点击「+ 创建」→ 选择压缩包导入，AI 自动解析配置
 4. 选择"项目级"或"全局级"，确认安装
 
 ### VS Code (GitHub Copilot)
 
-将 `cpp-arm-migration` 文件夹放入以下任一目录：
+将 `cpp-kunpeng-migration` 文件夹放入以下任一目录：
 
 ```bash
 # 项目级（随 Git 共享）
@@ -171,7 +171,7 @@ C:\Users\<你的用户名>\.catpaw\skills\
 
 ### Claude Code
 
-将 `cpp-arm-migration` 文件夹放入以下目录：
+将 `cpp-kunpeng-migration` 文件夹放入以下目录：
 
 ```bash
 # 项目级
@@ -185,7 +185,7 @@ Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 C
 
 ### 其他编程 Agent
 
-任何支持开放 Skill 标准（`SKILL.md` + YAML 前置声明）的 AI 编程助手均可使用本 Skill。将 `cpp-arm-migration` 文件夹放入对应工具的技能目录即可，具体路径请参考该工具的文档。
+任何支持开放 Skill 标准（`SKILL.md` + YAML 前置声明）的 AI 编程助手均可使用本 Skill。将 `cpp-kunpeng-migration` 文件夹放入对应工具的技能目录即可，具体路径请参考该工具的文档。
 
 ---
 
@@ -219,7 +219,7 @@ Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 C
 - <其他自定义排除目录>
 
 【执行要求】
-按 cpp-arm-migration skill 六阶段流程执行（A 环境检测 → B 依赖分析 → C 用户确认 → D DevKit 扫描适配 → E 编译验证循环 → F 迁移总结报告）。
+按 cpp-kunpeng-migration skill 六阶段流程执行（A 环境检测 → B 依赖分析 → C 用户确认 → D DevKit 扫描适配 → E 编译验证循环 → F 迁移总结报告）。
 - 所有源码修改须有 __aarch64__ 架构宏保护，不破坏 x86 能力
 ```
 
@@ -317,7 +317,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: Skill 没有被触发怎么办？
 
-确认 `SKILL.md` 文件名全大写，且位于正确的技能目录下。CatPaw IDE 需重启后识别新安装的 Skill。也可在对话中显式点名："使用 `cpp-arm-migration` 技能，帮我迁移项目"。
+确认 `SKILL.md` 文件名全大写，且位于正确的技能目录下。CatPaw IDE 需重启后识别新安装的 Skill。也可在对话中显式点名："使用 `cpp-kunpeng-migration` 技能，帮我迁移项目"。
 
 ### Q: DevKit 未安装怎么办？
 
@@ -337,12 +337,12 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: 如何复用已确认的 ARM 适配依赖？
 
-阶段 C 会将用户确认的依赖 ARM 适配信息写入 [kunpeng_confirmed.md](cpp-arm-migration/dependency-analysis/references/kunpeng_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
+阶段 C 会将用户确认的依赖 ARM 适配信息写入 [kunpeng_confirmed.md](cpp-kunpeng-migration/dependency-analysis/references/kunpeng_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
 
 ---
 
 ## 参考资源
 
 - [鲲鹏 DevKit](https://www.hikunpeng.com/developer/devkit) — 获取 DevKit 工具
-- [SKILL.md](cpp-arm-migration/SKILL.md) — 完整的六阶段流程编排文档
+- [SKILL.md](cpp-kunpeng-migration/SKILL.md) — 完整的六阶段流程编排文档
 - [prompt.md](prompt.md) — 使用提示词模板

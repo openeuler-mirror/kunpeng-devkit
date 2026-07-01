@@ -14,5 +14,5 @@
 - 阶段 D DevKit 扫描：DevKit src-mig 支持排除参数则传入
 
 【执行要求】
-按 cpp-arm-migration skill 五阶段流程执行（A 环境检测 → B 依赖分析 → C 用户确认 → D DevKit 扫描适配 → E 编译验证循环）。
+按 cpp-kunpeng-migration skill 五阶段流程执行（A 环境检测 → B 依赖分析 → C 用户确认 → D DevKit 扫描适配 → E 编译验证循环）。
 - 所有源码修改须有 __aarch64__ 架构宏保护，保证 ARM 兼容的同时不破坏 x86 能力
