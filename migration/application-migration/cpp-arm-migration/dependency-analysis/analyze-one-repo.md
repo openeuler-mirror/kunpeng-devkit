@@ -1,8 +1,8 @@
 # 单仓库分析入口（analyze-one-repo）
 
-> 本文件是**单个仓库的分析闭环**。主仓库和所有子模块（含嵌套子模块）均通过此文件执行分析，由 [SKILL.md](../SKILL.md) 的主循环驱动调用。
+> 本文件是**单个仓库的分析闭环**。主仓库和所有子模块（含嵌套子模块）均通过此文件执行分析，由 [dependency-analysis-agent.md](dependency-analysis-agent.md) 的主循环驱动调用。
 >
-> **不要直接修改此文件中的通用能力逻辑**——二进制识别见 [common-binary-detect.md](common-binary-detect.md)，ARM 探测见 [common-arm-probe.md](common-arm-probe.md)。
+> **不要直接修改此文件中的通用能力逻辑**——二进制识别见 [common-binary-detect.md](common-binary-detect.md)，ARM 探测见 [common-kunpeng-probe.md](common-kunpeng-probe.md)。
 
 ---
 
@@ -49,17 +49,17 @@
 
 ### Step 2：按构建系统加载依赖扫描文件
 
-根据 Step 1 的结果，**按需** `read_file` 对应的专用分析文件，执行依赖声明扫描，收集 `deps_list`：
+根据 Step 1 的结果，**按需读取**对应的专用分析文件，执行依赖声明扫描，收集 `deps_list`：
 
 | 构建系统 | 加载文件 | 输出内容 |
 |---------|---------|---------|
-| Blade | [dependency-analysis-blade.md](../build-systems/dependency-analysis-blade.md) | thirdparty 组件列表（预编译/源码/聚合代理），BLADE_ROOT 全局配置 |
-| Bazel | [dependency-analysis-bazel.md](../build-systems/dependency-analysis-bazel.md) | `git_repository`/`http_archive`/`new_local_repository` 依赖列表 |
-| CMake | [dependency-analysis-cmake.md](../build-systems/dependency-analysis-cmake.md) | `FetchContent_Declare`/`ExternalProject_Add`/`find_package` 依赖列表 |
-| SCons | [dependency-analysis-scons.md](../build-systems/dependency-analysis-scons.md) | 库链接声明、x86 编译标志、Python 版本问题 |
+| Blade | [dependency-analysis-build-systems.md#blade-构建系统依赖分析](dependency-analysis-build-systems.md#blade-构建系统依赖分析) | thirdparty 组件列表（预编译/源码/聚合代理），BLADE_ROOT 全局配置 |
+| Bazel | [dependency-analysis-build-systems.md#bazel-构建系统依赖分析](dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | `git_repository`/`http_archive`/`new_local_repository` 依赖列表 |
+| CMake | [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | `FetchContent_Declare`/`ExternalProject_Add`/`find_package` 依赖列表 |
+| SCons | [dependency-analysis-build-systems.md#scons-构建系统依赖分析](dependency-analysis-build-systems.md#scons-构建系统依赖分析) | 库链接声明、x86 编译标志、Python 版本问题 |
 | 未知 | — | 跳过，deps_list 为空 |
 
-> **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `dependency-analysis-cmake.md` 前，**必须**先检查是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`GIT_SUBMODULE` 等；**注意 `FetchContent_MakeAvailable` 不算**——它是构建期下载依赖的正当机制，误当自动签出去关会破坏依赖拉取）。若存在，需在依赖分析报告**最前面**单独成节以 警告，并明确告诉用户：**阶段 C 末尾、阶段 E 首次 `cmake -B build` 前必须先改为可控开关并关闭、再把每个子模块钉到用户确认的 ARM 分支/commit**——否则每次 `cmake -B build` 都会把手动切到 ARM 分支的子模块**默默重置回默认分支**且不报错，导致编译错误在"x86 残留"和"找不到 ARM 符号"之间反复横跳。详细处置方案见 [dependency-analysis-cmake.md](../build-systems/dependency-analysis-cmake.md)「子模块自动签出检查」。
+> **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `dependency-analysis-build-systems.md` 的 CMake 章节前，**必须**先检查是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`GIT_SUBMODULE` 等；**注意 `FetchContent_MakeAvailable` 不算**——它是构建期下载依赖的正当机制，误当自动签出去关会破坏依赖拉取）。若存在，需在依赖分析报告**最前面**单独成节以 警告，并明确告诉用户：**阶段 C 末尾、阶段 E 首次 `cmake -B build` 前必须先改为可控开关并关闭、再把每个子模块钉到用户确认的 ARM 分支/commit**——否则每次 `cmake -B build` 都会把手动切到 ARM 分支的子模块**默默重置回默认分支**且不报错，导致编译错误在"x86 残留"和"找不到 ARM 符号"之间反复横跳。详细处置方案见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。
 
 **扫描结束后，同时收集 Shell 脚本下载依赖（所有构建系统通用）**：
 
@@ -75,12 +75,12 @@ grep -rn "yum install\|apt-get install\|apt install" "$REPO_PATH"/*.sh "$REPO_PA
 
 ### Step 3：对 deps_list 执行 ARM 兼容性探测
 
-加载 [common-arm-probe.md](common-arm-probe.md)，对 Step 2 收集的每个依赖执行：
+加载 [common-kunpeng-probe.md](common-kunpeng-probe.md)，对 Step 2 收集的每个依赖执行：
 
 1. 私有 URL 判断（公开平台直接豁免）
 2. 远端分支检查（`git ls-remote --heads`）
 3. 本地提交历史检查（`git log grep arm/aarch64`）
-4. 与 `arm_confirmed.md` 免检清单比对
+4. 与 `kunpeng_confirmed.md` 免检清单比对
 
 输出每个依赖的 `arm_status`（已确认 / 待确认 / 未知）。
 
@@ -134,7 +134,7 @@ git submodule status
 递归执行：Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6
 ```
 
-同时检查每个子模块的 ARM 兼容性（加载 `common-arm-probe.md` 即可，此处无需重复写命令）。
+同时检查每个子模块的 ARM 兼容性（加载 `common-kunpeng-probe.md` 即可，此处无需重复写命令）。
 
 #### 情况 B：`REPO_DEPTH >= MAX_DEPTH`（已达最大深度）
 

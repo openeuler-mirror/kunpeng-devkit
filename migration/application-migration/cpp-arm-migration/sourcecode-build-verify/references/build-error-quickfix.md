@@ -15,7 +15,7 @@
 3. **命中** → 按「修复」列描述修复
 4. **未命中** → 回落 [migration-cases/](migration-cases/) 案例库（第2级，查询流程见 [sourcecode-build-verify/SKILL.md](../SKILL.md) E.5 节）
 
-> x86 专属编译标志类错误（`-mf16c`/`-mssse3`/`-mpopcnt` 等在 ARM 不支持）已由案例库 [GENERIC-01](migration-cases/generic-arm-migration-cases.md) 覆盖，不再列入本表，请直接查通用 ARM 适配系列。
+> x86 专属编译标志类错误（`-mf16c`/`-mssse3`/`-mpopcnt` 等在 ARM 不支持）已由案例库 [GENERIC-01](migration-cases/generic-kunpeng-migration-cases.md) 覆盖，不再列入本表，请直接查通用 ARM 适配系列。
 
 ---
 
@@ -32,7 +32,7 @@
 
 | 错误信息 | 根因 | 修复 |
 |---------|------|------|
-| `'__m256i' was not declared` | AVX 类型未定义 | 用 `#if defined(__x86_64__)` 包裹整个使用块，ARM 路径提供 NEON 替代或标量退化（参考 ../devkit-scan/references/sourcecode-devkit-scan.md D.2.2） |
+| `'__m256i' was not declared` | AVX 类型未定义 | 用 `#if defined(__x86_64__)` 包裹整个使用块，ARM 路径提供 NEON 替代或标量退化（参考 ../devkit-scan/SKILL.md D.2.2） |
 | `'_mm256_loadu_si256' undeclared` | AVX intrinsics 函数未定义 | 同上 |
 | `expected unqualified-id before '__attribute__'` | `-D__const__=` 破坏 ARM glibc | 在 .bazelrc / Makefile 中改为 `select()` / 架构判断分支，仅 x86 段保留该宏 |
 | `'proto_common' is not defined` | Bazel rules_proto 版本不兼容 | 在 .bazelrc 全局段加 `--incompatible_blacklisted_protos_requires_proto_info=false` |
@@ -53,7 +53,7 @@
 | `no such target '//platforms:linux_aarch64'` | 同上 | 同上 |
 | `Unrecognized option: --incompatible_...` | 系统 Bazel 版本过旧 | 确认使用项目内置 Bazel（software.sh 中的 PATH 设置） |
 | `Host key verification failed` | SSH 克隆私有仓库失败（ARM 环境无 SSH 密钥） | 向用户提问获取地址 |
-| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 ../../environment-prepare/SKILL.md 1.6 节） |
+| `incompatible with your Protocol Buffer headers` | protoc 版本与 .pb.h 不匹配 | 重新生成 .pb.h，或对齐 protobuf 版本（见 ../../environment-prepare/environment-check-agent.md 1.6 节） |
 
 ## 编译严格性差异
 

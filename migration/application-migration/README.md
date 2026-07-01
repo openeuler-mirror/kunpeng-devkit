@@ -12,7 +12,7 @@
 - [前置条件](#前置条件)
 - [Skill 目录结构](#skill-目录结构)
 - [安装方式](#安装方式)
-  - [Trae IDE](#trae-ide)
+  - [CatPaw IDE](#catpaw-ide)
   - [VS Code (GitHub Copilot)](#vs-code-github-copilot)
   - [Claude Code](#claude-code)
   - [其他编程 Agent](#其他编程-agent)
@@ -65,7 +65,7 @@
 | 源环境 | x86_64 服务器（用于环境信息对比） |
 | DevKit | 鲲鹏 DevKit 已安装（阶段 D 扫描所需，`which devkit` 可查） |
 | 构建工具 | GCC / Make / CMake / Bazel / Blade / SCons（按项目实际使用的构建系统准备） |
-| Trae IDE | 版本 ≥ 3.3.21（如使用 Trae IDE 运行 Skill） |
+| CatPaw IDE | 版本 ≥ 3.3.21（如使用 CatPaw IDE 运行 Skill） |
 
 ---
 
@@ -74,32 +74,23 @@
 ```
 cpp-arm-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
-├── agents/                                           # subagent 提示词模板
-│   ├── environment-check-agent.md                    # 阶段 A subagent（环境检测与准备）
-│   └── dependency-analysis-agent.md                  # 阶段 B subagent（依赖分析与探测）
 ├── environment-prepare/                              # 阶段 A 子 Skill：环境检测与准备
 │   ├── SKILL.md
-│   └── references/
-│       └── build-tools-reference.md                  # 构建工具下载链接
+│   ├── environment-check-agent.md                    # 阶段 A subagent 提示词模板
+│   └── build-tools-reference.md                  # 构建工具下载链接
 ├── dependency-analysis/                              # 阶段 B 子 Skill：依赖分析与 ARM 兼容性探测
 │   ├── SKILL.md                                      # 依赖分析主编排
-│   ├── references/
-│   │   ├── analyze-one-repo.md                       # 单仓库分析闭环步骤
-│   │   ├── common-arm-probe.md                       # 通用 ARM 兼容性探测
-│   │   ├── common-binary-detect.md                   # 预编译二进制识别
-│   │   ├── arm-confirmed-write.md                    # 阶段 C：写入确认清单 + 执行切换
-│   │   └── arm_confirmed.md                          # 已确认 ARM 适配的依赖库清单
-│   ├── assets/
-│   │   └── dependency-analysis-report-template-example.md  # 报告输出模板
-│   └── build-systems/
-│       ├── dependency-analysis-bazel.md              # Bazel 专用分析
-│       ├── dependency-analysis-cmake.md              # CMake 专用分析
-│       ├── dependency-analysis-blade.md              # Blade 专用分析
-│       └── dependency-analysis-scons.md              # SCons 专用分析
+│   ├── dependency-analysis-agent.md                  # 阶段 B subagent 提示词模板
+│   ├── analyze-one-repo.md                           # 单仓库分析闭环步骤
+│   ├── common-arm-probe.md                           # 通用 ARM 兼容性探测
+│   ├── common-binary-detect.md                       # 预编译二进制识别
+│   ├── arm-confirmed-write.md                        # 阶段 C：写入确认清单 + 执行切换
+│   ├── arm_confirmed.md                              # 已确认 ARM 适配的依赖库清单
+│   ├── dependency-analysis-build-systems.md          # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
+│   └── dependency-analysis-report-template-example.md  # 报告输出模板
 ├── devkit-scan/                                      # 阶段 D 子 Skill：DevKit 扫描与源码/构建适配
-│   ├── SKILL.md
+│   ├── SKILL.md                                      # 完整扫描 + 适配流程
 │   ├── references/
-│   │   ├── sourcecode-devkit-scan.md                 # 完整扫描 + 适配流程
 │   │   └── devkit-download.md                        # DevKit CLI 下载说明
 │   └── scripts/
 │       └── devkit-download.sh                        # DevKit 自动下载安装脚本
@@ -116,28 +107,28 @@ cpp-arm-migration/
 │           ├── version-compatibility-cases.md        # 版本兼容性详细案例
 │           └── project-specific-cases.md             # 项目特定详细案例
 └── migration-summary/                                # 阶段 F：迁移总结报告
-    └── migration-summary-report.md
+    └── SKILL.md
 ```
 （prompt.md 位于父目录 application-migration/ 下）
 ---
 
 ## 安装方式
 
-`cpp-arm-migration` 遵循开放 Skill 标准（核心为 `SKILL.md` + YAML 前置声明），可在 Trae IDE、VS Code、Claude Code 等支持 Skill 的编程 Agent 中通用。
+`cpp-arm-migration` 遵循开放 Skill 标准（核心为 `SKILL.md` + YAML 前置声明），可在 CatPaw IDE、VS Code、Claude Code 等支持 Skill 的编程 Agent 中通用。
 
-### Trae IDE
+### CatPaw IDE
 
 #### 方式一：项目级安装（推荐，随项目共享）
 
-将 `cpp-arm-migration` 整个文件夹复制到项目根目录的 `.trae/skills/` 下：
+将 `cpp-arm-migration` 整个文件夹复制到项目根目录的 `.catpaw/skills/` 下：
 
 ```bash
 # 在项目根目录执行
-mkdir -p .trae/skills
-cp -r <path-to>/cpp-arm-migration .trae/skills/
+mkdir -p .catpaw/skills
+cp -r <path-to>/cpp-arm-migration .catpaw/skills/
 ```
 
-安装后重启 Trae IDE，在 AI 对话窗口调用技能，出现"调用 skills"提示即成功。
+安装后重启 CatPaw IDE，在 AI 对话窗口调用技能，出现"调用 skills"提示即成功。
 
 #### 方式二：全局级安装（跨项目复用）
 
@@ -145,18 +136,18 @@ cp -r <path-to>/cpp-arm-migration .trae/skills/
 
 ```bash
 # Windows
-C:\Users\<你的用户名>\.trae\skills\
+C:\Users\<你的用户名>\.catpaw\skills\
 
 # macOS / Linux
-~/.trae/skills/
+~/.catpaw/skills/
 ```
 
-安装后重启 Trae IDE 即可全局调用。
+安装后重启 CatPaw IDE 即可全局调用。
 
 #### 方式三：ZIP 包可视化导入
 
 1. 将 `cpp-arm-migration` 文件夹打包为 ZIP（根目录需包含 `SKILL.md`）
-2. 打开 Trae → 设置（齿轮图标）→ 规则与技能 → 技能
+2. 打开 CatPaw → 设置（齿轮图标）→ 规则与技能 → 技能
 3. 点击「+ 创建」→ 选择压缩包导入，AI 自动解析配置
 4. 选择"项目级"或"全局级"，确认安装
 
@@ -201,11 +192,11 @@ Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 C
 
 ### 步骤一：打开 AI 对话窗口
 
-在已安装 Skill 的 IDE 中打开 AI 对话窗口（Trae IDE 按 `Ctrl+L` / `Cmd+L`）。
+在已安装 Skill 的 IDE 中打开 AI 对话窗口（CatPaw IDE 按 `Ctrl+L` / `Cmd+L`）。
 
 ### 步骤二：提供项目信息并触发 Skill
 
-在对话窗口中填入项目信息并发送，参考 [prompt.md](cpp-arm-migration/prompt.md) 模板：
+在对话窗口中填入项目信息并发送，参考 [prompt.md](prompt.md) 模板：
 
 ```text
 请帮我将以下 C/C++ 项目从 x86 迁移到 ARM（鲲鹏 aarch64）。
@@ -325,7 +316,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: Skill 没有被触发怎么办？
 
-确认 `SKILL.md` 文件名全大写，且位于正确的技能目录下。Trae IDE 需重启后识别新安装的 Skill。也可在对话中显式点名："使用 `cpp-arm-migration` 技能，帮我迁移项目"。
+确认 `SKILL.md` 文件名全大写，且位于正确的技能目录下。CatPaw IDE 需重启后识别新安装的 Skill。也可在对话中显式点名："使用 `cpp-arm-migration` 技能，帮我迁移项目"。
 
 ### Q: DevKit 未安装怎么办？
 
@@ -345,7 +336,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: 如何复用已确认的 ARM 适配依赖？
 
-阶段 C 会将用户确认的依赖 ARM 适配信息写入 [arm_confirmed.md](cpp-arm-migration/dependency-analysis/references/arm_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
+阶段 C 会将用户确认的依赖 ARM 适配信息写入 [arm_confirmed.md](cpp-arm-migration/dependency-analysis/arm_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
 
 ---
 
@@ -353,4 +344,4 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 - [鲲鹏 DevKit](https://www.hikunpeng.com/developer/devkit) — 获取 DevKit 工具
 - [SKILL.md](cpp-arm-migration/SKILL.md) — 完整的六阶段流程编排文档
-- [prompt.md](cpp-arm-migration/prompt.md) — 使用提示词模板
+- [prompt.md](prompt.md) — 使用提示词模板

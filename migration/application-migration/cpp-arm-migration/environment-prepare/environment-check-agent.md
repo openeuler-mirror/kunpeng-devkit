@@ -1,13 +1,26 @@
----
-name: environment-prepare
-description: C/C++ 项目 ARM 迁移的阶段 A 子 Skill：环境检测、修复与编译环境准备。检测 arm64 目标环境的编译器（gcc/glibc/内核/操作系统）、构建工具（Make/CMake/Bazel/Blade/SCons/JDK）版本与可用性，对不满足要求的项自动安装或升级（优先内部定制版，次选官方链接），处理 Blade arm64/Python3 兼容性、Bazel 版本约束匹配、Protobuf 版本一致性问题，最终生成环境检测报告与待确认项清单。作为 cpp-kunpeng-migration 主 Skill 的阶段 A 子 Skill 调用。
+# 阶段 A 子 agent 提示词：环境检测与准备
+
+本文件为阶段 A 子 agent 的完整提示词，由主编排拉起子 agent 执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。主编排读取本文件全文，将下列占位符替换为实际值后作为子 agent 提示词传入：
+
+- `<项目绝对路径>` → `PROJECT_ROOT`
+- `<工作目录绝对路径>` → `WORK_DIR`
+- `<skill目录绝对路径>` → `SKILL_DIR`（cpp-arm-migration skill 目录）
+
+## 输入参数
+
+- PROJECT_ROOT = <项目绝对路径>（主编排传入）
+- WORK_DIR = <工作目录绝对路径>（主编排传入）
+- SKILL_DIR = <cpp-arm-migration skill 目录绝对路径>（主编排传入）
+
+你是一个 ARM 迁移环境检测子 agent。请按以下步骤执行阶段 A：环境检测与准备。
+
 ---
 
 # 阶段 A：环境检测、修复与准备编译环境
 
-本阶段用于检测 arm64 目标环境的编译器、构建工具和基础依赖，对不满足要求的项自动修复（安装/升级），准备编译环境，确保项目在 arm64 上具备编译条件。执行本阶段前，请确认已满足 SKILL.md 中的前置条件。
+本阶段用于检测 arm64 目标环境的编译器、构建工具和基础依赖，对不满足要求的项自动修复（安装/升级），准备编译环境，确保项目在 arm64 上具备编译条件。
 
-> 构建工具的下载链接参见 [build-tools-reference.md](references/build-tools-reference.md)，安装时优先使用内部定制版链接，无内部定制版时使用官方链接。
+> 构建工具的下载链接参见 [build-tools-reference.md](build-tools-reference.md)，安装时优先使用内部定制版链接，无内部定制版时使用官方链接。
 
 ## 1.1 收集系统环境信息
 
@@ -69,7 +82,7 @@ javac -version
 echo $JAVA_HOME
 ```
 
-如果构建工具未安装或版本不满足要求，**自动尝试安装**（安装流程见下方各构建系统章节），安装时按 [build-tools-reference.md](references/build-tools-reference.md) 中的链接选取规则下载：
+如果构建工具未安装或版本不满足要求，**自动尝试安装**（安装流程见下方各构建系统章节），安装时按 [build-tools-reference.md](build-tools-reference.md) 中的链接选取规则下载：
 1. 优先使用内部定制版下载链接
 2. 如无内部定制版，使用官方下载链接
 
@@ -106,7 +119,7 @@ find . -name "blade.py"
    ```
 
 2. 检查 blade 版本是否支持 arm64 架构。**2.0 之前**的 blade 版本不支持 arm64 和 Python3。如果版本不支持 arm64，**优先升级到 Blade 2.0**（而非直接跳到 3.0），以减少版本跨度过大导致的兼容性问题：
-   - 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版
+   - 从 [build-tools-reference.md](build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版
    - 下载并替换项目中的 blade zip 包：
      ```bash
      # 从 reference 文档获取下载链接
@@ -166,7 +179,7 @@ bazel --version
 
 如果项目所需的 Bazel 版本与系统安装的版本不一致，或系统未安装 Bazel，**自动尝试安装**匹配版本：
 
-1. 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版：
+1. 从 [build-tools-reference.md](build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版：
    ```bash
    BAZEL_VERSION="<项目所需版本>"
    # 从 reference 文档获取下载链接，优先内部定制版
@@ -317,3 +330,34 @@ protoc --version
 ```
 
 将此报告保存到工作目录中，文件名为 `$WORK_DIR/reports/environment_check_report.md`。
+
+---
+
+## 输出要求（硬性约束）
+
+1. **必须**将环境检测报告写入文件 `$WORK_DIR/reports/environment_check_report.md`
+2. **必须**将待确认项写入文件 `$WORK_DIR/reports/stage_a_pending_items.md`（格式见下方）
+3. 即使无待确认项，也必须写入空清单并标注"无待确认项"
+4. **严禁**向用户提问（你没有向用户提问的权限，需用户决策的项一律写入待确认项文件，由主编排在阶段 C 统一提问）
+5. **严禁**修改项目源码或构建配置（你只做检测和报告）
+6. 完成后，在你的最终回复中输出：
+   - 环境检测结论（是否具备编译条件）
+   - 识别到的构建系统类型
+   - 待确认项数量
+   - 报告文件路径
+
+## 待确认项格式
+
+每条待确认项为一个 YAML 代码块：
+
+```yaml
+- id: env_<名称>            # env_ 前缀
+  category: 环境检测
+  question: "<具体问题>"
+  options:
+    - id: <选项id>
+      label: "<选项标签>"
+  context: "<决策依据>"
+```
+
+现在开始执行阶段 A 环境检测。

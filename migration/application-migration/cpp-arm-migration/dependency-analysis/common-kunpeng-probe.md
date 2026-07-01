@@ -75,13 +75,13 @@ git log --oneline --all | grep -iE "arm|aarch64|cross.?compil|kunpeng" | head -5
 
 ## Section 5：与已确认清单比对（按依赖库名匹配）
 
-> 这是「查到分支 → 用户确认 → 阶段 C 末尾切换」闭环的查询端。`arm_confirmed.md` 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/路径）。
+> 这是「查到分支 → 用户确认 → 阶段 C 末尾切换」闭环的查询端。`kunpeng_confirmed.md` 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/路径）。
 
 **在执行 Section 2/3 探测之前**，先读本清单，命中的依赖免探测、免询问，并记下 ARM 适配信息供阶段 C 末尾切换使用：
 
 ```bash
 # 读取已确认清单（skill 目录下）
-cat "$SKILL_DIR/dependency-analysis/references/arm_confirmed.md" 2>/dev/null
+cat "$SKILL_DIR/dependency-analysis/kunpeng_confirmed.md" 2>/dev/null
 ```
 
 ### 比对方法
@@ -95,7 +95,7 @@ cat "$SKILL_DIR/dependency-analysis/references/arm_confirmed.md" 2>/dev/null
 | 有区块，且项目当前配置**已经**是记录的 ARM 版本 | 已确认且已切换，从报告中完全省略 |
 | 「备注」列含特殊操作（如「需先注释自动签出」「ABI=0」） | 一并记入该依赖备注，阶段 C 末尾切换前必须先完成这些前置操作 |
 
-> 命中即免探测、免询问：不再执行 Section 2/3 远端/历史探测，也不进入报告末尾的「待用户手动确认清单」。但**「免询问」仅限阶段 B 的探测环节**——阶段 C 末尾真正切换分支前仍必须经用户逐项确认（见 [arm-confirmed-write.md](arm-confirmed-write.md) 步骤 4「切换前必须用户确认」）。
+> 命中即免探测、免询问：不再执行 Section 2/3 远端/历史探测，也不进入报告末尾的「待用户手动确认清单」。但**「免询问」仅限阶段 B 的探测环节**——阶段 C 末尾真正切换分支前仍必须经用户逐项确认（见 [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md) 步骤 4「切换前必须用户确认」）。
 
 ---
 
@@ -105,7 +105,7 @@ cat "$SKILL_DIR/dependency-analysis/references/arm_confirmed.md" 2>/dev/null
 # Step 3 伪代码（在 analyze-one-repo.md 中执行）
 for dep in $deps_list:
   if dep.type in [git_repository, submodule, FetchContent_GIT]:
-    read common-arm-probe.md
+    read common-kunpeng-probe.md
     probe_result = execute_arm_probe(dep.url, dep.local_path)
     dep.arm_status = probe_result.status    # / / 
     dep.arm_note   = probe_result.note

@@ -1,26 +1,26 @@
 # 写入 ARM 确认清单与执行真实切换
 
 > 本文件是「查到分支 → 用户确认 → 切换并校验」闭环的写入端与切换端，描述阶段 C 中的两个连续动作：
-> 1. **阶段 C 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [arm_confirmed.md](arm_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
+> 1. **阶段 C 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [kunpeng_confirmed.md](kunpeng_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
 > 2. **阶段 C 末尾切换**：确认通过后，立即把构建配置里这些依赖的分支 / commit / URL 替换为清单记录的 ARM 版本，并做基础校验，让项目在进入阶段 D（DevKit 扫描）前就已是 ARM 版本
 >
 > 切换放在阶段 C 末尾（而非阶段 D）的原因：用户刚确认完、信息最全时顺手切掉，避免拖到阶段 D 与源码适配交织；阶段 D 因此可专注 DevKit 扫描与源码修改。
 >
-> `arm_confirmed.md` 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/URL），按依赖库名定位即命中。不记录 x86 端版本，也不记录全局编译配置（ABI/工具链/构建命令是主仓级约束）。
+> `kunpeng_confirmed.md` 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/URL），按依赖库名定位即命中。不记录 x86 端版本，也不记录全局编译配置（ABI/工具链/构建命令是主仓级约束）。
 
-> **顺序约束**：登记可逆（仅改一个清单文件），必须在用户通过 `AskUserQuestion` 明确确认后才执行；切换会修改项目源码树，必须在登记后、用户逐项确认切换后立即执行，并在进入阶段 D 前完成校验。把切换前置到阶段 C 末尾，是为了在用户信息最全时一次性落地，避免与阶段 D 的源码适配交织。
+> **顺序约束**：登记可逆（仅改一个清单文件），必须在用户明确确认（向用户提问）后才执行；切换会修改项目源码树，必须在登记后、用户逐项确认切换后立即执行，并在进入阶段 D 前完成校验。把切换前置到阶段 C 末尾，是为了在用户信息最全时一次性落地，避免与阶段 D 的源码适配交织。
 
 ---
 
 ## 阶段 C：写入 ARM 确认清单
 
 > **输入来源有两条**，写入方式相同：
-> - 阶段 B 通过 [common-arm-probe.md](common-arm-probe.md) Section 5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 B 就已查到，阶段 C 只需补登尚未在清单里、但用户刚确认的新依赖
-> - 阶段 C 通过 `AskUserQuestion` 让用户**新确认**的依赖（清单里没有、探测后由用户提供 ARM 分支/包路径）
+> - 阶段 B 通过 [common-kunpeng-probe.md](common-kunpeng-probe.md) Section 5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 B 就已查到，阶段 C 只需补登尚未在清单里、但用户刚确认的新依赖
+> - 阶段 C 通过向用户提问让用户**新确认**的依赖（清单里没有、探测后由用户提供 ARM 分支/包路径）
 
 ### 步骤 1：定位依赖库区块
 
-打开 [arm_confirmed.md](arm_confirmed.md)，按**依赖库名**查找区块。区块标题格式：
+打开 [kunpeng_confirmed.md](kunpeng_confirmed.md)，按**依赖库名**查找区块。区块标题格式：
 
 ```markdown
 ## <依赖库名>
@@ -55,7 +55,7 @@
 阶段 C 收到用户的每条确认/否决都应记录到 `$WORK_DIR/reports/user_decisions.txt`，便于阶段 D/E 回溯：
 
 ```
-[<时间戳>] <依赖名> → 已确认 ARM 适配，arm_confirmed.md 已登记（ARM 分支：<分支>）
+[<时间戳>] <依赖名> → 已确认 ARM 适配，kunpeng_confirmed.md 已登记（ARM 分支：<分支>）
 [<时间戳>] <依赖名> → 用户选择「禁用该模块」
 [<时间戳>] <依赖名> → 用户提供本地 ARM 包路径：<路径>
 ```
@@ -72,14 +72,14 @@
 
 | 来源 | 依赖的 ARM 适配信息从哪取 |
 |------|------------------------|
-| 阶段 B 命中 [arm_confirmed.md](arm_confirmed.md)（common-arm-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
+| 阶段 B 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（common-kunpeng-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
 | 阶段 C 新登记 | 刚写入清单的记录 |
 
 #### 切换前必须用户确认（不可跳过）
 
 > **为什么必须确认**：清单记录的 ARM 分支未必与当前项目实际情况一致（仓库可能新增/调整了 ARM 分支），一旦切错，编译错误会在「x86 残留」和「找不到 ARM 符号」之间反复横跳，极难定位，迁移成本陡增。因此**任何依赖的分支/commit/URL 切换，都必须先经用户确认，不得自动执行**。
 
-执行任何切换命令前，**必须调用 `AskUserQuestion`**，把待切换清单整理成一个确认清单，逐项让用户拍板。每个待切换依赖 = 一个 question：
+执行任何切换命令前，**必须向用户提问**，把待切换清单整理成一个确认清单，逐项让用户拍板。每个待切换依赖 = 一个 question：
 
 ```
 question: "<依赖名> 清单记录的 ARM 适配为 <ARM 分支/commit>，是否切换？"
@@ -157,7 +157,7 @@ if [ -d "$DEP_DIR" ]; then
 fi
 ```
 
-> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify/SKILL.md](../../sourcecode-build-verify/SKILL.md) E.8 节落实。
+> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify/SKILL.md](../sourcecode-build-verify/SKILL.md) E.8 节落实。
 
 ### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
@@ -169,7 +169,7 @@ CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②*
 >
 > **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
 >
-> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-cmake.md](../build-systems/dependency-analysis-cmake.md)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
+> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
 >
 > 该步骤完成后，必须在 `$WORK_DIR/reports/user_decisions.txt` 留痕（记录**每个子模块钉定的分支/commit**，不只是"是否已禁用"）：
 > ```
@@ -234,7 +234,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 - [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [sourcecode-devkit-scan.md](../../devkit-scan/references/sourcecode-devkit-scan.md)）。
+校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [SKILL.md](../devkit-scan/SKILL.md)）。
 
 ---
 

@@ -1,3 +1,8 @@
+---
+name: sourcecode-build-verify
+description: C/C++ 项目 ARM 迁移的阶段 E 子 Skill：编译验证与循环修复。在 ARM（aarch64）环境循环执行编译，提取关键错误，按两级查询（build-error-quickfix 速查表 → migration-cases 案例库）定位修复方案，修复后重试，直到编译成功或触发人工介入。处理代码仓权限问题、连续相同错误检测、最大重试次数（10 次）收尾。作为 cpp-kunpeng-migration 主 Skill 的阶段 E 子 Skill 调用；当用户需要单独进行 ARM 编译验证、排查编译错误、或查询 ARM 迁移案例库时也应直接调用本子 Skill。
+---
+
 # 阶段 E：编译验证与循环修复
 
 本文档描述阶段 E 的完整执行步骤：循环执行 ARM 编译验证，分析编译错误，查阅案例库，修复后重试，直到编译成功或达到人工介入条件。
@@ -33,7 +38,7 @@ COMPILE_CMD="bazel build <主编译目标> --verbose_failures --config=linux_aar
 COMPILE_CMD="bash $PROJECT_ROOT/build.sh"
 ```
 
-> **编译目标来源**：来自阶段 A environment-prepare/SKILL.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
+> **编译目标来源**：来自阶段 A environment-prepare/environment-check-agent.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
 
 ### CMake 项目
 
@@ -46,7 +51,7 @@ cmake -B $BUILD_DIR -S $PROJECT_ROOT \
   -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
   -DCMAKE_SYSTEM_NAME=Linux \
   -DAUTO_SUBMODULE=OFF
-# 注：-DAUTO_SUBMODULE=OFF 仅当项目按 dependency-analysis-cmake.md「子模块自动签出检查」
+# 注：-DAUTO_SUBMODULE=OFF 仅当项目按 dependency-analysis-build-systems.md（CMake 章节）「子模块自动签出检查」
 # 改造了 AUTO_SUBMODULE 开关时才需要传；未改造的项目 cmake 会忽略未知 option 的警告。
 # 作用：阻止 cmake 配置期 git submodule update 重置已钉定的 ARM 分支（见该文档第 1/2 步）。
 
@@ -111,7 +116,7 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     if current_errors 命中代码仓权限问题关键字（见 E.2.1）:
-        → 跳到 E.2.1 权限问题处理（AskUserQuestion 提问用户）
+        → 跳到 E.2.1 权限问题处理（向用户提问）
         → 用户提供代码仓路径后，更新构建配置并继续编译
         → ATTEMPT += 1，继续循环
 
@@ -143,9 +148,9 @@ if ATTEMPT > MAX_ATTEMPTS:
 
 ---
 
-## E.2.1 代码仓权限问题处理（AskUserQuestion 分支）
+## E.2.1 代码仓权限问题处理（向用户提问分支）
 
-> **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，必须通过 `AskUserQuestion` 提问用户，由用户提供已下载好的代码仓路径。
+> **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，**必须**向用户提问，由用户提供已下载好的代码仓路径。
 
 ### 权限错误关键字识别
 
@@ -167,13 +172,13 @@ PERM_ERR=$(grep -iE "Permission denied|could not read Username|Could not read fr
 if [ -n "$PERM_ERR" ]; then
     echo "检测到代码仓权限问题"
     echo "$PERM_ERR"
-    # 进入下方 AskUserQuestion 流程
+    # 进入下方提问流程
 fi
 ```
 
-### AskUserQuestion 提问流程
+### 向用户提问流程
 
-检测到权限问题后，**立即停止自动修复**，通过 `AskUserQuestion` 向用户提问：
+检测到权限问题后，**立即停止自动修复**，**必须**向用户提问：
 
 ```
 question:
@@ -312,7 +317,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 | 系列 | 路由索引文件 | 案例库文件 | 适用错误 |
 |------|------------|----------|---------|
-| 通用 ARM 适配 | [generic-arm-migration-index.md](references/migration-cases/generic-arm-migration-index.md) | [generic-arm-migration-cases.md](references/migration-cases/generic-arm-migration-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
+| 通用 ARM 适配 | [generic-kunpeng-migration-index.md](references/migration-cases/generic-kunpeng-migration-index.md) | [generic-kunpeng-migration-cases.md](references/migration-cases/generic-kunpeng-migration-cases.md) | 通用 ARM 适配（编译标志、intrinsics、头文件等架构无关问题） |
 | 版本兼容性 | [version-compatibility-index.md](references/migration-cases/version-compatibility-index.md) | [version-compatibility-cases.md](references/migration-cases/version-compatibility-cases.md) | 版本兼容性（依赖库版本冲突、ABI 不匹配、头文件版本不一致） |
 | 项目特有 | [project-specific-index.md](references/migration-cases/project-specific-index.md) | [project-specific-cases.md](references/migration-cases/project-specific-cases.md) | 项目特有（部署流水线、manifest、so 路径等项目级问题） |
 
@@ -443,7 +448,7 @@ echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 - [ ] 已确定正确的编译命令（含 --config=linux_aarch64 或等效参数）
 - [ ] 第 1 次编译已执行，日志已保存到 `$WORK_DIR/logs/build_1.log`
 - [ ] 若失败，已提取并分析关键错误信息
-- [ ] 遇到代码仓权限问题时，已通过 `AskUserQuestion` 向用户提供本地路径（未在服务器其他目录查找代码仓）
+- [ ] 遇到代码仓权限问题时，已向用户提供本地路径（未在服务器其他目录查找代码仓）
 - [ ] 已查询速查表 / migration-cases 案例库匹配已知问题（两级查询）
 - [ ] 每次修复均已记录到 `fix_history.txt`
 - [ ] 最终编译成功（退出码 0，无 `error:` 行）
