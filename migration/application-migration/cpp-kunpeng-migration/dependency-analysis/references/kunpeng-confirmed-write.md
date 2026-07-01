@@ -15,7 +15,7 @@
 ## 阶段 3：写入 ARM 确认清单
 
 > **输入来源有两条**，写入方式相同：
-> - 阶段 2 通过 [common-kunpeng-probe.md](common-kunpeng-probe.md) Section 5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 2 就已查到，阶段 3 只需补登尚未在清单里、但用户刚确认的新依赖
+> - 阶段 2 通过 [common-detect.md](common-detect.md) Part A 的 A.5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 2 就已查到，阶段 3 只需补登尚未在清单里、但用户刚确认的新依赖
 > - 阶段 3 通过向用户提问让用户**新确认**的依赖（清单里没有、探测后由用户提供 ARM 分支/包路径）
 
 ### 步骤 1：定位依赖库区块
@@ -72,7 +72,7 @@
 
 | 来源 | 依赖的 ARM 适配信息从哪取 |
 |------|------------------------|
-| 阶段 2 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（common-kunpeng-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
+| 阶段 2 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（common-detect.md Part A 的 A.5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
 | 阶段 3 新登记 | 刚写入清单的记录 |
 
 #### 切换前必须用户确认（不可跳过）
@@ -163,13 +163,9 @@ fi
 
 CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②**子模块自动签出在 cmake 阶段把手动切的 ARM 分支默默重置回去**。
 
-> **关自动签出 + 钉定子模块分支是 CMake 项目阶段 3 末尾的关键关卡 —— 不可跳过**：
+> **关键关卡，不可跳过**：阶段 2 已识别到的自动签出逻辑（`execute_process(... git submodule update ...)` 等），必须在切换子模块分支**之前**先改为可控开关并关闭。根因（`cmake -B build` 会"恢复"未初始化子模块、把 ARM 分支默默重置回默认分支且全程不报错，导致"明明切了 ARM 分支但报 x86 残留"的诡异现象）与完整两步处置原理见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」，本节只给阶段 3 末尾的落地命令。
 >
-> 阶段 2 依赖分析报告中已识别到的自动签出逻辑（`execute_process(... git submodule update ...)` 等），**必须在切换子模块分支之前先改为可控开关并关闭**。否则下面第 4 步的 `cmake -B build` 会"恢复"未初始化子模块的初衷把刚切到 ARM 分支的子模块重置回默认分支，且**全程不报错**——后续编译会出现"明明切了 ARM 分支但报 x86 残留错误"的诡异现象，极易误判为依赖问题，浪费数小时。
->
-> **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
->
-> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。本节给出阶段 3 末尾的落地命令。
+> **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）；**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
 >
 > 该步骤完成后，必须在 `$WORK_DIR/reports/user_decisions.txt` 留痕（记录**每个子模块钉定的分支/commit**，不只是"是否已禁用"）：
 > ```

@@ -45,8 +45,7 @@ description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分�
 |------|------|
 | **本文件** | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告 |
 | [analyze-one-repo.md](references/analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [common-kunpeng-probe.md](references/common-kunpeng-probe.md) | 通用共享：私有URL判断、远端分支检查、提交历史检查、免检清单比对 |
-| [common-binary-detect.md](references/common-binary-detect.md) | 通用共享：预编译二进制扫描、架构判断、四级源码溯源、截断策略 |
+| [common-detect.md](references/common-detect.md) | 通用共享：Part A ARM 兼容性探测（私有URL判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 预编译二进制识别（扫描、架构判断、四级源码溯源、截断策略） |
 | [dependency-analysis-build-systems.md](references/dependency-analysis-build-systems.md) | 四构建系统合集（按需加载对应章节）：Bazel/CMake/Blade/SCons 依赖扫描、预编译包识别、子模块自动签出检查 |
 | └ [#bazel](references/dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
 | └ [#cmake](references/dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
@@ -86,7 +85,7 @@ cat "$REPORT"
 cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 ```
 
-将免检清单的内容缓存在上下文中，供后续每次调用 [common-kunpeng-probe.md](references/common-kunpeng-probe.md) 时使用（Section 5 比对）。
+将免检清单的内容缓存在上下文中，供后续每次调用 [common-detect.md](references/common-detect.md) 时使用（Part A 的 A.5 比对）。
 
 > **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 3 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 3 末尾切换，不再探测、不再询问用户。
 
@@ -108,8 +107,8 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 `analyze-one-repo.md` 内部会自动：
 - 检测主仓构建系统，加载对应专用分析文件
-- 调用 [common-kunpeng-probe.md](references/common-kunpeng-probe.md) 执行 ARM 兼容性探测
-- 调用 [common-binary-detect.md](references/common-binary-detect.md) 执行预编译二进制识别与溯源
+- 调用 [common-detect.md](references/common-detect.md) Part A 执行 ARM 兼容性探测
+- 调用 [common-detect.md](references/common-detect.md) Part B 执行预编译二进制识别与溯源
 - 递归处理所有子模块（最多 `MAX_DEPTH` 层），每个子仓**独立检测构建系统**
 
 最终返回包含所有层级信息的结构化结果，用于第四步聚合。
@@ -174,7 +173,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 依赖的 ARM 适配信息有两条来源，都按 [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) 处理：
 
-- **阶段 2 命中清单**的依赖（common-kunpeng-probe.md Section 5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 3 末尾的待切换清单
+- **阶段 2 命中清单**的依赖（common-detect.md Part A 的 A.5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 3 末尾的待切换清单
 - **阶段 3 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `kunpeng_confirmed.md`
 
 **阶段 3 末尾（登记 + 确认切换 + 校验，一次性完成）**：
