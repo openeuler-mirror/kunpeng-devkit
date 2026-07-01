@@ -1,17 +1,17 @@
 ---
 name: sourcecode-build-verify
-description: C/C++ 项目 ARM 迁移的阶段 E 子 Skill：编译验证与循环修复。在 ARM（aarch64）环境循环执行编译，提取关键错误，按两级查询（build-error-quickfix 速查表 → migration-cases 案例库）定位修复方案，修复后重试，直到编译成功或触发人工介入。处理代码仓权限问题、连续相同错误检测、最大重试次数（10 次）收尾。作为 cpp-kunpeng-migration 主 Skill 的阶段 E 子 Skill 调用；当用户需要单独进行 ARM 编译验证、排查编译错误、或查询 ARM 迁移案例库时也应直接调用本子 Skill。
+description: C/C++ 项目 ARM 迁移的阶段 E 子 Skill，专注于编译验证与循环修复环节。提供在 ARM（aarch64）环境循环执行编译的能力，提取关键错误，按两级查询（build-error-quickfix 速查表 → migration-cases 案例库）定位修复方案，修复后重试，直到编译成功或触发人工介入，处理代码仓权限问题、连续相同错误检测、最大重试次数（10 次）收尾。在作为 cpp-kunpeng-migration 主 Skill 的阶段 E 子 Skill 被调用时触发，当用户需要单独进行 ARM 编译验证、排查编译错误、或查询 ARM 迁移案例库时也应直接触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移的编译验证。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
 ---
 
-# 阶段 E：编译验证与循环修复
+# 阶段 5：编译验证与循环修复
 
-本文档描述阶段 E 的完整执行步骤：循环执行 ARM 编译验证，分析编译错误，查阅案例库，修复后重试，直到编译成功或达到人工介入条件。
+本文档描述阶段 5 的完整执行步骤：循环执行 ARM 编译验证，分析编译错误，查阅案例库，修复后重试，直到编译成功或达到人工介入条件。
 
-> **前置条件**：阶段 D 完成，DevKit 扫描问题已处理，构建配置已适配。
+> **前置条件**：阶段 4 完成，DevKit 扫描问题已处理，构建配置已适配。
 
 ---
 
-## E.1 确定编译命令
+## 5.1 确定编译命令
 
 在第一次编译前，根据构建系统类型确定正确的编译命令。
 
@@ -38,7 +38,7 @@ COMPILE_CMD="bazel build <主编译目标> --verbose_failures --config=linux_aar
 COMPILE_CMD="bash $PROJECT_ROOT/build.sh"
 ```
 
-> **编译目标来源**：来自阶段 A environment-prepare/SKILL.md 的检测结果（通常在 build.sh 中），或用户在阶段 C 确认的目标名。
+> **编译目标来源**：来自阶段 1 environment-prepare/SKILL.md 的检测结果（通常在 build.sh 中），或用户在阶段 3 确认的目标名。
 
 ### CMake 项目
 
@@ -75,7 +75,7 @@ COMPILE_CMD="cd $PROJECT_ROOT && blade build <目标> --toolchain-prefix=<prefix
 
 ---
 
-## E.2 循环编译修复主流程
+## 5.2 循环编译修复主流程
 
 ```
 ATTEMPT = 1
@@ -97,17 +97,17 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     if BUILD_EXIT_CODE == 0 && 日志中无 "error:" 行:
-        → 编译成功，跳到 E.8 收尾
+        → 编译成功，跳到 5.8 收尾
 
     ┌─────────────────────────────────────────┐
     │  提取关键错误信息                       │
     └─────────────────────────────────────────┘
 
-    current_errors = E.3 节的错误提取方法
+    current_errors = 5.3 节的错误提取方法
     current_error_hash = hash(current_errors)
 
     if current_error_hash == last_error_hash:
-        → 连续相同错误，修复无效，跳到 E.7 人工介入
+        → 连续相同错误，修复无效，跳到 5.7 人工介入
 
     last_error_hash = current_error_hash
 
@@ -115,8 +115,8 @@ while ATTEMPT <= MAX_ATTEMPTS:
     │  代码仓权限问题检测（特殊分支）         │
     └─────────────────────────────────────────┘
 
-    if current_errors 命中代码仓权限问题关键字（见 E.2.1）:
-        → 跳到 E.2.1 权限问题处理（向用户提问）
+    if current_errors 命中代码仓权限问题关键字（见 5.2.1）:
+        → 跳到 5.2.1 权限问题处理（向用户提问）
         → 用户提供代码仓路径后，更新构建配置并继续编译
         → ATTEMPT += 1，继续循环
 
@@ -132,23 +132,23 @@ while ATTEMPT <= MAX_ATTEMPTS:
     路由：references/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
     若案例库命中 → 按案例修复方法修复
 
-    每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 E.5 节），
+    每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 5.5 节），
        便于核验 skill 是否实际使用了案例库知识
 
     记录修复操作到 $WORK_DIR/reports/fix_history.txt
 
     if 判断无法自动修复:
-        → 跳到 E.7 人工介入
+        → 跳到 5.7 人工介入
 
     ATTEMPT += 1
 
 if ATTEMPT > MAX_ATTEMPTS:
-    → 跳到 E.7 人工介入
+    → 跳到 5.7 人工介入
 ```
 
 ---
 
-## E.2.1 代码仓权限问题处理（向用户提问分支）
+## 5.2.1 代码仓权限问题处理（向用户提问分支）
 
 > **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，**必须**向用户提问，由用户提供已下载好的代码仓路径。
 
@@ -211,7 +211,7 @@ question:
 
 ---
 
-## E.3 执行编译命令（详细）
+## 5.3 执行编译命令（详细）
 
 ```bash
 ATTEMPT=1  # 每次循环递增
@@ -251,7 +251,7 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     REAL_ERRORS=$(grep -cE "^ERROR |: error:|error: " $LOG_FILE 2>/dev/null || echo 0)
     if [ "$REAL_ERRORS" -eq 0 ]; then
         echo "编译成功（第 ${ATTEMPT} 次尝试）"
-        # 进入 E.8 收尾
+        # 进入 5.8 收尾
     else
         echo "退出码为 0 但日志中仍有 ${REAL_ERRORS} 条 error，继续分析"
     fi
@@ -260,7 +260,7 @@ fi
 
 ---
 
-## E.4 提取关键错误信息
+## 5.4 提取关键错误信息
 
 每次编译失败后，使用以下命令提取关键错误：
 
@@ -293,7 +293,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 ---
 
-## E.5 错误修复查询（两级）
+## 5.5 错误修复查询（两级）
 
 > **修复优先级（两级查询）**：
 > 1. **第1级 — 速查表**：查 [build-error-quickfix.md](references/build-error-quickfix.md)（扁平关键字表，扫描快）；命中则按「修复」列描述修复
@@ -327,7 +327,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 2. 按错误类别选路由索引文件，扫描「摘要」列匹配关键字 → 定位案例 ID（如 `GENERIC-01`）
 3. 跳到对应案例库文件，按 ID 查看完整修复方法（错误现象 / 根因 / 修复方法 / 验证方式）
 4. **输出醒目标识**（见上方格式），命中与否都要输出
-5. 命中 → 按案例修复方法执行；未命中 → 跳到 E.6 记录后进入 E.7 人工介入
+5. 命中 → 按案例修复方法执行；未命中 → 跳到 5.6 记录后进入 5.7 人工介入
 
 > **类别判定速查**：
 > - 错误含 x86 编译标志 / intrinsics 头文件 / 内联汇编 → **通用 ARM 适配系列**
@@ -339,7 +339,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 
 ---
 
-## E.6 记录修复历史
+## 5.6 记录修复历史
 
 每次修复后，立即追加记录到修复历史文件：
 
@@ -361,7 +361,7 @@ EOF
 
 ---
 
-## E.7 人工介入报告
+## 5.7 人工介入报告
 
 当出现以下情况时，**停止自动修复**并输出人工介入报告：
 
@@ -404,7 +404,7 @@ EOF
 
 ---
 
-## E.8 编译成功后收尾
+## 5.8 编译成功后收尾
 
 ```bash
 # 1. 清理临时 WORKSPACE（避免误提交到版本库）
@@ -433,15 +433,15 @@ echo "   在 x86 机器上执行以下命令之一："
 echo "   - 方式1：使用项目的构建脚本（若已添加架构自动检测，在 x86 上会自动走 x86 路径）"
 echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures --config=linux_x86"
 
-# 6. 引导进入阶段 F
+# 6. 引导进入阶段 6
 echo ""
-echo "阶段 E 完成，进入阶段 F：生成迁移总结报告"
+echo "阶段 5 完成，进入阶段 6：生成迁移总结报告"
 echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 ```
 
 ---
 
-## E.9 快速检查清单
+## 5.9 快速检查清单
 
 编译验证阶段完成后，确认以下所有项均已完成：
 
@@ -455,4 +455,4 @@ echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 - [ ] 临时 WORKSPACE 文件已清理
 - [ ] 最终修改清单已保存
 - [ ] 已提示进行 x86 双架构兼容性验证
-- [ ] 已记录阶段 E 结束时间戳到 timeline.log
+- [ ] 已记录阶段 5 结束时间戳到 timeline.log

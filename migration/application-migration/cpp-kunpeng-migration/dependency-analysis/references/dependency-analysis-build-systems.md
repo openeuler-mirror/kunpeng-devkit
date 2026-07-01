@@ -45,7 +45,7 @@ grep -rn "execute_process.*git\|git reset\|git checkout" \
 > - 根因：`cmake -B build` 配置期会执行这段 `git submodule update`，以"修复未初始化子模块"的名义把已手动切到 ARM 分支的子模块**默默重置回默认分支**，而且**不会报错**。每次 cmake 重新配置都重置一次——不只第一次，清 build 目录重来也会
 > - 症状极具迷惑性：`git submodule status` 显示分支正确，但 cmake 重新配置后回退；编译错误在"x86 残留"与"找不到 ARM 符号"间反复横跳，极易误判为依赖问题
 >
-> **处置分两步，且都必须在阶段 E 首次 `cmake -B build` 之前完成**：
+> **处置分两步，且都必须在阶段 5 首次 `cmake -B build` 之前完成**：
 >
 > **第 1 步 — 关掉 cmake 的动态重置（CMake 侧，持久改造，不是一次性注释）**
 >
@@ -60,14 +60,14 @@ grep -rn "execute_process.*git\|git reset\|git checkout" \
 > # ARM 路径（-DAUTO_SUBMODULE=OFF）：整个 execute_process 被跳过，分支由第 2 步钉定
 > ```
 >
-> ARM 构建命令（阶段 E.1）显式传 `-DAUTO_SUBMODULE=OFF`。
+> ARM 构建命令（阶段 5.1）显式传 `-DAUTO_SUBMODULE=OFF`。
 >
 > **第 2 步 — 把每个子模块钉到用户指定的固定分支（git 侧，逐个子模块）**
 >
 > 关掉动态重置只是"不再被覆盖"，子模块仍停在不确定状态，必须主动钉定，否则 cmake 不重置、但分支本身可能也没切对：
 >
-> - 每个含自动签出的子模块，其 ARM 分支作为**待确认项**在阶段 C 收集，走与其它 Git 依赖相同的确认闭环（见 [common-kunpeng-probe.md](common-kunpeng-probe.md) Section 2/4 与 [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md)）。不同子模块的 ARM 分支名往往不同（`arm64` / `aarch64` / `kunpeng`…），**逐个子模块确认，不共用一个分支**
-> - 阶段 C 末尾、阶段 E 首次 `cmake -B build` **之前**，先 init 再逐个钉定（init 会把工作区停在默认 commit，随后的 checkout 覆盖为 ARM 分支，故 checkout 必须在后、且为最后一步）：
+> - 每个含自动签出的子模块，其 ARM 分支作为**待确认项**在阶段 3 收集，走与其它 Git 依赖相同的确认闭环（见 [common-kunpeng-probe.md](common-kunpeng-probe.md) Section 2/4 与 [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md)）。不同子模块的 ARM 分支名往往不同（`arm64` / `aarch64` / `kunpeng`…），**逐个子模块确认，不共用一个分支**
+> - 阶段 3 末尾、阶段 5 首次 `cmake -B build` **之前**，先 init 再逐个钉定（init 会把工作区停在默认 commit，随后的 checkout 覆盖为 ARM 分支，故 checkout 必须在后、且为最后一步）：
 >   ```bash
 >   git submodule update --init --recursive                          # 确保子模块工作区就位（含嵌套）
 >   git -C <子模块路径> checkout <用户为该子模块确认的ARM分支或commit>   # 逐个钉到固定分支/commit
@@ -76,7 +76,7 @@ grep -rn "execute_process.*git\|git reset\|git checkout" \
 > - **分支或 commit 皆可**：清单记录的是「ARM 适配分支/commit」，有些子模块的 ARM 适配只在某个 commit、无命名分支，`git checkout <commit>` 同样有效（detached HEAD 也能被第 1 步的 OFF 开关保护住不被重置）
 > - 钉定后状态持久（存于子模块自身 .git，不在 build 目录），只要第 1 步开关生效，cmake 重新配置不会覆盖。**钉定后不得再手动跑 `git submodule update`**（会重置回默认 commit），分支维持靠第 1 步的 `OFF` 开关
 >
-> **留痕**：在 `$WORK_DIR/reports/user_decisions.txt` 中记录**每个子模块钉定的分支**（不只是"是否已禁用"），阶段 E 前再次核对。
+> **留痕**：在 `$WORK_DIR/reports/user_decisions.txt` 中记录**每个子模块钉定的分支**（不只是"是否已禁用"），阶段 5 前再次核对。
 
 ---
 
@@ -177,7 +177,7 @@ find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
 
 | 注意事项 | 说明 | 建议操作 |
 |---------|------|---------|
-| **子模块自动签出** | `cmake -B build` 会重新拉取/重置子模块，覆盖手动切换的 ARM 分支 | 改 `AUTO_SUBMODULE` 开关 + ARM 传 `-DAUTO_SUBMODULE=OFF`；阶段 E 前逐个子模块 `git checkout` 钉到用户确认的 ARM 分支（见本文档「子模块自动签出检查」第 1/2 步） |
+| **子模块自动签出** | `cmake -B build` 会重新拉取/重置子模块，覆盖手动切换的 ARM 分支 | 改 `AUTO_SUBMODULE` 开关 + ARM 传 `-DAUTO_SUBMODULE=OFF`；阶段 5 前逐个子模块 `git checkout` 钉到用户确认的 ARM 分支（见本文档「子模块自动签出检查」第 1/2 步） |
 | **`find_package` 缓存** | `CMakeCache.txt` 缓存了 x86 路径，切到 ARM 后不会重新查找 | 切换前 `rm -rf build/` 完全清理后再重新 `cmake -B build` |
 | **预编译 IMPORTED 库** | `IMPORTED_LOCATION` 直接指向 x86 二进制 | 改为按 `CMAKE_SYSTEM_PROCESSOR` 选择 x86/ARM 路径分支 |
 | **`pkg-config` 路径** | x86 系统的 `.pc` 文件可能写死 `/usr/lib64`，ARM 上路径不同 | 在 ARM 环境中重新生成 / 用 `CMAKE_PREFIX_PATH` 覆盖 |

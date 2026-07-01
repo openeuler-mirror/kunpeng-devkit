@@ -1,22 +1,22 @@
 # 写入 ARM 确认清单与执行真实切换
 
-> 本文件是「查到分支 → 用户确认 → 切换并校验」闭环的写入端与切换端，描述阶段 C 中的两个连续动作：
-> 1. **阶段 C 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [kunpeng_confirmed.md](kunpeng_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
-> 2. **阶段 C 末尾切换**：确认通过后，立即把构建配置里这些依赖的分支 / commit / URL 替换为清单记录的 ARM 版本，并做基础校验，让项目在进入阶段 D（DevKit 扫描）前就已是 ARM 版本
+> 本文件是「查到分支 → 用户确认 → 切换并校验」闭环的写入端与切换端，描述阶段 3 中的两个连续动作：
+> 1. **阶段 3 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [kunpeng_confirmed.md](kunpeng_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
+> 2. **阶段 3 末尾切换**：确认通过后，立即把构建配置里这些依赖的分支 / commit / URL 替换为清单记录的 ARM 版本，并做基础校验，让项目在进入阶段 4（DevKit 扫描）前就已是 ARM 版本
 >
-> 切换放在阶段 C 末尾（而非阶段 D）的原因：用户刚确认完、信息最全时顺手切掉，避免拖到阶段 D 与源码适配交织；阶段 D 因此可专注 DevKit 扫描与源码修改。
+> 切换放在阶段 3 末尾（而非阶段 4）的原因：用户刚确认完、信息最全时顺手切掉，避免拖到阶段 4 与源码适配交织；阶段 4 因此可专注 DevKit 扫描与源码修改。
 >
 > `kunpeng_confirmed.md` 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/URL），按依赖库名定位即命中。不记录 x86 端版本，也不记录全局编译配置（ABI/工具链/构建命令是主仓级约束）。
 
-> **顺序约束**：登记可逆（仅改一个清单文件），必须在用户明确确认（向用户提问）后才执行；切换会修改项目源码树，必须在登记后、用户逐项确认切换后立即执行，并在进入阶段 D 前完成校验。把切换前置到阶段 C 末尾，是为了在用户信息最全时一次性落地，避免与阶段 D 的源码适配交织。
+> **顺序约束**：登记可逆（仅改一个清单文件），必须在用户明确确认（向用户提问）后才执行；切换会修改项目源码树，必须在登记后、用户逐项确认切换后立即执行，并在进入阶段 4 前完成校验。把切换前置到阶段 3 末尾，是为了在用户信息最全时一次性落地，避免与阶段 4 的源码适配交织。
 
 ---
 
-## 阶段 C：写入 ARM 确认清单
+## 阶段 3：写入 ARM 确认清单
 
 > **输入来源有两条**，写入方式相同：
-> - 阶段 B 通过 [common-kunpeng-probe.md](common-kunpeng-probe.md) Section 5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 B 就已查到，阶段 C 只需补登尚未在清单里、但用户刚确认的新依赖
-> - 阶段 C 通过向用户提问让用户**新确认**的依赖（清单里没有、探测后由用户提供 ARM 分支/包路径）
+> - 阶段 2 通过 [common-kunpeng-probe.md](common-kunpeng-probe.md) Section 5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 2 就已查到，阶段 3 只需补登尚未在清单里、但用户刚确认的新依赖
+> - 阶段 3 通过向用户提问让用户**新确认**的依赖（清单里没有、探测后由用户提供 ARM 分支/包路径）
 
 ### 步骤 1：定位依赖库区块
 
@@ -52,7 +52,7 @@
 
 ### 步骤 3：在 user_decisions.txt 中同步留痕
 
-阶段 C 收到用户的每条确认/否决都应记录到 `$WORK_DIR/reports/user_decisions.txt`，便于阶段 D/E 回溯：
+阶段 3 收到用户的每条确认/否决都应记录到 `$WORK_DIR/reports/user_decisions.txt`，便于阶段 4/E 回溯：
 
 ```
 [<时间戳>] <依赖名> → 已确认 ARM 适配，kunpeng_confirmed.md 已登记（ARM 分支：<分支>）
@@ -62,9 +62,9 @@
 
 ---
 
-### 步骤 4：确认后切换分支并校验（阶段 C 末尾）
+### 步骤 4：确认后切换分支并校验（阶段 3 末尾）
 
-> 登记完成后**立即**在阶段 C 末尾完成切换，不要拖到阶段 D。原因：用户刚确认完、信息最全，此刻一次性把分支切到 ARM 版，阶段 D 即可专注 DevKit 扫描与源码适配。
+> 登记完成后**立即**在阶段 3 末尾完成切换，不要拖到阶段 4。原因：用户刚确认完、信息最全，此刻一次性把分支切到 ARM 版，阶段 4 即可专注 DevKit 扫描与源码适配。
 
 #### 待切换清单汇总
 
@@ -72,8 +72,8 @@
 
 | 来源 | 依赖的 ARM 适配信息从哪取 |
 |------|------------------------|
-| 阶段 B 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（common-kunpeng-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
-| 阶段 C 新登记 | 刚写入清单的记录 |
+| 阶段 2 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（common-kunpeng-probe.md Section 5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
+| 阶段 3 新登记 | 刚写入清单的记录 |
 
 #### 切换前必须用户确认（不可跳过）
 
@@ -93,7 +93,7 @@ options:
 - 用户选「暂不切换 / 保持现状」→ 该依赖**不切换**，记录到 `$WORK_DIR/reports/user_decisions.txt`，编译时若因此报错再回头处理
 - 用户可在确认时修正 ARM 分支名（若他掌握更准确的分支）→ 按用户修正值切换，并回写清单该依赖库的记录
 
-> **未获得用户逐项确认前，不得执行任何切换命令。** 这是阶段 C 的硬门控。
+> **未获得用户逐项确认前，不得执行任何切换命令。** 这是阶段 3 的硬门控。
 
 确认全部完成后，对每个「确认切换」的依赖，按其构建系统执行下面对应的切换命令。**切换前先完成「备注」列里的前置操作**（如 CMake 注释自动签出）。
 
@@ -157,19 +157,19 @@ if [ -d "$DEP_DIR" ]; then
 fi
 ```
 
-> **WORKSPACE 文件管理**：阶段 E 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify/SKILL.md](../sourcecode-build-verify/SKILL.md) E.8 节落实。
+> **WORKSPACE 文件管理**：阶段 5 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify/SKILL.md](../sourcecode-build-verify/SKILL.md) 5.8 节落实。
 
 ### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
 CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②**子模块自动签出在 cmake 阶段把手动切的 ARM 分支默默重置回去**。
 
-> **关自动签出 + 钉定子模块分支是 CMake 项目阶段 C 末尾的关键关卡 —— 不可跳过**：
+> **关自动签出 + 钉定子模块分支是 CMake 项目阶段 3 末尾的关键关卡 —— 不可跳过**：
 >
-> 阶段 B 依赖分析报告中已识别到的自动签出逻辑（`execute_process(... git submodule update ...)` 等），**必须在切换子模块分支之前先改为可控开关并关闭**。否则下面第 4 步的 `cmake -B build` 会"恢复"未初始化子模块的初衷把刚切到 ARM 分支的子模块重置回默认分支，且**全程不报错**——后续编译会出现"明明切了 ARM 分支但报 x86 残留错误"的诡异现象，极易误判为依赖问题，浪费数小时。
+> 阶段 2 依赖分析报告中已识别到的自动签出逻辑（`execute_process(... git submodule update ...)` 等），**必须在切换子模块分支之前先改为可控开关并关闭**。否则下面第 4 步的 `cmake -B build` 会"恢复"未初始化子模块的初衷把刚切到 ARM 分支的子模块重置回默认分支，且**全程不报错**——后续编译会出现"明明切了 ARM 分支但报 x86 残留错误"的诡异现象，极易误判为依赖问题，浪费数小时。
 >
 > **只处置真正的子模块自动签出**（`git submodule` / `GIT_SUBMODULE` / `execute_process(...git...)`）。**不要**把 `FetchContent_MakeAvailable` 当自动签出去关——它是构建期下载依赖的正当机制，关掉会直接破坏依赖拉取。
 >
-> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。本节给出阶段 C 末尾的落地命令。
+> 完整两步处置（关动态重置 + 逐个钉定用户指定分支）见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」。本节给出阶段 3 末尾的落地命令。
 >
 > 该步骤完成后，必须在 `$WORK_DIR/reports/user_decisions.txt` 留痕（记录**每个子模块钉定的分支/commit**，不只是"是否已禁用"）：
 > ```
@@ -223,18 +223,18 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 
 #### 切换后校验（一句话提醒）
 
-> 切换完别忘了校验：每个依赖是否真切到了清单记录的 ARM 分支/路径——切错或没切上，后续编译错误会极难排查。逐项核对下方清单后再进入阶段 D。
+> 切换完别忘了校验：每个依赖是否真切到了清单记录的 ARM 分支/路径——切错或没切上，后续编译错误会极难排查。逐项核对下方清单后再进入阶段 4。
 
-进入阶段 D（DevKit 扫描）前，先做完以下基础校验，避免把简单的路径/分支错误带进扫描与编译：
+进入阶段 4（DevKit 扫描）前，先做完以下基础校验，避免把简单的路径/分支错误带进扫描与编译：
 
 - [ ] 待切换清单中每个依赖，对应的 ARM 分支/路径/URL 在项目里**确实存在**（git 类依赖确认清单记录的分支能 `git fetch` 到）
 - [ ] Blade：`thirdparty/<组件>/` 下能找到 `lib*.so` 且 `file lib*.so` 输出含 `aarch64`
 - [ ] Bazel：`WORKSPACE` 当前内容来自 `WORKSPACE_arm`（`diff WORKSPACE WORKSPACE_arm` 应无差异）
 - [ ] CMake：`rm -rf build/` 已执行；自动签出已改为 `AUTO_SUBMODULE` 开关且 ARM 传 `-DAUTO_SUBMODULE=OFF`；每个子模块已钉到清单记录的 ARM 分支/commit（在 user_decisions.txt 留痕）；`cmake -B build` 后 `git branch --show-current`/`git describe --all` 验证子模块未被重置
-- [ ] 对阶段 C 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
+- [ ] 对阶段 3 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 C 结束，进入阶段 D（DevKit 扫描，见 [SKILL.md](../../devkit-scan/SKILL.md)）。
+校验通过后，阶段 3 结束，进入阶段 4（DevKit 扫描，见 [SKILL.md](../../devkit-scan/SKILL.md)）。
 
 ---
 
@@ -256,4 +256,4 @@ git -C $PROJECT_ROOT/third_party/<回滚的子模块> checkout -
 # 子模块/补丁回滚后，必要时重新 git submodule update --init
 ```
 
-回滚后将失败原因记录到 `$WORK_DIR/reports/switch_failures.txt`，再回到阶段 B 重新分析。
+回滚后将失败原因记录到 `$WORK_DIR/reports/switch_failures.txt`，再回到阶段 2 重新分析。

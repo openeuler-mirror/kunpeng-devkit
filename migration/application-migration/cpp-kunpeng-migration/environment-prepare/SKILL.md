@@ -1,15 +1,15 @@
 ---
 name: environment-prepare
-description: C/C++ 项目 ARM 迁移的阶段 A 子 Skill：环境检测与编译环境准备。检测 arm64 目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf），对不满足要求的项自动修复（安装/升级），准备编译环境。作为 cpp-kunpeng-migration 主 Skill 的阶段 A 子 Skill 调用；当用户需要单独执行环境检测、检查构建工具版本兼容性、准备 ARM 编译环境、或处理 Blade/Bazel 版本不匹配时也应直接调用本子 Skill。
+description: C/C++ 项目 ARM 迁移的阶段 A 子 Skill，专注于环境检测与编译环境准备环节。提供检测 arm64 目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf）的能力，对不满足要求的项自动修复（安装/升级），准备编译环境。在作为 cpp-kunpeng-migration 主 Skill 的阶段 A 子 Skill 被调用时触发，当用户需要单独执行环境检测、检查构建工具版本兼容性、准备 ARM 编译环境、或处理 Blade/Bazel 版本不匹配时也应直接触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移的环境准备。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
 ---
 
-# 阶段 A：环境检测、修复与准备编译环境
+# 阶段 1：环境检测、修复与准备编译环境
 
 本阶段用于检测 arm64 目标环境的编译器、构建工具和基础依赖，对不满足要求的项自动修复（安装/升级），准备编译环境，确保项目在 arm64 上具备编译条件。
 
-> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 A 子 Skill 调用，由主编排以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独执行环境检测、检查构建工具版本兼容性、准备 ARM 编译环境、或处理 Blade/Bazel 版本不匹配时也可直接调用本子 Skill。
+> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 1 子 Skill 调用，由主编排以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独执行环境检测、检查构建工具版本兼容性、准备 ARM 编译环境、或处理 Blade/Bazel 版本不匹配时也可直接调用本子 Skill。
 >
-> **子 agent 边界**：子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_a_pending_items.md`，由主编排在阶段 C 统一提问。
+> **子 agent 边界**：子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_1_pending_items.md`，由主编排在阶段 3 统一提问。
 
 > 构建工具的下载链接参见 [build-tools-reference.md](references/build-tools-reference.md)，安装时优先使用内部定制版链接，无内部定制版时使用官方链接。
 
@@ -45,7 +45,7 @@ uname -r
 cat /etc/os-release
 ```
 
-记录两个环境的 gcc 版本、glibc 版本、内核版本和操作系统版本，这些信息将在阶段 D（DevKit 扫描）中用于识别潜在的兼容性问题。
+记录两个环境的 gcc 版本、glibc 版本、内核版本和操作系统版本，这些信息将在阶段 4（DevKit 扫描）中用于识别潜在的兼容性问题。
 
 ## 1.2 识别构建系统
 
@@ -331,7 +331,7 @@ protoc --version
 | protoc | 3.6.1   | 3.6.1   | 已安装   | 匹配    | 已就绪   | —             | —                    |
 
 --- 下一步 ---
-  - 进入阶段 B：依赖分析
+  - 进入阶段 2：依赖分析
 ```
 
 将此报告保存到工作目录中，文件名为 `$WORK_DIR/reports/environment_check_report.md`。
@@ -341,9 +341,9 @@ protoc --version
 ## 输出要求（硬性约束）
 
 1. **必须**将环境检测报告写入文件 `$WORK_DIR/reports/environment_check_report.md`
-2. **必须**将待确认项写入文件 `$WORK_DIR/reports/stage_a_pending_items.md`（格式见下方）
+2. **必须**将待确认项写入文件 `$WORK_DIR/reports/stage_1_pending_items.md`（格式见下方）
 3. 即使无待确认项，也必须写入空清单并标注"无待确认项"
-4. **严禁**向用户提问（你没有向用户提问的权限，需用户决策的项一律写入待确认项文件，由主编排在阶段 C 统一提问）
+4. **严禁**向用户提问（你没有向用户提问的权限，需用户决策的项一律写入待确认项文件，由主编排在阶段 3 统一提问）
 5. **严禁**修改项目源码或构建配置（你只做检测和报告）
 6. 完成后，在你的最终回复中输出：
    - 环境检测结论（是否具备编译条件）
@@ -365,4 +365,4 @@ protoc --version
   context: "<决策依据>"
 ```
 
-现在开始执行阶段 A 环境检测。
+现在开始执行阶段 1 环境检测。

@@ -1,21 +1,21 @@
 ---
 name: devkit-scan
-description: C/C++ 项目 ARM 迁移的阶段 D 子 Skill：DevKit 扫描与源码/构建适配。运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描，根据扫描报告完成源码架构适配修改（内联汇编、intrinsics、头文件、类型大小、内存对齐）和构建系统配置适配（ARM 编译选项）。严格串行：先完成扫描生成报告，再根据报告修改源码。作为 cpp-kunpeng-migration 主 Skill 的阶段 D 子 Skill 调用；当用户需要单独运行 DevKit 扫描、处理 x86 专属代码适配、或下载安装 DevKit 工具时也应直接调用本子 Skill。
+description: C/C++ 项目 ARM 迁移的阶段 D 子 Skill，专注于 DevKit 扫描与源码/构建适配环节。提供运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描的能力，并根据扫描报告完成源码架构适配修改（内联汇编、intrinsics、头文件、类型大小、内存对齐）以及构建系统配置适配（ARM 编译选项），严格串行执行——先完成扫描生成报告，再依据报告修改源码。在作为 cpp-kunpeng-migration 主 Skill 的阶段 D 子 Skill 被调用时触发，当用户需要单独运行 DevKit 扫描、处理 x86 专属代码适配、或下载安装 DevKit 工具时也应直接触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移，涵盖源码兼容性扫描、架构相关代码改写、构建系统 ARM 适配等任务。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
 ---
 
-# 阶段 D：DevKit 扫描与源码适配
+# 阶段 4：DevKit 扫描与源码适配
 
 本文档描述如何运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描，以及如何根据扫描报告对源码进行架构适配修改。
 
 > **范围说明**：本文档涵盖 DevKit 工具调用、源码修改方法，以及构建系统配置（`.bazelrc`、`WORKSPACE_arm`、`CMakeLists.txt` 等）的架构适配。
 
-> **前置条件**：阶段 C 用户确认已完成，私有依赖的 ARM 兼容性信息已获取。
+> **前置条件**：阶段 3 用户确认已完成，私有依赖的 ARM 兼容性信息已获取。
 
 ***
 
-## D.1 运行 DevKit 扫描
+## 4.1 运行 DevKit 扫描
 
-### D.1.1 定位 DevKit 工具
+### 4.1.1 定位 DevKit 工具
 
 首先确认 DevKit 是否已安装，以及可执行文件的路径：
 
@@ -30,29 +30,29 @@ find /opt /usr/local -name "devkit" -maxdepth 8 -type f 2>/dev/null | head -3
 <devkit路径> --version
 ```
 
-若上述均未找到，**不得跳过扫描**，**必须**向用户提问让其决策如何处理（与 SKILL.md 阶段 D 硬性约束一致）：
+若上述均未找到，**不得跳过扫描**，**必须**向用户提问让其决策如何处理（与 SKILL.md 阶段 4 硬性约束一致）：
 
 ```
-question: "未在系统中检测到 DevKit，如何继续阶段 D 扫描？"
+question: "未在系统中检测到 DevKit，如何继续阶段 4 扫描？"
 options:
   - id: provide_path   label: "我知道路径，手动提供 DevKit 安装路径"
   - id: download       label: "由 Skill 自动下载安装 DevKit"
-  - id: abort          label: "中止阶段 D"
+  - id: abort          label: "中止阶段 4"
 ```
 
 按用户选择处理：
 
 - **provide\_path**：用户给出路径后，将其作为 `DEVKIT` 继续后续步骤；若该路径 `--version` 仍失败，回到本提问
-- **download**：由 agent 执行 DevKit 下载安装逻辑（详见下方 D.1.1.1），安装完成后继续后续步骤
-- **abort**：终止阶段 D，不进入 D.2
+- **download**：由 agent 执行 DevKit 下载安装逻辑（详见下方 4.1.1.1），安装完成后继续后续步骤
+- **abort**：终止阶段 4，不进入 4.2
 
-#### D.1.1.1 自动下载安装 DevKit
+#### 4.1.1.1 自动下载安装 DevKit
 
-用户选择 `download` 时，agent **必须读取文件** `devkit-download.md` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 D.1.2 使用。失败时回到 D.1.1 提问。
+用户选择 `download` 时，agent **必须读取文件** `devkit-download.md` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 4.1.2 使用。失败时回到 4.1.1 提问。
 
-### D.1.2 确认扫描参数
+### 4.1.2 确认扫描参数
 
-根据阶段 A `environment-prepare/SKILL.md` 的构建系统检测结果，确定 `-b` 参数：
+根据阶段 1 `environment-prepare/SKILL.md` 的构建系统检测结果，确定 `-b` 参数：
 
 | 构建系统           | `-b` 参数值 |
 | -------------- | -------- |
@@ -61,7 +61,7 @@ options:
 | Make/Makefile  | `make`   |
 | Blade/SCons/其他 | `other`  |
 
-### D.1.3 执行扫描
+### 4.1.3 执行扫描
 
 ```bash
 # DEVKIT：devkit 可执行文件路径
@@ -81,7 +81,7 @@ $DEVKIT porting src-mig \
 
 > `-r all` 表示扫描所有问题类型，包括内联汇编、intrinsics、头文件、类型大小、内存对齐、编译标志等。
 
-### D.1.4 读取并汇总扫描报告
+### 4.1.4 读取并汇总扫描报告
 
 DevKit 通常输出 CSV 或 HTML 格式的报告，先确认报告文件：
 
@@ -111,13 +111,13 @@ find $DEVKIT_REPORT_DIR -name "*.csv" \
 
 ***
 
-## D.2 源码/构建适配修改
+## 4.2 源码/构建适配修改
 
 扫描完成后，按以下顺序进行源码与构建配置适配。所有修改须遵循**双架构兼容**原则：修改后 x86 和 ARM 均能正常编译，不删除任何原有的 x86 实现。
 
-> **修改顺序**：D.2.1（ARM 强制全局编译选项）为编译前必做的基础配置，须**最先执行**；D.2.2 ~ D.2.6 按 DevKit 扫描报告逐条处理源码问题。
+> **修改顺序**：4.2.1（ARM 强制全局编译选项）为编译前必做的基础配置，须**最先执行**；4.2.2 ~ 4.2.6 按 DevKit 扫描报告逐条处理源码问题。
 
-### D.2.1 添加 ARM 强制全局编译选项（编译前必做）
+### 4.2.1 添加 ARM 强制全局编译选项（编译前必做）
 
 > **ARM 强制要求**：以下编译选项在 ARM（aarch64）上**必须全局添加**，是编译前必须完成的基础配置。x86 与 ARM 的默认行为差异会导致隐式 bug，不加这些选项即使编译通过也可能运行结果错误。
 
@@ -179,7 +179,7 @@ endif
 
 ***
 
-### D.2.2 处理 x86 专属头文件（`x86 header` 类型）
+### 4.2.2 处理 x86 专属头文件（`x86 header` 类型）
 
 **问题定位**：DevKit 报告给出了包含 x86 专属头文件的源文件路径和行号，直接跳转到对应行。
 
@@ -216,7 +216,7 @@ endif
 
 ***
 
-### D.2.3 处理 intrinsics 函数调用（`x86 intrinsics` 类型）
+### 4.2.3 处理 intrinsics 函数调用（`x86 intrinsics` 类型）
 
 **问题定位**：报告给出使用了 `_mm256_*`、`_mm_*`、`__m256i` 等 x86 SIMD API 的具体位置。
 
@@ -275,7 +275,7 @@ void register_simd_optimizer() {
 
 ***
 
-### D.2.4 处理内联汇编（`x86 asm` 类型）
+### 4.2.4 处理内联汇编（`x86 asm` 类型）
 
 **问题定位**：报告给出含 `__asm__` / `asm volatile` 的源文件位置。
 
@@ -315,7 +315,7 @@ inline uint64_t get_timestamp() {
 
 ***
 
-### D.2.5 处理类型大小/字节序依赖（`type size` 类型）
+### 4.2.5 处理类型大小/字节序依赖（`type size` 类型）
 
 **问题定位**：报告标记了依赖特定类型大小的代码，例如假设 `int` 为 32 位、`long` 为 64 位等。
 
@@ -340,7 +340,7 @@ uint32_t host_val    = ntohl(network_val); // 网络序 → 主机序
 
 ***
 
-### D.2.6 处理内存对齐假设（`memory align` 类型）
+### 4.2.6 处理内存对齐假设（`memory align` 类型）
 
 **问题定位**：报告标记了使用对齐相关 API 或假设特定对齐的代码。
 
@@ -366,11 +366,11 @@ void* buf = aligned_alloc(16, size);  // C11 标准，x86 和 ARM 均支持
 
 ***
 
-## D.3 修改完整性验证
+## 4.3 修改完整性验证
 
 全部报告条目处理完毕后，执行以下检查，确认没有遗漏：
 
-### D.3.1 残留 x86 专属头文件检查
+### 4.3.1 残留 x86 专属头文件检查
 
 ```bash
 # 检查是否还有未隔离的 x86 intrinsics 头文件（过滤掉已有架构宏保护的行）
@@ -380,7 +380,7 @@ grep -rn "#include.*\(immintrin\|emmintrin\|xmmintrin\|nmmintrin\|smmintrin\|cpu
 # 若有输出，说明仍有未保护的 include，需要继续处理
 ```
 
-### D.3.2 残留 intrinsics 调用检查
+### 4.3.2 残留 intrinsics 调用检查
 
 ```bash
 # 检查是否还有未隔离的 SIMD 类型或函数
@@ -389,7 +389,7 @@ grep -rn "_mm256_\|_mm512_\|_mm_\|__m128\|__m256\|__m512" \
   | grep -v "__x86_64__\|aarch64\|//.*_mm" | head -20
 ```
 
-### D.3.3 记录修改清单
+### 4.3.3 记录修改清单
 
 ```bash
 # 将本阶段的所有修改记录到工作目录
@@ -399,7 +399,7 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
 
 ***
 
-## D.4 修改完成检查清单
+## 4.4 修改完成检查清单
 
 - [ ] DevKit 扫描报告已读取并按类型汇总
 - [ ] ARM 强制全局编译选项已添加（`-fsigned-char`、`-march=armv8.5-a` 或降级 `armv8-a`）
