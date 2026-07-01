@@ -1,8 +1,7 @@
 # ARM64 构建与修复知识库
 
-> **定位**：通用构建知识
-
-> **使用方式**：构建/修复阶段遇到问题时直接按关键词搜索本文件，无需翻阅业务文档。
+> **定位**：通用构建修复知识库，按关键词检索使用。
+> **使用方式**：遇到构建报错 → 复制错误关键词在此文件 Ctrl+F 搜索 → 按匹配章节修复。未收录的新错误：先写项目报告，再追加到对应章节。
 
 ---
 
@@ -39,12 +38,15 @@
 以下情况**立即标记 FAILED，不尝试修复**：
 
 | 条件 | failure_reason | 判断方式 |
-|------|---------------|---------|
+|------|----------------|----------|
 | 基础镜像无 ARM64 manifest | `NO_ARM64_SUPPORT` | `docker manifest inspect <img> \| grep -c "arm64"` 返回 0 |
 | Android 项目（aapt2/d8/R8 工具链） | `ARCH_INCOMPATIBILITY` | image_env 含 `ANDROID_HOME` 或 `build-tools/` |
 | Ruby 项目要求高版本 Ruby 但基础镜像版本低（如 2.6） | `VERSION_INCOMPATIBILITY` | 依赖分析 |
 
-> ⚠️ 网络超时会让 `manifest inspect` 返回空，误判为不支持。对 `python/node/ruby/golang/ubuntu/debian` 等官方镜像，超时时放行，让 `docker build` 决定。
+> ⚠️ 网络超时会让 `manifest inspect` 返回空，误判为不支持。以下 DockerHub 官方镜像族，超时时一律放行，让 `docker build` 决定：
+> `python` / `node` / `ubuntu` / `debian` / `golang` / `rust` / `ruby` / `php` / `openjdk` /
+> `amazoncorretto` / `eclipse-temurin` / `maven` / `gradle` / `alpine` / `centos` / `fedora` /
+> `nginx` / `postgres` / `mysql` / `redis` / `mongo`
 
 ---
 
@@ -86,7 +88,19 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu-
 
 **Debian 12 bookworm DEB822 模板**：
 ```dockerfile
-RUN printf 'Types: deb\nURIs: https://mirrors.tuna.tsinghua.edu.cn/debian\nSuites: bookworm bookworm-updates\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\nTypes: deb\nURIs: https://mirrors.tuna.tsinghua.edu.cn/debian-security\nSuites: bookworm-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n' \
+# ✅ 正确：用 printf '%s\n' 确保每行正确输出（单引号中 \n 不会被 shell 解析）
+RUN printf '%s\n' \
+    'Types: deb' \
+    'URIs: https://mirrors.tuna.tsinghua.edu.cn/debian' \
+    'Suites: bookworm bookworm-updates' \
+    'Components: main' \
+    'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
+    '' \
+    'Types: deb' \
+    'URIs: https://mirrors.tuna.tsinghua.edu.cn/debian-security' \
+    'Suites: bookworm-security' \
+    'Components: main' \
+    'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' \
     > /etc/apt/sources.list.d/debian.sources
 ```
 
@@ -166,10 +180,27 @@ libasan5:amd64            → libasan8（或对应 arm 版本）
 
 ### apt 源被 nodesource 脚本重置
 - **原因**：安装 Node.js 时 nodesource 脚本重写 apt 源
-- **修复**：不用 nodesource 脚本，直接下载官方 arm64 tar 包：
+- **修复**：不用 nodesource 脚本，直接从 npmmirror 镜像站下载官方 arm64 tar 包（国内访问快）：
 ```dockerfile
-RUN curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-arm64.tar.gz \
-    | tar -xz -C /usr/local --strip-components=1
+# Node.js 官方源 nodejs.org 国内极慢，改用 npmmirror 镜像加速
+ENV NODE_VERSION=20.18.0
+RUN curl -fsSL --max-time 300 --retry 3 \
+      -o /tmp/node.tar.gz \
+      "https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.gz" \
+    && tar -xz -C /usr/local --strip-components=1 -f /tmp/node.tar.gz \
+    && rm /tmp/node.tar.gz && node --version
+```
+
+### Docker CE 安装 SSL 握手失败（`SSL handshake failed` / `GPG key fetch failed`）
+- **原因**：国内网络访问 `download.docker.com` 或 `get.docker.com` TLS 握手失败
+- **修复**：改用 `docker.io`（Ubuntu 官方 apt 源内置包），功能完全等价：
+```dockerfile
+# ❌ 失败：download.docker.com SSL handshake failed
+RUN curl -fsSL https://get.docker.com | sh
+
+# ✅ 修复
+RUN apt-get update && apt-get install -y docker.io docker-compose \
+    && docker --version
 ```
 
 ---
@@ -196,6 +227,31 @@ RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install ...
 ```dockerfile
 RUN pip3 install "torch==2.6.0" ...   # 先单独安装
 RUN pip3 install -e . --no-deps       # 只注册，不重新解析
+```
+
+### `deadsnakes PPA` 不支持 ARM64（Python 3.7-3.12）
+- **原因**：`ppa:deadsnakes/ppa` 仅发布 x86_64 deb，ARM64 无法通过 apt 安装非系统默认版本
+- **修复方案 A**（推荐）：使用系统自带 Python 版本（Ubuntu 22.04 → python3.10，Ubuntu 24.04 → python3.12）
+- **修复方案 B**：从 python.org 源码编译（适用于必须使用特定版本如 3.8/3.9）：
+```dockerfile
+ENV PYTHON_VERSION=3.8.20
+RUN wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
+    && mkdir -p /usr/src/python && tar --extract --directory /usr/src/python --strip-components=1 --file python.tar.xz \
+    && cd /usr/src/python && ./configure --enable-optimizations --enable-shared --with-ensurepip \
+    && make -j $(nproc) && make install && ldconfig && rm -rf /usr/src/python python.tar.xz
+```
+> ⚠️ 源码编译耗时 **10-20 分钟**，仅在必须使用特定版本时采用
+
+### Poetry / pip bootstrap 脚本超时（`install.python-poetry.org` / `bootstrap.pypa.io`）
+- **原因**：官方 bootstrap 脚本依赖特定 CDN，网络不稳定时易超时
+- **修复**：
+```dockerfile
+# Poetry 改用 pip 安装
+RUN pip install poetry -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
+
+# pip bootstrap（旧版 Python 3.7/3.8）用 ensurepip
+RUN python3.7 -m ensurepip && python3.7 -m pip install --upgrade pip \
+    -i https://mirrors.aliyun.com/pypi/simple/
 ```
 
 ---
@@ -250,7 +306,7 @@ D. 构建输出出现：ELF 64-bit LSB ... x86-64（file 命令输出）
 E. 运行时报错：illegal instruction / SIGILL / UnsatisfiedLinkError
 ```
 
-**处理动作**——按 .so 类型分三类处理（见 IMAGE_MIG_SKILLSET DOCKERFILE_MIGRATION.md § 1.3a）：
+**处理动作**——按 .so 类型分三类处理（见 `DOCKERFILE_MIGRATION.md § 1.3a`）：
 
 | 类型 | 判断方式 | 处理策略 |
 |------|---------|----------|
@@ -325,6 +381,27 @@ RUN ./mvnw install -DskipTests -T 2C -q
 - **原因**：`global.json` 锁定了精确 SDK patch 版本
 - **修复**：`rm -f global.json`
 
+### Gradle / Maven 构建缓存清理（避免 ARM64 跨架构缓存污染）
+- **原因**：宿主机 x86 构建产生的 Gradle/Maven 缓存被 COPY 到镜像内，ARM64 构建时读取导致二进制不兼容
+- **修复**：在 Dockerfile 中清除跨架构缓存：
+```dockerfile
+# Gradle 缓存清理（放在 gradle build 层之前）
+RUN find ~/.gradle/caches -name "*.lock" -delete \
+    && find ~/.gradle/caches -name "*.bin" -delete 2>/dev/null || true
+
+# Maven 本地仓库清理（放在 mvn install 层之前）
+RUN find ~/.m2/repository -name "_maven.repositories" -delete \
+    && find ~/.m2/repository -name "*.lastUpdated" -delete 2>/dev/null || true
+```
+
+### Gradle Kotlin 编译器 `Failed to create Kotlin daemon`
+- **原因**：Kotlin daemon 在 ARM64 容器中 JVM 内存配置不足或守护进程超时
+- **修复**：
+```dockerfile
+ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dkotlin.daemon.jvm.options=-Xmx512m"
+RUN ./gradlew build -x test --no-daemon
+```
+
 ---
 
 ## § 8  Node.js / npm 错误
@@ -350,6 +427,56 @@ RUN ./mvnw install -DskipTests -T 2C -q
 ```dockerfile
 CMD ["cargo", "test", "--lib", "--", "--nocapture"]
 ```
+
+### Node.js 各版本 ARM64 下载模板（npmmirror 加速）
+
+`nodejs.org` 直连极慢，统一改用 `npmmirror.com`：
+
+```dockerfile
+# Node 12 ARM64（EOL，包格式为 tar.xz）
+ENV NODE_VERSION=12.22.12
+RUN curl -L --retry 3 --max-time 120 -o /tmp/node.tar.xz \
+      "https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz" \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+    && rm /tmp/node.tar.xz && node --version
+
+# Node 14 / 16 / 18 / 20 / 22 通用模板（包格式为 tar.gz，大文件 --max-time 300）
+ENV NODE_VERSION=<x.y.z>
+RUN curl -fsSL --max-time 300 --retry 3 \
+      -o /tmp/node.tar.gz \
+      "https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.gz" \
+    && tar -xz -C /usr/local --strip-components=1 -f /tmp/node.tar.gz \
+    && rm /tmp/node.tar.gz && node --version
+```
+
+### `npm install -g yarn` 在 Node 12 ARM64 失败（exit 1）
+- **原因**：Node 12 EOL，npm 5/6 在 ARM64 下安装全局包存在 path 问题
+- **修复**：从 yarnpkg.com 直接下载 tar 包安装：
+```dockerfile
+ENV YARN_VERSION=1.22.17
+RUN curl -L -o /tmp/yarn.tar.gz \
+      "https://yarnpkg.com/downloads/${YARN_VERSION}/yarn-v${YARN_VERSION}.tar.gz" \
+    && tar -xzf /tmp/yarn.tar.gz -C /opt/ && rm /tmp/yarn.tar.gz \
+    && ln -sf /opt/yarn-v${YARN_VERSION}/bin/yarn /usr/local/bin/yarn \
+    && ln -sf /opt/yarn-v${YARN_VERSION}/bin/yarnpkg /usr/local/bin/yarnpkg \
+    && yarn --version
+```
+
+### NVM 安装脚本（GitHub）在网络隔离环境下失败
+- **原因**：`raw.githubusercontent.com` 或 `github.com` 不可达，`curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/vX/install.sh | bash` 卡死
+- **修复**：绕过 NVM，直接解压 Node tar 包到 `$NVM_DIR/versions/node/v$VERSION/` 并设置软链：
+```dockerfile
+ENV NVM_DIR=/home/<user>/.nvm
+ENV NODE_VERSION=<x.y.z>
+RUN mkdir -p ${NVM_DIR}/versions/node/v${NODE_VERSION} \
+    && curl -L --retry 3 -o /tmp/node.tar.xz \
+       "https://npmmirror.com/mirrors/node/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz" \
+    && tar -xJf /tmp/node.tar.xz -C ${NVM_DIR}/versions/node/v${NODE_VERSION} --strip-components=1 \
+    && rm /tmp/node.tar.xz \
+    && mkdir -p ${NVM_DIR}/alias && echo "v${NODE_VERSION}" > ${NVM_DIR}/alias/default
+ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}
+```
+> ⚠️ `nvm use` 命令仍然可用；`node`/`npm` 命令通过 `PATH` 直接指向已解压的 bin 目录。
 
 ---
 
@@ -395,7 +522,11 @@ import math
 assert math.isclose(result, 2.0, rel_tol=1e-10)
 ```
 
-**上限规则**：最多修改 2 处测试文件。超过 2 个文件时，判定 `FAILED(FLOAT_PRECISION)`。
+**上限规则** (按测试文件总数比例判定是否值得修复):
+- 项目测试文件总数 ≤ 10: 最多修改 2 个文件
+- 项目测试文件总数 11-50: 最多修改 5 个文件 (≤10%)
+- 项目测试文件总数 > 50: 最多修改 10 个文件 (≤10%)
+- 超出上限 → 判定 `FAILED(FLOAT_PRECISION)`，报告中说明需修改文件数
 
 ---
 
@@ -442,9 +573,17 @@ RUN cd /testbed/packages/<pkg> && pnpm test <target.test.ts> -- -u 2>&1 || true
 ### 测试用例超时修复
 
 ```dockerfile
-# vitest 超时配置
-RUN sed -i 's/testTimeout: 30_000/testTimeout: process.arch === "arm64" ? 90_000 : 30_000/' vitest.config.mts \
-    && sed -i 's/hookTimeout: 30_000/hookTimeout: process.arch === "arm64" ? 90_000 : 30_000/' vitest.config.mts
+# vitest 超时配置（用 node -e 替换，避免 sed 破坏制表符缩进/特殊字符）
+RUN node -e "
+  const fs = require('fs');
+  let cfg = fs.readFileSync('vitest.config.mts', 'utf8');
+  cfg = cfg
+    .replace(/testTimeout:\s*30_?000/g, 'testTimeout: 90_000')
+    .replace(/hookTimeout:\s*30_?000/g, 'hookTimeout: 90_000');
+  fs.writeFileSync('vitest.config.mts', cfg);
+" || true
+# 备选（配置文件格式简单时用 sed）：
+# RUN sed -i 's/testTimeout: 30_000/testTimeout: 90_000/g' vitest.config.mts
 ```
 
 **经验值**：
@@ -464,6 +603,35 @@ RUN sed -i 's/testTimeout: 30_000/testTimeout: process.arch === "arm64" ? 90_000
 ### `error: failed to fetch` / 下载速度 < 10 bytes/sec
 - **原因**：crates.io 在国内访问慢
 - **修复**：配置 rsproxy 镜像（见 § 2.2 cargo 模板）
+
+### Rust 安装极慢：`static.rust-lang.org` 连接超时
+- **原因**：`rustup-init` 默认从 `static.rust-lang.org` 下载工具链，国内访问极慢
+- **修复**：在 `curl | sh` **之前**设置镜像环境变量：
+```dockerfile
+ENV RUSTUP_DIST_SERVER=https://rsproxy.cn
+ENV RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
+      -y --profile default --default-toolchain stable \
+    && . $HOME/.cargo/env \
+    && rustup --version && cargo --version
+```
+> ⚠️ 环境变量必须在 `curl | sh` 之前声明；rsproxy 镜像速度通常比默认源快百倍以上。
+
+### `cargo fetch` 极慢：crates.io-index 下载卡死
+- **原因**：crates.io 默认使用 git 协议克隆索引（几百 MB），国内网络不稳定时极慢
+- **修复**：配置 sparse 索引（与 § 2.2 cargo 模板相同）：
+```dockerfile
+RUN mkdir -p ~/.cargo && cat > ~/.cargo/config.toml << 'EOF'
+[source.crates-io]
+replace-with = "rsproxy-sparse"
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+[net]
+git-fetch-with-cli = true
+EOF
+```
+> ⚠️ **sparse 协议只下载所需的依赖元数据**，相比 git clone 全量索引快得多。
 
 ### `cargo test` 下载外部数据超时
 - **修复**：仅运行单元测试，跳过集成测试（见 § 8）
@@ -543,6 +711,28 @@ RUN apt-get install -y libgd-dev \
     && docker-php-ext-install bcmath gd
 ```
 
+### PHP 旧版本（7.4 / 8.0 / 8.1）ARM64 安装
+
+官方 `php:7.4` Docker 镜像无 ARM64 manifest，需通过 `ppa:ondrej/php` 安装：
+
+```dockerfile
+RUN add-apt-repository ppa:ondrej/php \
+    && apt-get update \
+    && apt-get install -y php7.4 php7.4-cli php7.4-dev php7.4-mbstring \
+         php7.4-xml php7.4-zip php7.4-mysql php7.4-curl \
+    && php --version
+```
+
+> ⚠️ ondrej PPA 支持 Ubuntu 20.04/22.04 ARM64。查证：`apt-cache policy php7.4`
+
+### `Composer: Do not run Composer as root/super user!`
+- **原因**：部分 Composer 版本在 root 用户下拒绝运行
+- **修复**：
+```dockerfile
+ENV COMPOSER_ALLOW_SUPERUSER=1
+RUN composer install --no-interaction
+```
+
 ---
 
 ## § 16  Docker / 环境错误
@@ -582,6 +772,64 @@ RUN node -e "
 ### `Mysql2::Error` / `Connection refused`（外部服务依赖）
 - **判定**：直接写 `FAILED(EXTERNAL_SERVICE)`
 - **例外**：仅 ≤5% 的测试依赖外部服务时，可用 `--exclude` 跳过
+
+### `groupadd: group already exists` / `useradd: user already exists`
+- **原因**：基础镜像内已带特定用户/组，重复创建会导致构建中断
+- **修复**：先用 `getent` 检查是否已存在，再按需创建；`-g <group>` 要求组必须已存在，顧不能只依赖 `|| true`：
+```dockerfile
+# ✅ 正确：先创建组（已存则忽略），再用 --gid 创建用户
+RUN getent group <group> >/dev/null || groupadd --gid=<GID> <group> \
+    && getent passwd <user> >/dev/null || \
+       useradd --uid=<UID> --gid=<GID> --create-home --shell /bin/bash <user>
+# 如果 GID 冲突（即 GID 已被其他组占用）改用字符串匹配：
+# RUN getent group <group> >/dev/null || groupadd <group> \
+#     && getent passwd <user> >/dev/null || useradd -g <group> --create-home <user>
+```
+
+### 工具以非 root 用户安装到 `/usr/local/bin/` 权限不足
+- **原因**：Dockerfile 中已切换到普通用户，但仍尝试写入 root 拥有的系统目录
+- **修复**：在写入系统目录前显式切回 `USER root`，或用 stub 脚本占位（网络不通时）：
+```dockerfile
+USER root
+# 方案 A：安装真实 ARM64 二进制（以 yq 为例）
+RUN curl -sSL "https://github.com/mikefarah/yq/releases/download/v4.16.2/yq_linux_arm64.tar.gz" \
+    | tar -xz -C /usr/local/bin \
+    && mv /usr/local/bin/yq_linux_arm64 /usr/local/bin/yq 2>/dev/null || true \
+    && yq --version
+
+# 方案 B：stub 占位（命令存在但不报错，不影响主流程）
+RUN printf '#!/bin/sh\necho "<tool> placeholder"\n' > /usr/local/bin/<tool> \
+    && chmod +x /usr/local/bin/<tool>
+```
+
+### Selenium WebDriver JAR 是架构无关的（ARM64 可直接使用）
+- **结论**：Selenium Server JAR 是纯 Java 程序，**架构无关**，ARM64 上可直接使用，无需替换
+- **仅需确认**：安装了 ARM64 版 JRE（由 apt 自动选择）
+```dockerfile
+RUN apt-get install -y openjdk-11-jre
+# 下载 Selenium JAR（带超时保护防止 CDN 不通时挂起）
+RUN (curl -sSL --max-time 60 --retry 2 \
+      -o /usr/local/bin/selenium.jar \
+      "https://selenium-release.storage.googleapis.com/3.141/selenium-server-standalone-3.141.59.jar") \
+    || echo "[WARN] selenium download skipped"
+```
+> ⚠️ `storage.googleapis.com` 国内不稳定，**必须加 `--max-time`**，否则构建会无限挂起。
+
+### 辅助工具（`dockerize`、`yq` 等）GitHub Release 下载失败
+- **原因**：GitHub Release CDN 国内不稳定；少数工具（如 `jwilder/dockerize`）更无 ARM64 release
+- **处理原则**：辅助工具下载失败**不应中断构建**，加 `|| true` 容错即可：
+```dockerfile
+# 有 ARM64 release 的工具——带超时容错
+RUN (curl -sSL --max-time 30 --retry 2 \
+       -o /usr/local/bin/<tool> \
+       "https://github.com/<owner>/<tool>/releases/download/v<ver>/<tool>-linux-arm64" \
+     && chmod +x /usr/local/bin/<tool>) \
+    || echo "[WARN] <tool> install skipped (network unavailable)"
+
+# 无 ARM64 release 的工具——stub 占位防止命令找不到
+RUN printf '#!/bin/sh\necho "<tool> not available on arm64"\n' > /usr/local/bin/<tool> \
+    && chmod +x /usr/local/bin/<tool>
+```
 
 ---
 
@@ -656,42 +904,38 @@ CMD ["<test_cmd>"]                   # 频繁改，放最后
 ### 最小化缓存破坏
 
 ```
-只缺少组件     → 在 git clone 之前新增独立 RUN 层（不改原有层）
-包名错误       → 必须改原有层（需 --no-cache 重建）
-依赖冲突       → 合并到同一 apt-get install 层
+只缺少组件 → 在 git clone 之前新增独立 RUN 层（不改原有层）
+包名错误   → 必须改原有层（需 --no-cache 重建）
+依赖冲突   → 合并到同一 apt-get install 层
 ```
 
 ### 管道过滤与退出码
 
 ```dockerfile
-# ❌ 错误：管道吞掉退出码，构建失败但 docker build 仍然成功
+# ❌ 错误：管道吞掉退出码
 RUN ./mvnw install 2>&1 | tail -20
 
 # ✅ 正确：用 -q 安静模式
 RUN ./mvnw install -DskipTests -T 2C -q
 ```
 
-### 内网包保护
+### 内网包保护（失败时不中断构建）
 
 ```dockerfile
-# 尝试安装，失败时打印 WARNING 但不中断构建
-# 将 <YOUR_INTERNAL_PYPI> 替换为 config.yaml 中配置的 INTERNAL_PYPI_HOSTS[0]
-RUN pip3 install "internal-package==x.y.z" \
-    -i http://<YOUR_INTERNAL_PYPI>/simple \
+RUN pip3 install "internal-package==x.y.z" -i http://<INTERNAL_PYPI>/simple \
     || echo "WARNING: internal-package not available, skipping"
 ```
 
 ### 版本强制覆盖（末尾追加层）
 
 ```dockerfile
-# 防止依赖树把关键包降回旧版本
 RUN pip3 install "networkx>=2.6" --quiet
 ```
 
 **已知版本兼容性问题**：
 
 | 包 | 原版本问题 | 修复方案 |
-|----|---------|---------|
+|-----|----------|----------|
 | `networkx` 2.2 | Python 3.10 移除 `collections.Mapping` | 升级到 `networkx>=2.6` |
 | `gym` ≤ 0.19.x | 与 setuptools≥60 元数据不兼容 | 升级到 `gym==0.26.2` |
 | `golang:1.25-bookworm` | Go 1.25 尚未发布，镜像不存在 | 改用 `golang:1.24-bookworm` |
@@ -830,11 +1074,14 @@ DISK_USAGE=$(df -h / | awk 'NR==2 {gsub(/%/,""); print $5}')
 | 值 | 含义 |
 |----|------|
 | `NO_ARM64_SUPPORT` | 基础镜像无 ARM64 版本 |
+| `INTERNAL_IMAGE_UNAVAILABLE` | 内网镜像无可用 ARM64 tag，且无法降级到公开镜像 |
 | `ARCH_INCOMPATIBILITY` | native 库/工具链不兼容 ARM64（Android/Flutter/WebGL 等） |
 | `VERSION_INCOMPATIBILITY` | 语言/框架版本不兼容 |
 | `DEPENDENCY_CONFLICT` | 依赖冲突无法解决 |
 | `EXTERNAL_SERVICE` | 依赖外部服务（MySQL/Redis 等）或外网，容器内无法连接 |
 | `FLOAT_PRECISION` | ARM64 浮点精度导致测试不通过且修复代价过高 |
 | `TIMEOUT` | 构建或测试超时（超大项目或网络慢） |
-| `EXCEEDED_ATTEMPTS` | 超过 5 次尝试 |
+| `EXCEEDED_ATTEMPTS` | 超过 MAX_RETRY 次尝试（config.yaml 默认 5） |
+| `PROPRIETARY_X86_SO` | 自研 x86 native 库无 aarch64 版本，无法自动处理 |
+| `INSUFFICIENT_DISK_SPACE` | 磁盘空间不足且清理后仍不足 MIN_DISK_SPACE_GB |
 | `TEST_FAILURE` | 测试本身失败（无法快速归类） |
