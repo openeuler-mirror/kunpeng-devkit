@@ -39,20 +39,37 @@ description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分�
 
 ## 模块架构
 
-本目录按职责拆分为以下文件，各司其职：
+本目录按职责拆分，文件分组如下：
+
+### 核心文件（按执行顺序加载）
 
 | 文件 | 职责 |
 |------|------|
-| **本文件** | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告 |
-| [analyze-one-repo.md](references/analyze-one-repo.md) | **单仓库分析闭环**：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [common-detect.md](references/common-detect.md) | 通用共享：Part A ARM 兼容性探测（私有URL判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 预编译二进制识别（扫描、架构判断、四级源码溯源、截断策略） |
-| [dependency-analysis-build-systems.md](references/dependency-analysis-build-systems.md) | 四构建系统合集（按需加载对应章节）：Bazel/CMake/Blade/SCons 依赖扫描、预编译包识别、子模块自动签出检查 |
-| └ [#bazel](references/dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | Bazel 专用：WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
-| └ [#cmake](references/dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | CMake 专用：`FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
-| └ [#blade](references/dependency-analysis-build-systems.md#blade-构建系统依赖分析) | Blade 专用：thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
-| └ [#scons](references/dependency-analysis-build-systems.md#scons-构建系统依赖分析) | SCons 专用：x86 编译标志检查、Python 版本兼容性 |
-| [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 阶段 3：写入 ARM 确认清单、执行真实切换操作 |
-| [dependency-analysis-report-template-example.md](assets/dependency-analysis-report-template-example.md) | 报告输出模板示例 |
+| **本文件** (SKILL.md) | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告、定义输出契约 |
+| [analyze-one-repo.md](references/analyze-one-repo.md) | 单仓库分析闭环：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
+| [common-detect.md](references/common-detect.md) | 通用共享模块：Part A ARM 兼容性探测（私有 URL 判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 预编译二进制识别（扫描、架构判断、四级源码溯源、截断策略） |
+
+### 构建系统专用合集（按需加载对应章节）
+
+| 文件 | 章节 | 职责 |
+|------|------|------|
+| [build-systems.md](references/build-systems.md) | [#bazel](references/build-systems.md#bazel-构建系统依赖分析) | WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
+| [build-systems.md](references/build-systems.md) | [#cmake](references/build-systems.md#cmake-构建系统依赖分析) | `FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
+| [build-systems.md](references/build-systems.md) | [#blade](references/build-systems.md#blade-构建系统依赖分析) | thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
+| [build-systems.md](references/build-systems.md) | [#scons](references/build-systems.md#scons-构建系统依赖分析) | x86 编译标志检查、Python 版本兼容性 |
+
+### 跨阶段共享文档（本子 skill 不执行，由主编排读取）
+
+| 文件 | 职责 | 调用方 |
+|------|------|--------|
+| [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 写入 ARM 确认清单、执行真实分支切换、切换后校验 | **阶段 3 主编排**（本子 skill 仅产生供其消费的待切换清单，不执行其中步骤） |
+| [kunpeng_confirmed.md](references/kunpeng_confirmed.md) | ARM 适配已确认依赖知识库（按依赖库名索引，跨项目复用） | 阶段 2 读取（免检）、阶段 3 写入 |
+
+### 输出模板
+
+| 文件 | 用途 |
+|------|------|
+| [report-template-example.md](assets/report-template-example.md) | 依赖分析报告输出模板示例 |
 
 ---
 
@@ -165,21 +182,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 #### 报告模板
 
-见 [dependency-analysis-report-template-example.md](assets/dependency-analysis-report-template-example.md)。
-
----
-
-## 用户确认后写入清单并在阶段 3 末尾切换分支
-
-依赖的 ARM 适配信息有两条来源，都按 [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) 处理：
-
-- **阶段 2 命中清单**的依赖（common-detect.md Part A 的 A.5 按依赖库名命中区块）：无需用户再确认，直接把命中的 ARM 分支/commit 纳入阶段 3 末尾的待切换清单
-- **阶段 3 用户新确认**的依赖（清单中无记录、探测后由用户提供 ARM 分支/包路径）：登记到 `kunpeng_confirmed.md`
-
-**阶段 3 末尾（登记 + 确认切换 + 校验，一次性完成）**：
-1. **登记**：在 `kunpeng_confirmed.md` 中按**依赖库名**找到或新建区块（`## <依赖库名>`，不按主仓、不写全局配置、不记 x86 版本），写入该依赖库唯一的 ARM 适配记录，来源项目填当前主仓名
-2. **确认切换**：把待切换清单逐项向用户确认后，立即把构建配置分支/commit/URL 切换为清单记录的 ARM 版本（回迁 thirdparty_arm、修改 WORKSPACE、切换子模块分支等）
-3. **校验**：逐项核对分支是否真切到 ARM 版，再进入阶段 4
+见 [report-template-example.md](assets/report-template-example.md)。
 
 ---
 

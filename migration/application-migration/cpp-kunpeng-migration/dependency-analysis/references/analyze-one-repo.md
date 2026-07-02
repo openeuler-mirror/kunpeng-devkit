@@ -53,13 +53,13 @@
 
 | 构建系统 | 加载文件 | 输出内容 |
 |---------|---------|---------|
-| Blade | [dependency-analysis-build-systems.md#blade-构建系统依赖分析](dependency-analysis-build-systems.md#blade-构建系统依赖分析) | thirdparty 组件列表（预编译/源码/聚合代理），BLADE_ROOT 全局配置 |
-| Bazel | [dependency-analysis-build-systems.md#bazel-构建系统依赖分析](dependency-analysis-build-systems.md#bazel-构建系统依赖分析) | `git_repository`/`http_archive`/`new_local_repository` 依赖列表 |
-| CMake | [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析) | `FetchContent_Declare`/`ExternalProject_Add`/`find_package` 依赖列表 |
-| SCons | [dependency-analysis-build-systems.md#scons-构建系统依赖分析](dependency-analysis-build-systems.md#scons-构建系统依赖分析) | 库链接声明、x86 编译标志、Python 版本问题 |
+| Blade | [build-systems.md#blade-构建系统依赖分析](build-systems.md#blade-构建系统依赖分析) | thirdparty 组件列表（预编译/源码/聚合代理），BLADE_ROOT 全局配置 |
+| Bazel | [build-systems.md#bazel-构建系统依赖分析](build-systems.md#bazel-构建系统依赖分析) | `git_repository`/`http_archive`/`new_local_repository` 依赖列表 |
+| CMake | [build-systems.md#cmake-构建系统依赖分析](build-systems.md#cmake-构建系统依赖分析) | `FetchContent_Declare`/`ExternalProject_Add`/`find_package` 依赖列表 |
+| SCons | [build-systems.md#scons-构建系统依赖分析](build-systems.md#scons-构建系统依赖分析) | 库链接声明、x86 编译标志、Python 版本问题 |
 | 未知 | — | 跳过，deps_list 为空 |
 
-> **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `dependency-analysis-build-systems.md` 的 CMake 章节前，**必须**先检查是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`GIT_SUBMODULE` 等；**注意 `FetchContent_MakeAvailable` 不算**——它是构建期下载依赖的正当机制，误当自动签出去关会破坏依赖拉取）。若存在，需在依赖分析报告**最前面**单独成节以 ⚠️ 警告，提醒用户：阶段 3 末尾、阶段 5 首次 `cmake -B build` 前必须先改为可控开关并关闭、再把每个子模块钉到用户确认的 ARM 分支/commit。根因（cmake 配置期会默默把 ARM 分支重置回默认分支且不报错，导致编译错误在「x86 残留」与「找不到 ARM 符号」间反复横跳）与完整两步处置方案见 [dependency-analysis-build-systems.md#cmake-构建系统依赖分析](dependency-analysis-build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」——本文件只负责检测与报告警告，不重复处置细节。
+> **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `build-systems.md` 的 CMake 章节前，**必须**先检查是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`GIT_SUBMODULE` 等；**注意 `FetchContent_MakeAvailable` 不算**——它是构建期下载依赖的正当机制，误当自动签出去关会破坏依赖拉取）。若存在，需在依赖分析报告**最前面**单独成节以 ⚠️ 警告，提醒用户：阶段 3 末尾、阶段 5 首次 `cmake -B build` 前必须先改为可控开关并关闭、再把每个子模块钉到用户确认的 ARM 分支/commit。根因（cmake 配置期会默默把 ARM 分支重置回默认分支且不报错，导致编译错误在「x86 残留」与「找不到 ARM 符号」间反复横跳）与完整两步处置方案见 [build-systems.md#cmake-构建系统依赖分析](build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」——本文件只负责检测与报告警告，不重复处置细节。
 
 **扫描结束后，同时收集 Shell 脚本下载依赖（所有构建系统通用）**：
 
