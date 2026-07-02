@@ -1,6 +1,6 @@
 # 依赖 ARM 兼容性探测与二进制识别（通用共享模块）
 
-> 本文件是**所有构建系统共用**的两块通用逻辑，由 [analyze-one-repo.md](analyze-one-repo.md) 按需调用：
+> 本文件是**所有构建系统共用**的两块通用逻辑，由 [repo-analysis-flow.md](repo-analysis-flow.md) 按需调用：
 > - **Part A（ARM 兼容性探测）**：Step 3 调用，适用于 Git 类依赖（submodule、`git_repository`、`FetchContent` GIT 模式）。免检清单比对也在此执行，确保每个仓库分析时都能正确跳过已确认兼容的依赖。
 > - **Part B（预编译二进制识别与溯源）**：Step 4 调用，不直接由用户触发。覆盖仓库内置二进制与外部无源码依赖。
 
@@ -331,13 +331,13 @@ done
 
 ---
 
-## 调用示例（从 analyze-one-repo.md 的视角）
+## 调用示例（从 repo-analysis-flow.md 的视角）
 
 ```
 # Step 3（ARM 兼容性探测）+ Step 4（二进制识别）伪代码
 for dep in $deps_list:
   if dep.type in [git_repository, submodule, FetchContent_GIT]:
-    read common-detect.md Part A
+    read compat-and-binary-detect.md Part A
     probe_result = execute_arm_probe(dep.url, dep.local_path)   # A.1 → A.5
     dep.arm_status = probe_result.status    # ✅ / ⚠️ / ❓
     dep.arm_note   = probe_result.note
@@ -346,6 +346,6 @@ for dep in $deps_list:
     dep.arm_status = "架构绑定"
 
 # Step 4：对所有仓库执行二进制扫描（无论构建系统）
-read common-detect.md Part B
+read compat-and-binary-detect.md Part B
 binary_list = scan_and_trace($REPO_PATH)   # B.1 → B.5
 ```

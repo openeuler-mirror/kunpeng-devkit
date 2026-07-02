@@ -46,19 +46,19 @@ description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分�
 | 文件 | 职责 |
 |------|------|
 | **本文件** (SKILL.md) | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告、定义输出契约 |
-| [analyze-one-repo.md](references/analyze-one-repo.md) | 单仓库分析闭环：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [common-detect.md](references/common-detect.md) | 通用共享模块：Part A ARM 兼容性探测（私有 URL 判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 预编译二进制识别（扫描、架构判断、四级源码溯源、截断策略） |
+| [repo-analysis-flow.md](references/repo-analysis-flow.md) | 单仓库分析闭环：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
+| [compat-and-binary-detect.md](references/compat-and-binary-detect.md) | 通用共享模块：Part A ARM 兼容性探测（私有 URL 判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 预编译二进制识别（扫描、架构判断、四级源码溯源、截断策略） |
 
 ### 构建系统专用合集（按需加载对应章节）
 
 | 文件 | 章节 | 职责 |
 |------|------|------|
-| [build-systems.md](references/build-systems.md) | [#bazel](references/build-systems.md#bazel-构建系统依赖分析) | WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
-| [build-systems.md](references/build-systems.md) | [#cmake](references/build-systems.md#cmake-构建系统依赖分析) | `FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
-| [build-systems.md](references/build-systems.md) | [#blade](references/build-systems.md#blade-构建系统依赖分析) | thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
-| [build-systems.md](references/build-systems.md) | [#scons](references/build-systems.md#scons-构建系统依赖分析) | x86 编译标志检查、Python 版本兼容性 |
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#bazel](references/build-system-dep-scan.md#bazel-构建系统依赖分析) | WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#cmake](references/build-system-dep-scan.md#cmake-构建系统依赖分析) | `FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#blade](references/build-system-dep-scan.md#blade-构建系统依赖分析) | thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#scons](references/build-system-dep-scan.md#scons-构建系统依赖分析) | x86 编译标志检查、Python 版本兼容性 |
 
-### 跨阶段共享文档（本子 skill 不执行，由主编排读取）
+### 跨阶段共享文档
 
 | 文件 | 职责 | 调用方 |
 |------|------|--------|
@@ -102,7 +102,7 @@ cat "$REPORT"
 cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 ```
 
-将免检清单的内容缓存在上下文中，供后续每次调用 [common-detect.md](references/common-detect.md) 时使用（Part A 的 A.5 比对）。
+将免检清单的内容缓存在上下文中，供后续每次调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) 时使用（Part A 的 A.5 比对）。
 
 > **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 3 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 3 末尾切换，不再探测、不再询问用户。
 
@@ -110,7 +110,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 ### 第三步：主循环 — 递归分析所有仓库
 
-加载 [analyze-one-repo.md](references/analyze-one-repo.md)，对**主仓库**执行完整分析：
+加载 [repo-analysis-flow.md](references/repo-analysis-flow.md)，对**主仓库**执行完整分析：
 
 ```
 输入：
@@ -119,14 +119,14 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
   REPO_DEPTH = 0
   MAX_DEPTH  = 2
 
-执行：analyze-one-repo.md（Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6）
+执行：repo-analysis-flow.md（Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6）
 ```
 
-`analyze-one-repo.md` 内部会自动：
+`repo-analysis-flow.md` 内部会自动：
 - 检测主仓构建系统，加载对应专用分析文件
-- 调用 [common-detect.md](references/common-detect.md) Part A 执行 ARM 兼容性探测
-- 调用 [common-detect.md](references/common-detect.md) Part B 执行预编译二进制识别与溯源
-- 递归处理所有子模块（最多 `MAX_DEPTH` 层），每个子仓**独立检测构建系统**
+- 调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) Part A 执行 ARM 兼容性探测
+- 调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) Part B 执行预编译二进制识别与溯源
+- 递归处理所有子模块，每个子仓**独立检测构建系统**
 
 最终返回包含所有层级信息的结构化结果，用于第四步聚合。
 

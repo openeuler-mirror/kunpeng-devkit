@@ -1,8 +1,8 @@
-# 单仓库分析入口（analyze-one-repo）
+# 单仓库分析入口（repo-analysis-flow）
 
 > 本文件是**单个仓库的分析闭环**。主仓库和所有子模块（含嵌套子模块）均通过此文件执行分析，由 [SKILL.md](../SKILL.md) 的主循环驱动调用。
 >
-> **不要直接修改此文件中的通用能力逻辑**——ARM 兼容性探测与二进制识别见 [common-detect.md](common-detect.md)（Part A 探测 / Part B 二进制）。
+> **不要直接修改此文件中的通用能力逻辑**——ARM 兼容性探测与二进制识别见 [compat-and-binary-detect.md](compat-and-binary-detect.md)（Part A 探测 / Part B 二进制）。
 
 ---
 
@@ -53,13 +53,13 @@
 
 | 构建系统 | 加载文件 | 输出内容 |
 |---------|---------|---------|
-| Blade | [build-systems.md#blade-构建系统依赖分析](build-systems.md#blade-构建系统依赖分析) | thirdparty 组件列表（预编译/源码/聚合代理），BLADE_ROOT 全局配置 |
-| Bazel | [build-systems.md#bazel-构建系统依赖分析](build-systems.md#bazel-构建系统依赖分析) | `git_repository`/`http_archive`/`new_local_repository` 依赖列表 |
-| CMake | [build-systems.md#cmake-构建系统依赖分析](build-systems.md#cmake-构建系统依赖分析) | `FetchContent_Declare`/`ExternalProject_Add`/`find_package` 依赖列表 |
-| SCons | [build-systems.md#scons-构建系统依赖分析](build-systems.md#scons-构建系统依赖分析) | 库链接声明、x86 编译标志、Python 版本问题 |
+| Blade | [build-system-dep-scan.md#blade-构建系统依赖分析](build-system-dep-scan.md#blade-构建系统依赖分析) | thirdparty 组件列表（预编译/源码/聚合代理），BLADE_ROOT 全局配置 |
+| Bazel | [build-system-dep-scan.md#bazel-构建系统依赖分析](build-system-dep-scan.md#bazel-构建系统依赖分析) | `git_repository`/`http_archive`/`new_local_repository` 依赖列表 |
+| CMake | [build-system-dep-scan.md#cmake-构建系统依赖分析](build-system-dep-scan.md#cmake-构建系统依赖分析) | `FetchContent_Declare`/`ExternalProject_Add`/`find_package` 依赖列表 |
+| SCons | [build-system-dep-scan.md#scons-构建系统依赖分析](build-system-dep-scan.md#scons-构建系统依赖分析) | 库链接声明、x86 编译标志、Python 版本问题 |
 | 未知 | — | 跳过，deps_list 为空 |
 
-> **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `build-systems.md` 的 CMake 章节前，**必须**先检查是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`GIT_SUBMODULE` 等；**注意 `FetchContent_MakeAvailable` 不算**——它是构建期下载依赖的正当机制，误当自动签出去关会破坏依赖拉取）。若存在，需在依赖分析报告**最前面**单独成节以 ⚠️ 警告，提醒用户：阶段 3 末尾、阶段 5 首次 `cmake -B build` 前必须先改为可控开关并关闭、再把每个子模块钉到用户确认的 ARM 分支/commit。根因（cmake 配置期会默默把 ARM 分支重置回默认分支且不报错，导致编译错误在「x86 残留」与「找不到 ARM 符号」间反复横跳）与完整两步处置方案见 [build-systems.md#cmake-构建系统依赖分析](build-systems.md#cmake-构建系统依赖分析)「子模块自动签出检查」——本文件只负责检测与报告警告，不重复处置细节。
+> **CMake 项目最高频踩坑点 —— 子模块自动签出**：加载 `build-system-dep-scan.md` 的 CMake 章节前，**必须**先检查是否存在子模块自动签出逻辑（`execute_process(... git submodule update ...)`、`GIT_SUBMODULE` 等；**注意 `FetchContent_MakeAvailable` 不算**——它是构建期下载依赖的正当机制，误当自动签出去关会破坏依赖拉取）。若存在，需在依赖分析报告**最前面**单独成节以 ⚠️ 警告，提醒用户：阶段 3 末尾、阶段 5 首次 `cmake -B build` 前必须先改为可控开关并关闭、再把每个子模块钉到用户确认的 ARM 分支/commit。根因（cmake 配置期会默默把 ARM 分支重置回默认分支且不报错，导致编译错误在「x86 残留」与「找不到 ARM 符号」间反复横跳）与完整两步处置方案见 [build-system-dep-scan.md#cmake-构建系统依赖分析](build-system-dep-scan.md#cmake-构建系统依赖分析)「子模块自动签出检查」——本文件只负责检测与报告警告，不重复处置细节。
 
 **扫描结束后，同时收集 Shell 脚本下载依赖（所有构建系统通用）**：
 
@@ -75,7 +75,7 @@ grep -rn "yum install\|apt-get install\|apt install" "$REPO_PATH"/*.sh "$REPO_PA
 
 ### Step 3：对 deps_list 执行 ARM 兼容性探测
 
-加载 [common-detect.md](common-detect.md) Part A，对 Step 2 收集的每个依赖执行：
+加载 [compat-and-binary-detect.md](compat-and-binary-detect.md) Part A，对 Step 2 收集的每个依赖执行：
 
 1. 私有 URL 判断（公开平台直接豁免）
 2. 远端分支检查（`git ls-remote --heads`）
@@ -88,7 +88,7 @@ grep -rn "yum install\|apt-get install\|apt install" "$REPO_PATH"/*.sh "$REPO_PA
 
 ### Step 4：预编译二进制识别与源码溯源
 
-加载 [common-detect.md](common-detect.md) Part B，对 `$REPO_PATH` 执行：
+加载 [compat-and-binary-detect.md](compat-and-binary-detect.md) Part B，对 `$REPO_PATH` 执行：
 
 1. 扫描仓库内置 `.so`/`.a`/可执行文件
 2. `file` 命令判断架构（x86-64 / aarch64 / ARM32 等）
@@ -134,7 +134,7 @@ git submodule status
 递归执行：Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6
 ```
 
-同时检查每个子模块的 ARM 兼容性（加载 `common-detect.md` Part A 即可，此处无需重复写命令）。
+同时检查每个子模块的 ARM 兼容性（加载 `compat-and-binary-detect.md` Part A 即可，此处无需重复写命令）。
 
 #### 情况 B：`REPO_DEPTH >= MAX_DEPTH`（已达最大深度）
 
