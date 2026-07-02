@@ -1,15 +1,112 @@
-# 预编译二进制识别与源码溯源（通用共享模块）
+# 依赖 ARM 兼容性探测与二进制识别（通用共享模块）
 
-> 本文件是**所有构建系统共用**的预编译二进制识别与溯源逻辑。
-> 由 [analyze-one-repo.md](analyze-one-repo.md) 的 Step 4 调用，不直接由用户触发。
->
+> 本文件是**所有构建系统共用**的两块通用逻辑，由 [repo-analysis-flow.md](repo-analysis-flow.md) 按需调用：
+> - **Part A（ARM 兼容性探测）**：Step 3 调用，适用于 Git 类依赖（submodule、`git_repository`、`FetchContent` GIT 模式）。免检清单比对也在此执行，确保每个仓库分析时都能正确跳过已确认兼容的依赖。
+> - **Part B（预编译二进制识别与溯源）**：Step 4 调用，不直接由用户触发。覆盖仓库内置二进制与外部无源码依赖。
+
+---
+
+# Part A：ARM 兼容性探测
+
+## A.1 私有 URL 判断（公开平台豁免）
+
+对每个依赖的 URL / remote，按以下规则判断是否需要 ARM 兼容性探测：
+
+| URL 特征 | 判断 | 处理 |
+|----------|------|------|
+| `github.com`、`gitlab.com`、`bitbucket.org` 等公开平台 | 开源 | **豁免**，跳过 ARM 探测（若版本超过 2 年未更新，建议在备注中提示确认） |
+| 私有域名（如 `*.internal`、组织内部对象存储域名、IP 地址形式） | 私有依赖 | **需执行 ARM 探测**（A.2 + A.3） |
+| 私有 Git（SSH 形式，域名非公开平台） | 私有依赖 | **需执行 ARM 探测** |
+| 无法判断（URL 缺失或为相对路径） | 不确定 | **保守处理，执行 ARM 探测** |
+
+> **已被豁免的开源依赖无需进入 A.2/A.3，直接跳到 A.4 做免检清单比对即可**。
+
+---
+
+## A.2 远端分支检查
+
+对判定为**私有依赖**的 Git 仓库，检查远端是否有 ARM 相关分支：
+
+```bash
+# 列出远端所有分支，过滤 ARM 相关关键字
+git ls-remote --heads <remote_url> | grep -iE "arm|aarch64|kunpeng"
+```
+
+| 结果 | 标记 |
+|------|------|
+| 存在匹配分支 | **「有 ARM 分支，需确认是否已切换」** |
+| 无匹配分支 | 继续执行 A.3 检查提交历史 |
+
+---
+
+## A.3 本地提交历史检查
+
+对**已成功 clone 到本地**的依赖（submodule 或 FetchContent 已拉取），检查提交历史：
+
+```bash
+# 在依赖目录中执行
+cd <依赖目录>
+git log --oneline --all | grep -iE "arm|aarch64|cross.?compil|kunpeng" | head -5
+```
+
+| 结果 | 标记 |
+|------|------|
+| 存在匹配提交 | **「历史中有 ARM 相关改动，需确认是否已合入当前版本」** |
+| 无匹配提交 | 进入综合判定 |
+
+> 若依赖尚未 clone 到本地（如 `http_archive` 预编译包），跳过本节，直接进入 A.4 综合判定。
+
+---
+
+## A.4 综合判定
+
+根据 A.2 + A.3 的结果，对每个非开源依赖给出最终状态：
+
+| 探测结果 | 状态标记 | 处理建议 |
+|----------|---------|---------|
+| 有 ARM 分支 + 有 ARM 提交历史 | 可能兼容 | 确认当前使用版本是否包含 ARM 改动 |
+| 有 ARM 分支，无 ARM 提交历史 | 待确认 | 检查 ARM 分支内容是否可用 |
+| 无 ARM 分支 + 无 ARM 提交历史 | 未知兼容性 | **需用户手动确认是否兼容 ARM** |
+| 预编译包（HTTP 下载，非 Git） | 架构绑定 | 必须获取 ARM 版本或重新编译，进入 Part B 溯源 |
+| 无法访问远端（网络受限） | 未知兼容性 | 在报告中注明「无法访问远端，无法检查 ARM 分支」，标为待确认 |
+
+> **所有标记为「警告」的依赖，必须出现在报告末尾的「待用户手动确认清单」中**。
+
+---
+
+## A.5 与已确认清单比对（按依赖库名匹配）
+
+> 这是「查到分支 → 用户确认 → 阶段 3 末尾切换」闭环的查询端。[kunpeng_confirmed.md](kunpeng_confirmed.md) 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/路径）。
+
+**在执行 A.2/A.3 探测之前**，先读本清单，命中的依赖免探测、免询问，并记下 ARM 适配信息供阶段 3 末尾切换使用：
+
+```bash
+# 读取已确认清单（skill 目录下）
+cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
+```
+
+### 比对方法
+
+对当前依赖，按**依赖库名**在清单中查找 `## <依赖库名>` 区块：
+
+| 情况 | 处理 |
+|------|------|
+| 清单中**无**该依赖库区块 | 未命中，继续 A.2/A.3 探测 |
+| 有区块，且该依赖的构建配置**尚未**切换到记录的 ARM 分支/commit/URL | 命中 → 标记「已知 ARM 适配」，在报告中**展示一条**并标注「待阶段 3 末尾切换」；把区块记录的「ARM 适配分支/commit」「ARM URL/路径」「备注」记入该依赖，**供阶段 3 末尾经用户确认后切换使用**（不要在阶段 2 自行切换，切换统一在阶段 3 末尾且必须先经用户确认） |
+| 有区块，且项目当前配置**已经**是记录的 ARM 版本 | 已确认且已切换，从报告中完全省略 |
+| 「备注」列含特殊操作（如「需先注释自动签出」「ABI=0」） | 一并记入该依赖备注，阶段 3 末尾切换前必须先完成这些前置操作 |
+
+> 命中即免探测、免询问：不再执行 A.2/A.3 远端/历史探测，也不进入报告末尾的「待用户手动确认清单」。但**「免询问」仅限阶段 2 的探测环节**——阶段 3 末尾真正切换分支前仍必须经用户逐项确认（见 [kunpeng-confirmed-write.md](kunpeng-confirmed-write.md) 步骤 4「切换前必须用户确认」）。
+
+---
+
+# Part B：预编译二进制识别与源码溯源
+
 > 覆盖两类来源：
 > - **仓库内置二进制**：直接 `git commit` 到代码仓的 `.so`/`.a`/可执行文件
 > - **外部无源码依赖**：`http_archive`/`ExternalProject_Add`/脚本下载的预编译包（依赖扫描阶段已识别）
 
----
-
-## Section 1：扫描仓库内置二进制
+## B.1 扫描仓库内置二进制
 
 在 `$REPO_PATH` 下执行：
 
@@ -25,7 +122,7 @@ find "$REPO_PATH" -not -path "*/.git/*" -type f -executable \
 
 ---
 
-## Section 2：判断二进制文件的目标架构
+## B.2 判断二进制文件的目标架构
 
 对每个发现的二进制文件执行 `file` 命令：
 
@@ -50,17 +147,17 @@ done
 
 | `file` 输出关键字 | 架构 | ARM 可用性 |
 |-----------------|------|----------|
-| `x86-64` / `x86_64` / `Intel 80386` | x86 | 不可用，需替换，**进入 Section 3 溯源** |
+| `x86-64` / `x86_64` / `Intel 80386` | x86 | 不可用，需替换，**进入 B.3 溯源** |
 | `aarch64` / `ARM aarch64` / `ARM64` | ARM64 | 可直接使用 |
 | `ARM` (32-bit) | ARM32 | 需确认是否兼容 64-bit 环境 |
 | `universal binary` / `fat binary` | 多架构 | 含 ARM，可使用 |
 | `current ar archive` | 静态库（需进一步检查内部） | 按上述规则检查内部 `.o` 文件 |
 
-> 所有判定为 **x86 架构**的二进制文件，必须进入 Section 3 执行源码溯源。
+> 所有判定为 **x86 架构**的二进制文件，必须进入 B.3 执行源码溯源。
 
 ---
 
-## Section 3：四级源码溯源（针对所有 x86 架构二进制）
+## B.3 四级源码溯源（针对所有 x86 架构二进制）
 
 对每个确认为 **x86 架构**的预编译文件，按以下优先级依次尝试，找到即停止：
 
@@ -82,6 +179,8 @@ grep -rn "<依赖名>" \
 ```
 
 若找到 → 记录「**第1级**：可从构建配置中指定的源码地址 `<url>` 重新编译」。
+
+> 各构建系统在该优先级会命中的位置：Bazel 在 `$REPO_PATH/WORKSPACE` 的 `git_repository`/`http_archive`；CMake 在 `$REPO_PATH/CMakeLists.txt` 与 `$REPO_PATH/cmake/*.cmake` 的 `FetchContent_Declare`/`ExternalProject_Add`；Blade 在 `BUILD` 文件的源码来源字段。
 
 ---
 
@@ -154,7 +253,7 @@ yum --enablerepo=kunpeng search <依赖名> 2>/dev/null
 
 ---
 
-## Section 4：RPM spec 文件检查
+## B.4 RPM spec 文件检查
 
 在执行第四优先级前，先检查项目内是否存在对应 `.spec` 文件，若有可直接自助打包：
 
@@ -182,9 +281,9 @@ done
 
 ---
 
-## Section 5：截断策略（大量二进制文件时）
+## B.5 截断策略（大量二进制文件时）
 
-当单个仓库扫描到的预编译二进制文件数量较多时，按以下规则截断以保持报告可读性：
+当代码仓扫描到的预编译二进制文件数量较多时，按以下规则截断以保持报告可读性：
 
 ### 截断阈值
 
@@ -228,4 +327,25 @@ done
 | `lib/libfoo.so` | x86-64 |
 
 </details>
+```
+
+---
+
+## 调用示例（从 repo-analysis-flow.md 的视角）
+
+```
+# Step 3（ARM 兼容性探测）+ Step 4（二进制识别）伪代码
+for dep in $deps_list:
+  if dep.type in [git_repository, submodule, FetchContent_GIT]:
+    read compat-and-binary-detect.md Part A
+    probe_result = execute_arm_probe(dep.url, dep.local_path)   # A.1 → A.5
+    dep.arm_status = probe_result.status    # 已确认 / 可能兼容 / 待确认 / 未知兼容性
+    dep.arm_note   = probe_result.note
+  else:
+    # http_archive/预编译包 → 交由 Part B 处理
+    dep.arm_status = "架构绑定"
+
+# Step 4：对所有仓库执行二进制扫描（无论构建系统）
+read compat-and-binary-detect.md Part B
+binary_list = scan_and_trace($REPO_PATH)   # B.1 → B.5
 ```
