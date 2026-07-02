@@ -11,8 +11,8 @@
 - <其他自定义排除目录>
 
 【排除目录在各阶段的生效方式】
-- 阶段 D DevKit 扫描：DevKit src-mig 支持排除参数则传入
+- 阶段 4 DevKit 扫描：DevKit src-mig 支持排除参数则传入
 
 【执行要求】
-按 cpp-kunpeng-migration skill 五阶段流程执行（A 环境检测 → B 依赖分析 → C 用户确认 → D DevKit 扫描适配 → E 编译验证循环）。
+按 cpp-kunpeng-migration skill 六阶段流程执行（1 环境检测 → 2 依赖分析 → 3 用户确认 → 4 DevKit 扫描适配 → 5 编译验证循环 → 6 迁移总结报告）。
 - 所有源码修改须有 __aarch64__ 架构宏保护，保证 ARM 兼容的同时不破坏 x86 能力

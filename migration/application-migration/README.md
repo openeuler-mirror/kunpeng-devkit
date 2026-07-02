@@ -32,7 +32,7 @@
 - **双架构兼容**：所有修改使项目**同时**支持 x86 和 ARM 编译，通过 `#if defined(__aarch64__)` 宏或构建系统 `select()` 分支区隔，不破坏原有 x86 能力
 - **最小侵入**：优先修改构建配置而非源码；源码修改必须有架构宏保护
 - **非侵入式工作目录**：所有临时产物放到项目目录之外的专用工作目录，不污染源码树
-- **一次性信息收集**：所有需用户提供的信息在阶段 C 一次性问清楚，不在后续流程中反复打断
+- **一次性信息收集**：所有需用户提供的信息在阶段 3 一次性问清楚，不在后续流程中反复打断
 
 ---
 
@@ -40,7 +40,7 @@
 
 - **五大构建系统支持**：Bazel / CMake / Make / Blade / SCons 自动识别与适配
 - **六阶段自动化流水线**：从环境检测到总结报告全流程闭环
-- **subagent 协作架构**：阶段 A、B 以 subagent 模式执行，隔离上下文，主编排统一收集待确认项后一次性提问
+- **subagent 协作架构**：阶段 1、2 以 subagent 模式执行，隔离上下文，主编排统一收集待确认项后一次性提问
 - **依赖兼容性探测**：自动分析所有外部依赖的 ARM 兼容性，命中免检清单的依赖自动切换，冲突项结构化输出供用户决策
 - **DevKit 扫描集成**：调用鲲鹏 DevKit 工具扫描源码 x86 专属问题（内联汇编 / intrinsics / 头文件 / 类型大小等），生成修改建议
 - **编译错误两级查询**：速查表（`build-error-quickfix.md`）→ 案例库（`migration-cases/`）兜底，快速定位修复方案
@@ -63,7 +63,7 @@
 |--------|------|
 | 目标环境 | ARM（aarch64 / 鲲鹏）服务器，具备编译条件 |
 | 源环境 | x86_64 服务器（用于环境信息对比） |
-| DevKit | 鲲鹏 DevKit 已安装（阶段 D 扫描所需，`which devkit` 可查） |
+| DevKit | 鲲鹏 DevKit 已安装（阶段 4 扫描所需，`which devkit` 可查） |
 | 构建工具 | GCC / Make / CMake / Bazel / Blade / SCons（按项目实际使用的构建系统准备） |
 | CatPaw IDE | 版本 ≥ 3.3.21（如使用 CatPaw IDE 运行 Skill） |
 
@@ -74,28 +74,27 @@
 ```
 cpp-kunpeng-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
-├── environment-prepare/                              # 阶段 A 子 Skill：环境检测与准备
+├── environment-prepare/                              # 阶段 1 子 Skill：环境检测与准备
 │   ├── SKILL.md
 │   └── references/
 │       └── build-tools-reference.md                  # 构建工具下载链接
-├── dependency-analysis/                              # 阶段 B 子 Skill：依赖分析与 ARM 兼容性探测
+├── dependency-analysis/                              # 阶段 2 子 Skill：依赖分析与 ARM 兼容性探测
 │   ├── SKILL.md                                      # 依赖分析主编排
 │   ├── references/
-│   │   ├── analyze-one-repo.md                       # 单仓库分析闭环步骤
-│   │   ├── common-kunpeng-probe.md                   # 通用 Kunpeng 兼容性探测
-│   │   ├── common-binary-detect.md                   # 预编译二进制识别
-│   │   ├── kunpeng-confirmed-write.md                # 阶段 C：写入确认清单 + 执行切换
+│   │   ├── repo-analysis-flow.md                     # 单仓库分析闭环步骤
+│   │   ├── compat-and-binary-detect.md               # 通用 Kunpeng 兼容性探测 + 预编译二进制识别
+│   │   ├── kunpeng-confirmed-write.md                # 阶段 3：写入确认清单 + 执行切换
 │   │   ├── kunpeng_confirmed.md                      # 已确认 Kunpeng 适配的依赖库清单
-│   │   └── dependency-analysis-build-systems.md      # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
+│   │   └── build-system-dep-scan.md                  # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
 │   └── assets/
-│       └── dependency-analysis-report-template-example.md  # 报告输出模板
-├── devkit-scan/                                      # 阶段 D 子 Skill：DevKit 扫描与源码/构建适配
+│       └── report-template-example.md                # 报告输出模板
+├── devkit-scan/                                      # 阶段 4 子 Skill：DevKit 扫描与源码/构建适配
 │   ├── SKILL.md                                      # 完整扫描 + 适配流程
 │   ├── references/
 │   │   └── devkit-download.md                        # DevKit CLI 下载说明
 │   └── scripts/
 │       └── devkit-download.sh                        # DevKit 自动下载安装脚本
-├── sourcecode-build-verify/                          # 阶段 E 子 Skill：编译验证与循环修复
+├── sourcecode-build-verify/                          # 阶段 5 子 Skill：编译验证与循环修复
 │   ├── SKILL.md
 │   └── references/
 │       ├── build-error-quickfix.md                   # 编译错误快速修复速查表
@@ -107,8 +106,10 @@ cpp-kunpeng-migration/
 │           ├── generic-kunpeng-migration-cases.md    # 通用 Kunpeng 适配详细案例
 │           ├── version-compatibility-cases.md        # 版本兼容性详细案例
 │           └── project-specific-cases.md             # 项目特定详细案例
-└── migration-summary/                                # 阶段 F：迁移总结报告
-    └── SKILL.md
+└── migration-summary/                                # 阶段 6：迁移总结报告
+    ├── SKILL.md
+    └── assets/
+        └── migration_summary_report_template.md      # 迁移总结报告模板
 ```
 （prompt.md 位于父目录 application-migration/ 下）
 ---
@@ -181,7 +182,7 @@ C:\Users\<你的用户名>\.catpaw\skills\
 ~/.claude/skills/
 ```
 
-Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 Claude Code 的 Subagent 机制天然契合。
+Claude Code 支持 Subagent 特性，阶段 1、2 的 subagent 执行模式与 Claude Code 的 Subagent 机制天然契合。
 
 ### 其他编程 Agent
 
@@ -219,7 +220,7 @@ Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 C
 - <其他自定义排除目录>
 
 【执行要求】
-按 cpp-kunpeng-migration skill 六阶段流程执行（A 环境检测 → B 依赖分析 → C 用户确认 → D DevKit 扫描适配 → E 编译验证循环 → F 迁移总结报告）。
+按 cpp-kunpeng-migration skill 六阶段流程执行（1 环境检测 → 2 依赖分析 → 3 用户确认 → 4 DevKit 扫描适配 → 5 编译验证循环 → 6 迁移总结报告）。
 - 所有源码修改须有 __aarch64__ 架构宏保护，不破坏 x86 能力
 ```
 
@@ -231,13 +232,13 @@ Claude Code 支持 Subagent 特性，阶段 A、B 的 subagent 执行模式与 C
 
 ### 步骤三：按阶段交互
 
-Skill 启动后会自动按六阶段流程执行。**关键交互点在阶段 C**——主编排会汇总阶段 A、B 的待确认项，一次性通过 `AskUserQuestion` 向你提问，你需要：
+Skill 启动后会自动按六阶段流程执行。**关键交互点在阶段 3**——主编排会汇总阶段 1、2 的待确认项，一次性通过 `AskUserQuestion` 向你提问，你需要：
 
 1. 回答环境检测和依赖分析中需决策的问题（版本不一致处理、依赖冲突处理等）
 2. 确认已命中免检清单的依赖切换操作
 3. 确认是否开始正式迁移
 
-阶段 C 回复后，Skill 自动完成阶段 D（扫描适配）和阶段 E（编译验证循环），最终在阶段 F 输出迁移总结报告。
+阶段 3 回复后，Skill 自动完成阶段 4（扫描适配）和阶段 5（编译验证循环），最终在阶段 6 输出迁移总结报告。
 
 ---
 
@@ -245,38 +246,38 @@ Skill 启动后会自动按六阶段流程执行。**关键交互点在阶段 C*
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  阶段 A：环境检测与准备（subagent）                                │
+│  阶段 1：环境检测与准备（subagent）                                │
 │  检测 ARM 环境编译器/构建工具/依赖版本，自动修复不一致项            │
-│  输出：environment_check_report.md + stage_a_pending_items.md    │
+│  输出：environment_check_report.md + stage_1_pending_items.md    │
 └──────────────────────────┬──────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  阶段 B：依赖分析与 ARM 兼容性探测（subagent）                     │
+│  阶段 2：依赖分析与 ARM 兼容性探测（subagent）                     │
 │  全面分析外部依赖，评估 ARM 兼容性，命中免检清单自动标记切换        │
 │  输出：dependency_analysis_<项目名>.md                           │
-│       + stage_b_pending_items.md + stage_b_switch_list.md       │
+│       + stage_2_pending_items.md + stage_2_switch_list.md       │
 └──────────────────────────┬──────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  阶段 C：汇总待确认项 + 等待用户确认（主编排，必须交互）           │
+│  阶段 3：汇总待确认项 + 等待用户确认（主编排，必须交互）           │
 │  一次性提问所有待确认项 → 用户回复 → 登记免检清单 → 确认切换分支   │
-│  未获用户明确确认前不进入阶段 D                                  │
+│  未获用户明确确认前不进入阶段 4                                  │
 └──────────────────────────┬──────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  阶段 D：DevKit 扫描 → 构建配置 + 源码适配（严格串行）             │
-│  D.1 DevKit 扫描生成报告 → D.2 根据报告完成源码/构建修改          │
+│  阶段 4：DevKit 扫描 → 构建配置 + 源码适配（严格串行）             │
+│  4.1 DevKit 扫描生成报告 → 4.2 根据报告完成源码/构建修改          │
 │  扫描未结束不得开始修改，所有修改须有架构宏保护                   │
 └──────────────────────────┬──────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  阶段 E：编译验证循环                                             │
+│  阶段 5：编译验证循环                                             │
 │  循环编译 → 错误两级查询修复（速查表 → 案例库）→ 重新编译          │
 │  直到编译成功或触发人工介入                                       │
 └──────────────────────────┬──────────────────────────────────────┘
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  阶段 F：迁移总结报告                                             │
+│  阶段 6：迁移总结报告                                             │
 │  汇总各阶段执行时长、修改文件清单、重要提示与建议                  │
 │  输出：migration_summary_report.md                               │
 └─────────────────────────────────────────────────────────────────┘
@@ -321,15 +322,15 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: DevKit 未安装怎么办？
 
-阶段 D 扫描时若 `which devkit` 返回空，Skill 会通过 `AskUserQuestion` 让你选择：手动提供安装路径 / 自行下载安装后继续 / 中止。不会跳过扫描或自行下载安装。
+阶段 4 扫描时若 `which devkit` 返回空，Skill 会通过 `AskUserQuestion` 让你选择：手动提供安装路径 / 自行下载安装后继续 / 中止。不会跳过扫描或自行下载安装。
 
 ### Q: 编译持续失败无法自动修复怎么办？
 
-阶段 E 设置了人工介入机制。当自动修复达到阈值仍无法解决时，Skill 会输出人工介入报告并进入阶段 F 生成总结报告，标注"人工介入"状态，列出剩余未解决的问题。
+阶段 5 设置了人工介入机制。当自动修复达到阈值仍无法解决时，Skill 会输出人工介入报告并进入阶段 6 生成总结报告，标注"人工介入"状态，列出剩余未解决的问题。
 
 ### Q: 私有仓库依赖无 ARM 版本怎么办？
 
-阶段 B 会检测到该情况并生成待确认项。在阶段 C 你可以选择：从源码编译 / 提供已有包路径 / 禁用该模块。若选择推动子仓库完成 ARM 适配，可先跳过该依赖，适配完成后再重新编译主仓库。
+阶段 2 会检测到该情况并生成待确认项。在阶段 3 你可以选择：从源码编译 / 提供已有包路径 / 禁用该模块。若选择推动子仓库完成 ARM 适配，可先跳过该依赖，适配完成后再重新编译主仓库。
 
 ### Q: 迁移会影响原有 x86 编译吗？
 
@@ -337,7 +338,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: 如何复用已确认的 ARM 适配依赖？
 
-阶段 C 会将用户确认的依赖 ARM 适配信息写入 [kunpeng_confirmed.md](cpp-kunpeng-migration/dependency-analysis/references/kunpeng_confirmed.md)。后续项目迁移时，阶段 B 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
+阶段 3 会将用户确认的依赖 ARM 适配信息写入 [kunpeng_confirmed.md](cpp-kunpeng-migration/dependency-analysis/references/kunpeng_confirmed.md)。后续项目迁移时，阶段 2 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
 
 ---
 

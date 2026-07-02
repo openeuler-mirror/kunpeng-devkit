@@ -1,6 +1,6 @@
 ---
 name: cpp-kunpeng-migration
-description: C/C++ 项目 x86→ARM（aarch64/鲲鹏）迁移的主控 Skill，专注于双架构同时兼容编译运行。提供将 C/C++ 项目从 x86 迁移到 ARM 并实现双架构同时兼容编译运行的能力，支持 Bazel/CMake/Make/Blade/SCons 构建系统，通过五阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环）完成迁移。在用户要求把 C/C++ 项目适配/迁移到 ARM、鲲鹏、aarch64，或需要项目同时支持 x86 与 ARM 架构时触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
+description: C/C++ 项目 x86→ARM（aarch64/鲲鹏）迁移的主控 Skill，专注于双架构同时兼容编译运行。提供将 C/C++ 项目从 x86 迁移到 ARM 并实现双架构同时兼容编译运行的能力，支持 Bazel/CMake/Make/Blade/SCons 构建系统，通过六阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环→迁移总结报告）完成迁移。在用户要求把 C/C++ 项目适配/迁移到 ARM、鲲鹏、aarch64，或需要项目同时支持 x86 与 ARM 架构时触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
 ---
 
 # C/C++ 项目 Kunpeng 迁移主控 Skill
@@ -311,5 +311,5 @@ options:
 | [SKILL.md](dependency-analysis/SKILL.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、kunpeng_confirmed.md 免检清单） |
 | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 5 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
 | [dependency-analysis/references/kunpeng-confirmed-write.md](dependency-analysis/references/kunpeng-confirmed-write.md) | 阶段 3.4：写入 ARM 确认清单 + 执行真实切换 |
-| [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 4 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见本 SKILL.md，含 devkit-download.md 下载说明） |
+| [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 4 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见 devkit-scan/SKILL.md，含 devkit-download.md 下载说明） |
 | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 6：迁移总结报告生成子 Skill |

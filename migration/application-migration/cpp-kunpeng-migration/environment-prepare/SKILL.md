@@ -299,6 +299,6 @@ protoc --version
 
 ## 待确认项格式
 
-见 [pending-items-template.md](assets/stage1-pending-items-template.md)。
+见 [pending-items-template.md](assets/pending-items-template.md)。
 
 现在开始执行阶段 1 环境检测。

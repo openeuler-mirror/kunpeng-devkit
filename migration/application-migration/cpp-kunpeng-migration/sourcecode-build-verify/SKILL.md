@@ -23,7 +23,10 @@ ARCH=$(uname -m)
 echo "当前架构：$ARCH"
 
 # 确认 WORKSPACE 已切换到 arm（若 build.sh 不自动处理，手动切换）
-[ ! -e "$PROJECT_ROOT/WORKSPACE" ] && cp $PROJECT_ROOT/WORKSPACE_arm $PROJECT_ROOT/WORKSPACE
+# 仅在项目无 WORKSPACE 且存在 WORKSPACE_arm 时临时复制，避免误删项目原有 WORKSPACE
+if [ ! -e "$PROJECT_ROOT/WORKSPACE" ] && [ -e "$PROJECT_ROOT/WORKSPACE_arm" ]; then
+    cp $PROJECT_ROOT/WORKSPACE_arm $PROJECT_ROOT/WORKSPACE
+fi
 
 # 确认 software.sh 已运行（设置 PATH 中的 Bazel 路径）
 cd $PROJECT_ROOT && source ./software.sh
@@ -224,8 +227,12 @@ echo "=== 第 ${ATTEMPT} 次编译 [$(date)] ===" | tee -a $WORK_DIR/reports/fix
 # 执行编译（Bazel 示例）
 cd $PROJECT_ROOT
 
-# 确保 WORKSPACE 已就位
-[ ! -e "WORKSPACE" ] && cp WORKSPACE_arm WORKSPACE
+# 确保 WORKSPACE 已就位（仅在项目无 WORKSPACE 且存在 WORKSPACE_arm 时临时复制）
+WORKSPACE_COPIED_MARKER="$PROJECT_ROOT/.arm_migration_workspace_copied"
+if [ ! -e "WORKSPACE" ] && [ -e "WORKSPACE_arm" ]; then
+    cp WORKSPACE_arm WORKSPACE
+    touch "$WORKSPACE_COPIED_MARKER"
+fi
 
 source ./software.sh  # 确保 Bazel PATH 已设置
 
@@ -236,8 +243,11 @@ bazel build <主目标> \
 
 BUILD_EXIT_CODE=${PIPESTATUS[0]}
 
-# 清理临时 WORKSPACE
-[ -e "WORKSPACE" ] && rm WORKSPACE
+# 仅清理本次临时复制的 WORKSPACE
+if [ -e "$WORKSPACE_COPIED_MARKER" ]; then
+    [ -e "WORKSPACE" ] && rm WORKSPACE
+    rm "$WORKSPACE_COPIED_MARKER"
+fi
 
 echo "编译退出码：$BUILD_EXIT_CODE"
 echo "日志：$LOG_FILE"
@@ -407,11 +417,13 @@ EOF
 ## 5.8 编译成功后收尾
 
 ```bash
-# 1. 清理临时 WORKSPACE（避免误提交到版本库）
-[ -e "$PROJECT_ROOT/WORKSPACE" ] && {
-    rm $PROJECT_ROOT/WORKSPACE
+# 1. 清理临时 WORKSPACE（仅当由本 Skill 临时复制时才删除，避免误删项目原有文件）
+WORKSPACE_COPIED_MARKER="$PROJECT_ROOT/.arm_migration_workspace_copied"
+if [ -e "$WORKSPACE_COPIED_MARKER" ] && [ -e "$PROJECT_ROOT/WORKSPACE" ]; then
+    rm "$PROJECT_ROOT/WORKSPACE"
+    rm "$WORKSPACE_COPIED_MARKER"
     echo "临时 WORKSPACE 已清理"
-}
+fi
 
 # 2. 保存最终修改清单
 FINAL_CHANGES="$WORK_DIR/reports/final_changes_$(date +%Y%m%d).txt"
