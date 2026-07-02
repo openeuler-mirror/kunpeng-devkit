@@ -37,42 +37,6 @@ description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分�
 
 ---
 
-## 模块架构
-
-本目录按职责拆分，文件分组如下：
-
-### 核心文件（按执行顺序加载）
-
-| 文件 | 职责 |
-|------|------|
-| **本文件** (SKILL.md) | 全局编排：免检清单读取、驱动主循环、聚合结果、生成报告、定义输出契约 |
-| [repo-analysis-flow.md](references/repo-analysis-flow.md) | 单仓库分析闭环：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [compat-and-binary-detect.md](references/compat-and-binary-detect.md) | 通用共享模块：Part A ARM 兼容性探测（私有 URL 判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 预编译二进制识别（扫描、架构判断、四级源码溯源、截断策略） |
-
-### 构建系统专用合集（按需加载对应章节）
-
-| 文件 | 章节 | 职责 |
-|------|------|------|
-| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#bazel](references/build-system-dep-scan.md#bazel-构建系统依赖分析) | WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
-| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#cmake](references/build-system-dep-scan.md#cmake-构建系统依赖分析) | `FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
-| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#blade](references/build-system-dep-scan.md#blade-构建系统依赖分析) | thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
-| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#scons](references/build-system-dep-scan.md#scons-构建系统依赖分析) | x86 编译标志检查、Python 版本兼容性 |
-
-### 跨阶段共享文档
-
-| 文件 | 职责 | 调用方 |
-|------|------|--------|
-| [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 写入 ARM 确认清单、执行真实分支切换、切换后校验 | **阶段 3 主编排**（本子 skill 仅产生供其消费的待切换清单，不执行其中步骤） |
-| [kunpeng_confirmed.md](references/kunpeng_confirmed.md) | ARM 适配已确认依赖知识库（按依赖库名索引，跨项目复用） | 阶段 2 读取（免检）、阶段 3 写入 |
-
-### 输出模板
-
-| 文件 | 用途 |
-|------|------|
-| [report-template-example.md](assets/report-template-example.md) | 依赖分析报告输出模板示例 |
-
----
-
 ## 主流程
 
 ### 第一步：从环境检测报告读取构建系统
@@ -117,7 +81,6 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
   REPO_PATH  = <项目根目录绝对路径>
   REPO_NAME  = <项目名>
   REPO_DEPTH = 0
-  MAX_DEPTH  = 2
 
 执行：repo-analysis-flow.md（Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6）
 ```
@@ -190,7 +153,6 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 - **子仓库优先适配策略**：存在私有仓库依赖时，明确提示用户优先推动这些子仓库完成 ARM 适配；子仓库适配完成后，主仓库只需修改构建配置中的版本号，可显著降低整体移植成本
 - **子仓库协调优先级**：基础通信/IO 库（P0）> 核心基础设施客户端库（P1）> 业务模块专用 SDK（P2）> 通用工具类库（P3）
-- **最大分析深度**：默认 `MAX_DEPTH=2`（主仓 depth=0，直接子模块 depth=1，子仓的子仓 depth=2），超过此深度注明「超过最大分析深度，跳过」
 - **开源判定豁免**：`github.com`/`gitlab.com` 等公开平台的依赖默认跳过 ARM 检查，但若版本超过 2 年未更新仍建议确认
 - **私有对象存储地址**（如组织内部 S3/OSS）：需要在私有网络环境中访问，报告中需注明
 - **输出方式**：报告以 Markdown 格式写入 `$WORK_DIR/reports/dependency_analysis_<项目名>.md`，同时输出到客户端对话界面
@@ -231,7 +193,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 每条待切换项：
 
-```yaml
+```
 - dep_name: <依赖名>
   arm_branch: <ARM分支或commit>
   arm_url: <ARM版本URL（如有）>
@@ -240,4 +202,37 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
   source: kunpeng_confirmed.md  # 来源
 ```
 
-现在开始执行阶段 2 依赖分析。
+---
+
+## 模块架构
+
+本目录按职责拆分，文件分组如下：
+
+### 核心文件（按执行顺序加载）
+
+| 文件 | 职责 |
+|------|------|
+| [repo-analysis-flow.md](references/repo-analysis-flow.md) | 代码仓分析闭环：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
+| [compat-and-binary-detect.md](references/compat-and-binary-detect.md) | 通用共享模块：Part A ARM 兼容性探测（私有 URL 判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 二进制文件扫描（扫描、架构判断、四级源码溯源、截断策略） |
+
+### 构建系统专用合集（按需加载对应章节）
+
+| 文件 | 章节 | 职责 |
+|------|------|------|
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#bazel](references/build-system-dep-scan.md#bazel-构建系统依赖分析) | WORKSPACE 依赖扫描、`http_archive` 预编译包识别 |
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#cmake](references/build-system-dep-scan.md#cmake-构建系统依赖分析) | `FetchContent`/`ExternalProject_Add`/`find_package` 扫描、ABI=0 工具链、子模块自动签出检查 |
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#blade](references/build-system-dep-scan.md#blade-构建系统依赖分析) | thirdparty 组件扫描、BUILD/BUILD.x86 双架构分离、ARM 库查找路径 |
+| [build-system-dep-scan.md](references/build-system-dep-scan.md) | [#scons](references/build-system-dep-scan.md#scons-构建系统依赖分析) | x86 编译标志检查、Python 版本兼容性 |
+
+### 跨阶段共享文档
+
+| 文件 | 职责 | 调用方 |
+|------|------|--------|
+| [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 写入 ARM 确认清单、执行真实分支切换、切换后校验 | **阶段 3 主编排**（本子 skill 仅产生供其消费的待切换清单，不执行其中步骤） |
+| [kunpeng_confirmed.md](references/kunpeng_confirmed.md) | ARM 适配已确认依赖知识库（按依赖库名索引，跨项目复用） | 阶段 2 读取（免检）、阶段 3 写入 |
+
+### 输出模板
+
+| 文件 | 用途 |
+|------|------|
+| [report-template-example.md](assets/report-template-example.md) | 依赖分析报告输出模板示例 |

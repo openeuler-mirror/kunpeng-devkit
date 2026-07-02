@@ -70,7 +70,7 @@ git log --oneline --all | grep -iE "arm|aarch64|cross.?compil|kunpeng" | head -5
 | 预编译包（HTTP 下载，非 Git） | 架构绑定 | 必须获取 ARM 版本或重新编译，进入 Part B 溯源 |
 | 无法访问远端（网络受限） | 未知兼容性 | 在报告中注明「无法访问远端，无法检查 ARM 分支」，标为待确认 |
 
-> **所有 ⚠️ 标记的依赖，必须出现在报告末尾的「待用户手动确认清单」中**。
+> **所有标记为「警告」的依赖，必须出现在报告末尾的「待用户手动确认清单」中**。
 
 ---
 
@@ -283,7 +283,7 @@ done
 
 ## B.5 截断策略（大量二进制文件时）
 
-当单个仓库扫描到的预编译二进制文件数量较多时，按以下规则截断以保持报告可读性：
+当代码仓扫描到的预编译二进制文件数量较多时，按以下规则截断以保持报告可读性：
 
 ### 截断阈值
 
@@ -339,7 +339,7 @@ for dep in $deps_list:
   if dep.type in [git_repository, submodule, FetchContent_GIT]:
     read compat-and-binary-detect.md Part A
     probe_result = execute_arm_probe(dep.url, dep.local_path)   # A.1 → A.5
-    dep.arm_status = probe_result.status    # ✅ / ⚠️ / ❓
+    dep.arm_status = probe_result.status    # 已确认 / 可能兼容 / 待确认 / 未知兼容性
     dep.arm_note   = probe_result.note
   else:
     # http_archive/预编译包 → 交由 Part B 处理
