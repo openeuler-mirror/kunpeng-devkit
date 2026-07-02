@@ -1,7 +1,7 @@
 ---
 name: devkit-scan
 description: C/C++ 项目鲲鹏迁移的阶段 4 子 Skill，专注于 DevKit 扫描与源码/构建适配环节。提供运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描的能力，并根据扫描报告完成源码架构适配修改（内联汇编、intrinsics、头文件、类型大小、内存对齐）以及构建系统配置适配（aarch64 编译选项），严格串行执行——先完成扫描生成报告，再依据报告修改源码。在作为 cpp-kunpeng-migration 主 Skill 的阶段 4 子 Skill 被调用时触发，当用户需要单独运行 DevKit 扫描、处理 x86 专属代码适配、或下载安装 DevKit 工具时也应直接触发。适用于 C/C++ 项目的 x86→aarch64(鲲鹏）架构迁移，涵盖源码兼容性扫描、架构相关代码改写、构建系统鲲鹏适配等任务。
-use_when: 适用c/c++/Fortran语言的鲲鹏迁移。
+use_when: 适用c/c++语言的鲲鹏迁移。
 do_not_ues_when: 不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
 ---
 
