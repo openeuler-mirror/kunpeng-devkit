@@ -16,14 +16,13 @@
 
 `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/`
 
-华为云镜像站归档目录，可直接 `wget` 拉取（无需登录鉴权）。不硬编码版本号，从目录列表动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`（正则要求 `Linux-Kunpeng` 后缀，自动排除 x86-64 包）。
+华为云镜像站归档目录，可直接 `wget` 拉取。不硬编码版本号，从目录列表动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`。
 
 ## 调用方式：优先执行脚本
 
 agent **优先以脚本形式一次性调用** [devkit-download.sh](../scripts/devkit-download.sh)，不要逐段执行下方说明中的 bash 片段。脚本已内建参数校验、重试、完整性校验与语义化退出码。
 
 ```bash
-# 由 agent 通过执行 shell 命令调用，工作目录使用 WORK_DIR
 WORK_DIR="<工作目录>" bash $SKILL_DIR/devkit-scan/scripts/devkit-download.sh
 ```
 
