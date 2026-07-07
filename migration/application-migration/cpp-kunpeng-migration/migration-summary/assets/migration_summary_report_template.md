@@ -29,6 +29,14 @@
 - 构建配置文件：<N>
 - 其他：<N>
 
+### 未包含在 patch 中的二进制文件改动
+
+> 以下二进制文件改动未纳入 `migration.patch`，需单独处理。完整列表见 `$WORK_DIR/reports/binary_changes.txt`。
+
+| 文件路径 | 改动类型 | 处理建议 |
+|---------|---------|---------|
+| <路径> | 新增/修改/删除 | 重新编译 / 从 Kunpeng 环境获取 / 随依赖包分发 |
+
 ---
 
 ## 四、迁移过程摘要
@@ -55,3 +63,5 @@
 | 用户决策记录 | $WORK_DIR/reports/user_decisions.txt |
 | 时间线日志 | $WORK_DIR/reports/timeline.log |
 | 编译日志 | $WORK_DIR/logs/build_<N>.log |
+| 迁移 patch | $WORK_DIR/reports/migration.patch |
+| 二进制改动清单 | $WORK_DIR/reports/binary_changes.txt |

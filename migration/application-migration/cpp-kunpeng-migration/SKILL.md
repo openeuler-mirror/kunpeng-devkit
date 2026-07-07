@@ -255,13 +255,14 @@ options:
 
 > **必须立即读取文件 `migration-summary/SKILL.md` 获取完整执行步骤。**
 
-**本阶段目标**：汇总整个迁移过程，生成结构化总结报告，包含各阶段执行时长、修改文件清单及修改点描述、重要提示与建议。
+**本阶段目标**：汇总整个迁移过程，生成结构化总结报告，包含各阶段执行时长、修改文件清单及修改点描述、重要提示与建议；并生成 patch 文件（含源码 + 构建配置改动，排除 `.so`/`.a` 等二进制文件）供归档与跨环境应用。
 
 **触发条件**：
 - 阶段 5 编译成功（5.8 已执行）→ 正常生成完整总结报告
 - 阶段 5 触发人工介入（5.7 已输出人工介入报告）→ 生成总结报告，标注"人工介入"状态
 
 **报告保存路径**：`$WORK_DIR/reports/migration_summary_report.md`
+**patch 保存路径**：`$WORK_DIR/reports/migration.patch`（排除二进制文件）
 
 **报告生成后**：向用户醒目展示报告中的"必须执行"项和"建议关注"项。
 
@@ -277,7 +278,7 @@ options:
 | `dependency-analysis` | [SKILL.md](dependency-analysis/SKILL.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
 | `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 4 子 Skill：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
 | `sourcecode-build-verify` | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 5 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库） |
-| `migration-summary` | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 6 子 Skill：迁移总结报告生成（含各阶段时长统计、修改文件清单、重要提示） |
+| `migration-summary` | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 6 子 Skill：迁移总结报告生成与 patch 导出（含各阶段时长统计、修改文件清单、重要提示、patch 生成排除二进制） |
 
 ---
 
