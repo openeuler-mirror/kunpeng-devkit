@@ -1,6 +1,6 @@
 ---
 name: devkit-scan
-description: C/C++ 项目鲲鹏迁移的阶段 4 子 Skill，专注于 DevKit 扫描与源码/构建适配环节。提供运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描的能力，并根据扫描报告完成源码架构适配修改（内联汇编、intrinsics、头文件、类型大小、内存对齐）以及构建系统配置适配（aarch64 编译选项），严格串行执行——先完成扫描生成报告，再依据报告修改源码。在作为 cpp-kunpeng-migration 主 Skill 的阶段 4 子 Skill 被调用时触发，当用户需要单独运行 DevKit 扫描、处理 x86 专属代码适配、或下载安装 DevKit 工具时也应直接触发。适用于 C/C++ 项目的 x86→aarch64(鲲鹏）架构迁移，涵盖源码兼容性扫描、架构相关代码改写、构建系统鲲鹏适配等任务。
+description: C/C++ 项目鲲鹏迁移的阶段 4 子 Skill，专注于 DevKit 扫描与源码/构建适配环节。提供运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描的能力，并根据扫描报告完成源码架构适配修改（内联汇编、intrinsics、头文件、类型大小、内存对齐、预编译宏、MKL函数替换、avx2ki库安装）以及构建系统配置适配（aarch64 编译选项），严格串行执行——先完成扫描生成报告，再依据报告修改源码。在作为 cpp-kunpeng-migration 主 Skill 的阶段 4 子 Skill 被调用时触发，当用户需要单独运行 DevKit 扫描、处理 x86 专属代码适配、或下载安装 DevKit 工具时也应直接触发。适用于 C/C++ 项目的 x86→aarch64(鲲鹏）架构迁移，涵盖源码兼容性扫描、架构相关代码改写、构建系统鲲鹏适配等任务。
 use_when: 适用c/c++语言的鲲鹏迁移。
 do_not_ues_when: 不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
 ---
@@ -96,38 +96,117 @@ find $DEVKIT_REPORT_DIR -name "*.csv" \
   -exec awk -F',' 'NR>1 {print $3}' {} \; | sort | uniq -c | sort -rn
 ```
 
-**理解报告中的问题分类：**
+**理解报告中的问题修改级别：**
 
-| DevKit 问题类型              | 含义                         | 修改策略                   |
-| ------------------------ | -------------------------- | ---------------------- |
-| `x86 asm` / `inline asm` | x86 内联汇编                   | 架构宏隔离，提供 kunpeng 替代实现或禁用   |
-| `x86 intrinsics`         | SSE/AVX intrinsics 函数调用    | 架构宏隔离，提供 NEON 替代或标量退化  |
-| `x86 header`             | x86 专属头文件（`immintrin.h` 等） | 架构宏保护 `#include` 语句    |
-| `type size`              | 类型大小/字节序依赖                 | 改用 `uint32_t` 等明确宽度的类型 |
-| `memory align`           | 内存对齐假设                     | 排查强制对齐的指针操作            |
-| `compiler flag`          | 源码中硬编码的 x86 编译标志           | 移入构建系统的架构专属配置段         |
+| DevKit 问题修改级别 | 修改策略 |
+| --- | --- |
+| 规则项（Rule） | **必须**采用 DevKit 扫描报告中的建议进行修改，不可跳过 |
+| 建议项（Suggestion） | 参考 DevKit 扫描报告中的建议进行修改，酌情执行 |
 
-***
+**报告中常见问题类型（PortingCategory）及对应修改级别：**
+
+| 问题类型 | 修改级别 | 说明 |
+| --- | --- | --- |
+| `INTRINSICS_LIBRARY`（avx2ki_option） | **Rule（必须）** | 需添加 avx2ki 编译选项并安装 KSL 包 |
+| `COMPILER_OPTION`（-mavx/-mavx2 等不支持选项） | **Rule（必须）** | 鲲鹏不支持，必须移除或替换 |
+| `ATTRIBUTE`（x86 专属头文件） | **Rule（必须）** | 必须放入 x86 宏分支保护 |
+| `INTRINSICS`（`_mm*` 等 intrinsic 函数） | **Rule（必须）** | 必须使用 avx2ki.h 或 sse2neon.h 替代 |
+| `INVALID_CATEGORY`（MKL 函数如 cblas_sgemm） | **Rule（必须）** | 必须替换为 KML 函数 |
+| `COMPILER_BUILTIN`（__builtin_cpu_supports 等） | **Rule（必须）** | 鲲鹏不支持，必须移除或改写 |
+| `COMPILER_OPTION`（-fsigned-char/-march 等建议选项） | Suggestion（建议） | 建议添加以提升兼容性和性能 |
+| `PRECOMPILED_MACRO`（#if 缺少 aarch64 分支） | Suggestion（建议） | 建议补充 `#elif defined(__aarch64__)` 分支 |
+| `BUILTIN_ASSEMBLES`（x86 内联汇编指令） | Suggestion（建议） | 建议改为 ARM 等价指令或跨平台替代 |
 
 ## 4.2 源码/构建适配修改
 
 扫描完成后，按以下顺序进行源码与构建配置适配。所有修改须遵循**双架构兼容**原则：修改后 x86 和 kunpeng 均能正常编译，不删除任何原有的 x86 实现。
 
-> **修改顺序**：4.2.1（aarch64 强制全局编译选项）为编译前必做的基础配置，须**最先执行**；4.2.2 ~ 4.2.6 按 DevKit 扫描报告逐条处理源码问题。
+> **修改顺序**：
+> 1. 4.2.0（安装 avx2ki KSL 库）— **仅当报告中存在 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型的 Rule 级别问题时执行**，须最先完成，后续步骤依赖此库
+> 2. 4.2.1（aarch64 全局编译选项）— 编译前必做基础配置
+> 3. 4.2.2 ~ 4.2.9 按 DevKit 扫描报告逐条处理源码问题（Rule 级别优先）
 
-### 4.2.1 添加 aarch64 强制全局编译选项（编译前必做）
+***
 
-> **aarch64 强制要求**：以下编译选项在 aarch64 上**必须全局添加**，是编译前必须完成的基础配置。x86 与 aarch64 的默认行为差异会导致隐式 bug，不加这些选项即使编译通过也可能运行结果错误。
+### 4.2.0 安装 avx2ki KSL 库（按需执行，Rule 级别）
 
-| 编译选项 | 默认值 | 作用 | 不加的风险 |
-|---------|--------|------|-----------|
-| `-fsigned-char` | — | 强制 `char` 类型为有符号 | x86 默认 `char` 有符号，aarch64 默认无符号，导致字符比较/算术结果不同 |
-| `-march=armv8.5-a` | `armv8.5-a` | 指定目标鲲鹏架构版本 | 未指定时编译器可能使用过低架构，无法利用鲲鹏处理器指令集 |
+> **触发条件**：仅当 DevKit 扫描报告中存在以下任一情况时，才需执行本节安装步骤：
+> - 报告中有 `PortingCategory.INTRINSICS_LIBRARY`（avx2ki_option）类型的 **Rule** 级别条目
+> - 报告中有 `PortingCategory.INTRINSICS` 类型的 **Rule** 级别条目，且建议使用 `avx2ki.h` 进行替换
+>
+> 若报告中**不存在**上述条目，**跳过本节**，直接进入 4.2.1。
+>
+> 满足触发条件时**必须执行**：需在鲲鹏平台上安装 KSL（Kunpeng Standard Library）以提供 `avx2ki.h` 头文件和 `libavx2ki.so` 动态库，使 x86 AVX/SSE intrinsics 映射到鲲鹏 NEON 指令。
 
-> **`-march` 取值规则**：默认使用 `armv8.5-a`；若编译器版本过旧或目标硬件不支持 armv8.5-a，降级为 `armv8-a`。可通过以下命令检测编译器支持的架构：
+#### 4.2.0.1 下载 BoostKit KSL 包
 
 ```bash
-# 检查编译器是否支持 armv8.5-a
+# 创建工作目录
+mkdir -p $WORK_DIR/ksl && cd $WORK_DIR/ksl
+
+# 下载 BoostKit-ksl 包（包含 avx2ki.h 和 libavx2ki.so）
+wget -O BoostKit-ksl_2.5.3.zip \
+  "https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20BoostKit/Kunpeng%20BoostKit%2025.3.0/BoostKit-ksl_2.5.3.zip"
+
+# 验证下载
+ls -lh BoostKit-ksl_2.5.3.zip
+```
+
+#### 4.2.0.2 解压并安装 RPM 包
+
+```bash
+# 解压 zip 包
+unzip BoostKit-ksl_2.5.3.zip -d BoostKit-ksl_2.5.3
+
+# 查看解压内容，找到 rpm 包
+find BoostKit-ksl_2.5.3 -name "*.rpm" | sort
+
+# 安装所有 rpm 包（通常包含 ksl-devel 和 ksl 运行时包）
+# 方式一：使用 dnf/yum 安装（推荐，自动处理依赖）
+find BoostKit-ksl_2.5.3 -name "*.rpm" | xargs dnf install -y 2>/dev/null || \
+find BoostKit-ksl_2.5.3 -name "*.rpm" | xargs yum install -y 2>/dev/null || \
+find BoostKit-ksl_2.5.3 -name "*.rpm" -exec rpm -ivh --nodeps {} \;
+```
+
+#### 4.2.0.3 验证安装
+
+```bash
+# 验证头文件已安装
+ls /usr/local/ksl/include/avx2ki.h 2>/dev/null || \
+find /usr -name "avx2ki.h" 2>/dev/null | head -3
+
+# 验证动态库已安装
+ls /usr/local/ksl/lib/libavx2ki.so 2>/dev/null || \
+find /usr -name "libavx2ki.so" 2>/dev/null | head -3
+
+# 确认安装路径（后续编译选项中使用）
+KSL_INCLUDE=$(dirname $(find /usr -name "avx2ki.h" 2>/dev/null | head -1))
+KSL_LIB=$(dirname $(find /usr -name "libavx2ki.so" 2>/dev/null | head -1))
+echo "KSL_INCLUDE=$KSL_INCLUDE"
+echo "KSL_LIB=$KSL_LIB"
+```
+
+> **默认安装路径**：KSL 通常安装至 `/usr/local/ksl/`，即：
+> - 头文件：`/usr/local/ksl/include/avx2ki.h`
+> - 动态库：`/usr/local/ksl/lib/libavx2ki.so`
+
+***
+
+### 4.2.1 添加 aarch64 全局编译选项
+
+> **aarch64 编译选项说明**：部分选项为 **Rule** 级别（必须），部分为 **Suggestion** 级别（建议）。Rule 级别不可跳过。
+
+| 编译选项 | 修改级别 | 作用 | 不处理的风险 |
+|---------|--------|------|-----------|
+| `-I /usr/local/ksl/include/ -L /usr/local/ksl/lib/ -lavx2ki -lm` | **Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）** | 链接 avx2ki.so 动态库 | 无法使用 avx2ki.h 中的 intrinsics 兼容层，编译失败 |
+| 移除 `-mavx`/`-mavx2` 等 x86 AVX 编译选项 | **Rule（必须）** | 鲲鹏平台不支持 AVX 指令集 | 编译报错，无法在鲲鹏平台构建 |
+| `-fsigned-char` | Suggestion（建议） | 强制 `char` 类型为有符号 | x86 默认有符号，aarch64 默认无符号，导致字符比较结果不同 |
+| `-march=armv8.5-a` | Suggestion（建议） | 指定目标鲲鹏架构版本 | 未指定时可能无法利用鲲鹏处理器指令集 |
+| `-Werror=conversion` | Suggestion（建议） | 将隐式类型转换提升为错误 | 隐式类型转换可能导致运行时行为不一致 |
+
+> **`-march` 取值规则**：默认使用 `armv8.5-a`；若编译器版本过旧或目标硬件不支持 armv8.5-a，降级为 `armv8-a`。可通过以下命令检测：
+
+```bash
 echo | gcc -march=armv8.5-a -E -dM - 2>/dev/null | grep -q "__ARM_ARCH" \
   && echo "支持 armv8.5-a" || echo "不支持，请降级为 armv8-a"
 ```
@@ -139,13 +218,29 @@ echo | gcc -march=armv8.5-a -E -dM - 2>/dev/null | grep -q "__ARM_ARCH" \
 在 `.bazelrc` 的 aarch64 配置段中添加：
 
 ```python
-# .bazelrc
+# .bazelrc — aarch64 配置段
+
+# Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）：链接 avx2ki 动态库
+build:linux_aarch64 --copt=-I/usr/local/ksl/include/
+build:linux_aarch64 --cxxopt=-I/usr/local/ksl/include/
+build:linux_aarch64 --linkopt=-L/usr/local/ksl/lib/
+build:linux_aarch64 --linkopt=-lavx2ki
+build:linux_aarch64 --linkopt=-lm
+
+# Rule（必须）：移除 x86 AVX 相关编译选项（在 x86 配置段保留，aarch64 段不添加）
+# 注意：在 BUILD 文件和 .bazelrc 中查找并移除/隔离 -mavx, -mavx2, -mavx512f, -msse4.1, -msse4.2, -msse2 等
+
+# Suggestion（建议）：基础编译兼容选项
 build:linux_aarch64 --copt=-fsigned-char
 build:linux_aarch64 --cxxopt=-fsigned-char
+build:linux_aarch64 --copt=-Werror=conversion
+build:linux_aarch64 --cxxopt=-Werror=conversion
 build:linux_aarch64 --copt=-march=armv8.5-a
 build:linux_aarch64 --cxxopt=-march=armv8.5-a
 # 若编译器/硬件不支持 armv8.5-a，将上述 armv8.5-a 改为 armv8-a
 ```
+
+> **关于 `-mavx`/`-mavx2` 的处理（Rule 级别，必须）**：检查 `.bazelrc` 和各 `BUILD` 文件中是否存在 `-mavx`/`-mavx2` 等编译选项，通过架构宏或构建配置段进行隔离，确保这些选项只在 x86 配置下生效。
 
 #### CMake 项目
 
@@ -154,9 +249,21 @@ build:linux_aarch64 --cxxopt=-march=armv8.5-a
 ```cmake
 # CMakeLists.txt
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    add_compile_options(-fsigned-char -march=armv8.5-a)
+    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）：链接 avx2ki 库
+    include_directories(/usr/local/ksl/include/)
+    link_directories(/usr/local/ksl/lib/)
+    link_libraries(avx2ki m)
+
+    # Rule（必须）：移除 x86 AVX 选项
+    string(REPLACE "-mavx2" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REPLACE "-mavx2" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REPLACE "-mavx" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REPLACE "-mavx" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+    # Suggestion（建议）：基础编译兼容选项
+    add_compile_options(-fsigned-char -Werror=conversion -march=armv8.5-a)
     # 若编译器/硬件不支持 armv8.5-a，改为：
-    # add_compile_options(-fsigned-char -march=armv8-a)
+    # add_compile_options(-fsigned-char -Werror=conversion -march=armv8-a)
 endif()
 ```
 
@@ -167,8 +274,18 @@ endif()
 ```makefile
 # Makefile
 ifeq ($(shell uname -m),aarch64)
-    CFLAGS   += -fsigned-char -march=armv8.5-a
-    CXXFLAGS += -fsigned-char -march=armv8.5-a
+    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）：链接 avx2ki 动态库
+    CFLAGS   += -I/usr/local/ksl/include/
+    CXXFLAGS += -I/usr/local/ksl/include/
+    LDFLAGS  += -L/usr/local/ksl/lib/ -lavx2ki -lm
+
+    # Rule（必须）：移除 x86 AVX 相关选项
+    CFLAGS   := $(filter-out -mavx -mavx2 -mavx512f -msse4.1 -msse4.2 -msse2,$(CFLAGS))
+    CXXFLAGS := $(filter-out -mavx -mavx2 -mavx512f -msse4.1 -msse4.2 -msse2,$(CXXFLAGS))
+
+    # Suggestion（建议）：基础编译兼容选项
+    CFLAGS   += -fsigned-char -Werror=conversion -march=armv8.5-a
+    CXXFLAGS += -fsigned-char -Werror=conversion -march=armv8.5-a
     # 若编译器/硬件不支持 armv8.5-a，改为 -march=armv8-a
 endif
 ```
@@ -177,27 +294,35 @@ endif
 
 ***
 
-### 4.2.2 处理 x86 专属头文件（`x86 header` 类型）
+### 4.2.2 处理 x86 专属头文件（`ATTRIBUTE` 类型，Rule 级别）
+
+> **Rule（必须）**：报告中 `PortingCategory.ATTRIBUTE` 类型且 `modification_level` 为 `Rule` 的条目，建议为 `"Insert this code snippet into the x86 macro branch."`，即**必须**将 x86 专属头文件用架构宏保护。
 
 **问题定位**：DevKit 报告给出了包含 x86 专属头文件的源文件路径和行号，直接跳转到对应行。
 
-**修改方法**：用架构宏将 `#include` 语句包裹起来。常见的 x86 专属头文件包括：
+**常见 x86 专属头文件列表：**
 
-- `<immintrin.h>`、`<emmintrin.h>`、`<xmmintrin.h>`（SIMD intrinsics）
-- `<cpuid.h>`（CPU 特性检测）
-- `<sys/sysctl.h>`（BSD/macOS 专属，ARM Linux 无此文件）
+| 头文件 | 说明 | 鲲鹏替代 |
+|--------|------|----------|
+| `<immintrin.h>` | AVX/AVX2 intrinsics | 引入 `<avx2ki.h>`（KSL 兼容层） |
+| `<emmintrin.h>` | SSE2 intrinsics | 引入 `<avx2ki.h>` |
+| `<xmmintrin.h>` | SSE intrinsics | 引入 `<avx2ki.h>` |
+| `<nmmintrin.h>` | SSE4.2 intrinsics（含 CRC32） | 引入 `<avx2ki.h>` |
+| `<pmmintrin.h>` | SSE3 intrinsics（含 FTZ/DAZ） | 引入 `<avx2ki.h>` |
+| `<smmintrin.h>` | SSE4.1 intrinsics | 引入 `<avx2ki.h>` |
+| `<cpuid.h>` | CPU 特性检测（x86 专属） | 无直接替代，需改用系统接口 |
 
-修改模式：
+**修改方法**：用架构宏将 `#include` 语句包裹，鲲鹏侧引入 avx2ki.h：
 
 ```cpp
-// 原始代码（直接 include，ARM 上编译失败）
-#include <immintrin.h>
+// 原始代码（直接引用了 x86 的 intrinsic 头文件）
+#include <xmmintrin.h>
 
-// 修改后（架构宏保护）
+// 修改后（Rule 级别：必须用架构宏保护，鲲鹏侧引入 avx2ki.h）
 #if defined(__x86_64__) || defined(_M_X64)
-#include <immintrin.h>
+#include <xmmintrin.h>
 #elif defined(__aarch64__)
-#include <arm_neon.h>   // 若后续代码有 NEON 实现，则引入；否则此行可省略
+#include <avx2ki.h>   // KSL 提供的 x86 intrinsics 到鲲鹏 NEON 兼容层
 #endif
 ```
 
@@ -214,9 +339,49 @@ endif
 
 ***
 
-### 4.2.3 处理 intrinsics 函数调用（`x86 intrinsics` 类型）
+### 4.2.3 处理 intrinsics 函数调用（`INTRINSICS`/`INTRINSICS_LIBRARY` 类型，Rule 级别）
 
-**问题定位**：报告给出使用了 `_mm256_*`、`_mm_*`、`__m256i` 等 x86 SIMD API 的具体位置。
+> **Rule（必须）**：报告中 `PortingCategory.INTRINSICS` 类型条目要求使用 avx2ki.h 替代（或 sse2neon.h）；`PortingCategory.INTRINSICS_LIBRARY`（avx2ki_option）要求添加 avx2ki 编译链接选项。两者均为 Rule 级别，**必须处理**。
+
+**问题定位**：报告给出使用了 `_mm256_*`、`_mm512_*`、`_mm_*`、`_BitScanReverse64`、`_xgetbv`、`_MM_SET_FLUSH_ZERO_MODE`、`_MM_SET_DENORMALS_ZERO_MODE` 等 x86 专属 API 的具体位置。
+
+#### 4.2.3.1 使用 avx2ki.h 兼容层（首选策略）
+
+avx2ki.h 是鲲鹏 KSL 提供的 x86 intrinsics 到 ARM NEON 的映射头文件，大多数 `_mm*` 函数均有对应映射：
+
+```cpp
+// 修改方法：将 x86 头文件替换为 avx2ki.h，原有 intrinsics 调用代码无需修改
+#if defined(__x86_64__) || defined(_M_X64)
+#include <immintrin.h>
+#elif defined(__aarch64__)
+#include <avx2ki.h>   // avx2ki 提供与 immintrin.h 相同的 API 映射到 NEON
+#endif
+
+// 原有 intrinsics 代码可保持不变，avx2ki 负责在 aarch64 上完成映射
+void process(const float* a, const float* b, float* out, int n) {
+    for (int i = 0; i < n; i += 8) {
+        __m256 va = _mm256_loadu_ps(a + i);
+        __m256 vb = _mm256_loadu_ps(b + i);
+        _mm256_storeu_ps(out + i, _mm256_add_ps(va, vb));
+    }
+}
+```
+
+#### 4.2.3.2 对于 avx2ki 不覆盖的 intrinsics，使用架构宏隔离 + ARM 替代
+
+**`_BitScanReverse64`**（位扫描，报告中 bfc_allocator.h 出现）：
+
+```cpp
+// Rule 级别，需手动替换
+#if defined(__x86_64__) || defined(_M_X64)
+    unsigned long index;
+    _BitScanReverse64(&index, val);
+    int result = (int)index;
+#elif defined(__aarch64__)
+    // ARM 替代：63 - clz 即最高有效位位置
+    int result = 63 - __builtin_clzll(val);
+#endif
+```
 
 **修改方法**：根据该段代码的业务重要性，选择以下策略之一：
 
@@ -273,24 +438,48 @@ void register_simd_optimizer() {
 
 ***
 
-### 4.2.4 处理内联汇编（`x86 asm` 类型）
+### 4.2.4 处理内联汇编（`BUILTIN_ASSEMBLES` 类型，Suggestion_General 级别）
 
-**问题定位**：报告给出含 `__asm__` / `asm volatile` 的源文件位置。
+> **Suggestion（建议）**：报告中 `PortingCategory.BUILTIN_ASSEMBLES` 条目修改级别为 `Suggestion_General`，建议将 x86 特定汇编指令改为 ARM 等价指令或跨平台替代方案。
+
+**问题定位**：报告给出含 `__asm__` / `asm volatile` 的源文件位置，以及具体的 x86 汇编指令（如 `MOV`、`CPUID`、`XCHG`、`XGETBV` 等）及其 ARM 替代建议。
 
 **修改方法**：架构宏隔离，并为 aarch64 提供等价实现。
 
-常见内联汇编场景及aarch64替代方式：
+**报告中出现的 x86 汇编指令及 ARM 替代方式：**
 
-| x86 汇编用途     | x86 写法              | ARM 替代                                             |
-| ------------ | ------------------- | -------------------------------------------------- |
-| 读 CPU 时钟周期   | `rdtsc`             | `mrs %0, cntvct_el0`（系统计数器）                        |
-| 内存屏障         | `mfence` / `sfence` | `__sync_synchronize()` 或 `asm volatile("dmb ish")` |
-| 原子操作         | `lock xadd`         | `__atomic_*` 系列 GCC 内置函数（跨架构兼容）                    |
-| 位扫描（BSF/BSR） | `bsf %1, %0`        | `__builtin_ctz()` / `__builtin_clz()`（跨架构兼容）       |
+| x86 汇编指令 | 用途 | ARM aarch64 替代 | 跨平台替代 |
+| --- | --- | --- | --- |
+| `MOV` | 数据传送 | `LDR`/`MOV`/`STR`（视操作数） | 直接使用 C 赋值语句 |
+| `CPUID` | 读取 CPU 信息 | `mrs x0, MIDR_EL1` 读 CPU 型号 | `getauxval(AT_HWCAP)` |
+| `XCHG` | 原子交换 | `SWP` / `LDXR`+`STXR` | `__atomic_exchange_n()` |
+| `XGETBV` | 读取 XCR 寄存器 | `mrs %0, fpcr` 读浮点控制寄存器 | 条件编译禁用 |
+| `rdtsc` | 读 CPU 时钟周期 | `mrs %0, cntvct_el0` | `clock_gettime(CLOCK_MONOTONIC)` |
+| `mfence`/`sfence` | 内存屏障 | `dmb ish` / `dsb ish` | `__sync_synchronize()` |
+| `lock xadd` | 原子加 | `ldadd` / `ldaddal` | `__atomic_fetch_add()` |
+| `bsf`/`bsr` | 位扫描 | `rbit`+`clz` 组合 | `__builtin_ctz()` / `__builtin_clz()` |
 
-修改模式：
+修改模式（以 CPUID 为例，报告中 cpu_info.cc 出现）：
 
 ```cpp
+// 原始代码（x86 CPUID 用于检测 CPU 特性）
+inline void RunCpuid(uint32_t eax, uint32_t ecx, uint32_t* abcd) {
+    uint32_t ebx, edx;
+#if defined(__x86_64__)
+    __asm__("cpuid"
+            : "=a"(abcd[0]), "=b"(ebx), "=c"(abcd[2]), "=d"(edx)
+            : "0"(eax), "2"(ecx));
+    abcd[1] = ebx;
+    abcd[3] = edx;
+#elif defined(__aarch64__)
+    // aarch64 无 CPUID 指令，建议改用 getauxval(AT_HWCAP) 检测 CPU 特性
+    abcd[0] = abcd[1] = abcd[2] = abcd[3] = 0;
+#endif
+}
+```
+
+```cpp
+// 示例：读取时钟周期（rdtsc）
 inline uint64_t get_timestamp() {
 #if defined(__x86_64__) || defined(_M_X64)
     uint32_t lo, hi;
@@ -309,11 +498,119 @@ inline uint64_t get_timestamp() {
 }
 ```
 
-> **优先使用 GCC 内置函数替代内联汇编**：`__builtin_popcount()`、`__builtin_ctz()`、`__builtin_clz()` 等均支持 ARM64，编译器会自动选择最优指令，无需手动区分架构。
+> **优先使用 GCC 内置函数替代内联汇编**：`__builtin_popcount()`、`__builtin_ctz()`、`__builtin_clz()`、`__atomic_*` 系列等均支持 ARM64，编译器会自动选择最优指令，无需手动区分架构。
 
 ***
 
-### 4.2.5 处理类型大小/字节序依赖（`type size` 类型）
+
+
+### 4.2.5 替换 Intel MKL 函数为鲲鹏 KML（`INVALID_CATEGORY` 类型，Rule 级别）
+
+> **Rule（必须）**：报告中 `PortingCategory.INVALID_CATEGORY` 类型条目修改级别为 `Rule`，涉及 Intel MKL（Math Kernel Library）函数（如 `cblas_sgemm`、`cblas_dgemm`、`cblas_cgemm` 等），**必须**替换为鲲鹏 KML（Kunpeng Math Library）提供的等价函数。
+
+**问题定位**：报告给出了调用 MKL 函数的源文件路径和行号（如 `runtime_matmul_mkl.cc`、`mkl_matmul_op.cc`），以及 DevKit 的建议链接：
+- KML 软件包获取：`https://www.hikunpeng.com/document/detail/en/kunpengaccel/math-lib/devg-kml/kunpengaccel_kml_16_0004.html`
+- 迁移指南：`https://www.hikunpeng.com/document/detail/en/kunpengaccel/math-lib/migration/kunpengaccel_12_0001.html`
+
+#### 4.2.5.1 安装鲲鹏 KML 库
+
+```bash
+# 方式一：通过 dnf/yum 安装 KML（推荐）
+# KML 通常随鲲鹏 BoostKit 软件包分发
+dnf install -y kml-devel 2>/dev/null || yum install -y kml-devel 2>/dev/null
+
+# 方式二：从华为官网下载 KML 软件包（按上方 DevKit 报告链接获取最新版）
+# 下载后按软件包内 README 安装
+
+# 验证 KML 安装
+ls /usr/local/kml/include/cblas.h 2>/dev/null || \
+find /usr -name "cblas.h" 2>/dev/null | grep -i kml | head -3
+
+# 验证 KML 库文件
+ls /usr/local/kml/lib/libkml*.so 2>/dev/null || \
+find /usr -name "libkml*.so" 2>/dev/null | head -3
+```
+
+#### 4.2.5.2 修改头文件引用
+
+```cpp
+// 原始代码（引用 Intel MKL 头文件）
+#include "mkl.h"         // Intel MKL 主头文件
+// 或
+#include "mkl_cblas.h"   // Intel MKL CBLAS 接口
+
+// 修改后（鲲鹏 KML 使用标准 CBLAS 接口，头文件切换）
+#if defined(__aarch64__)
+#include "cblas.h"       // KML 提供标准 CBLAS 接口，头文件名与标准 BLAS 相同
+// KML 头文件路径通常为 /usr/local/kml/include/cblas.h
+#else
+#include "mkl.h"
+#endif
+```
+
+#### 4.2.5.3 常见 MKL 函数对应 KML 替换（API 兼容）
+
+KML 实现了标准 CBLAS/LAPACK 接口，函数签名与 Intel MKL 完全相同，**只需切换链接库即可**，无需修改函数调用代码本身：
+
+| Intel MKL 函数 | 说明 | KML 替换 | 是否需改代码 |
+|---------------|------|---------|------------|
+| `cblas_sgemm` | 单精度矩阵乘（BLAS Level 3） | `cblas_sgemm`（KML） | 否，仅切换链接库 |
+| `cblas_dgemm` | 双精度矩阵乘（BLAS Level 3） | `cblas_dgemm`（KML） | 否，仅切换链接库 |
+| `cblas_cgemm` | 复数单精度矩阵乘 | `cblas_cgemm`（KML） | 否，仅切换链接库 |
+| `cblas_zgemm` | 复数双精度矩阵乘 | `cblas_zgemm`（KML） | 否，仅切换链接库 |
+| `cblas_sgemv` | 单精度矩阵向量乘 | `cblas_sgemv`（KML） | 否，仅切换链接库 |
+| `cblas_dgemv` | 双精度矩阵向量乘 | `cblas_dgemv`（KML） | 否，仅切换链接库 |
+| `LAPACKE_sgetrf` | LU 分解 | `LAPACKE_sgetrf`（KML） | 否，仅切换链接库 |
+
+> **注意**：若代码中使用了 MKL 专有扩展接口（如 `mkl_malloc`、`mkl_set_num_threads` 等），则需要额外处理：`mkl_malloc` → `aligned_alloc`（C11 标准），`mkl_set_num_threads` → OpenMP `omp_set_num_threads`。
+
+#### 4.2.5.4 修改构建系统链接选项
+
+将构建系统中链接 MKL 的选项替换为 KML：
+
+**Bazel 项目**（`.bazelrc` 或 `BUILD` 文件）：
+
+```python
+# 原始（链接 Intel MKL）
+# --linkopt=-lmkl_rt 或 --linkopt=-lmkl_intel_lp64
+
+# 修改后（aarch64 链接 KML，x86 保留 MKL）
+# .bazelrc
+build:linux_aarch64 --linkopt=-L/usr/local/kml/lib/
+build:linux_aarch64 --linkopt=-lkml_blas
+build:linux_aarch64 --linkopt=-lkml_lapack
+```
+
+**CMake 项目**：
+
+```cmake
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    # 链接 KML
+    include_directories(/usr/local/kml/include/)
+    link_directories(/usr/local/kml/lib/)
+    target_link_libraries(${TARGET_NAME} kml_blas kml_lapack)
+else()
+    # x86 保留 MKL 链接（不修改）
+    target_link_libraries(${TARGET_NAME} mkl_rt)
+endif()
+```
+
+**Make 项目**：
+
+```makefile
+ifeq ($(shell uname -m),aarch64)
+    # Rule（必须）：替换 MKL 为 KML
+    CFLAGS   += -I/usr/local/kml/include/
+    LDFLAGS  := $(patsubst -lmkl%,,$(LDFLAGS))   # 移除所有 -lmkl* 选项
+    LDFLAGS  += -L/usr/local/kml/lib/ -lkml_blas -lkml_lapack
+endif
+```
+
+***
+
+
+
+### 4.2.6 处理类型大小/字节序依赖（`type size` 类型）
 
 **问题定位**：报告标记了依赖特定类型大小的代码，例如假设 `int` 为 32 位、`long` 为 64 位等。
 
@@ -338,7 +635,7 @@ uint32_t host_val    = ntohl(network_val); // 网络序 → 主机序
 
 ***
 
-### 4.2.6 处理内存对齐假设（`memory align` 类型）
+### 4.2.7 处理内存对齐假设（`memory align` 类型）
 
 **问题定位**：报告标记了使用对齐相关 API 或假设特定对齐的代码。
 
@@ -399,14 +696,25 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
 
 ## 4.4 修改完成检查清单
 
-- [ ] DevKit 扫描报告已读取并按类型汇总
-- [ ] aarch64 强制全局编译选项已添加（`-fsigned-char`、`-march=armv8.5-a` 或降级 `armv8-a`）
-- [ ] 所有 `x86 header` 类型问题已用架构宏保护 `#include`
-- [ ] 所有 `x86 intrinsics` 类型问题已处理（NEON 替代或标量退化）
-- [ ] 所有 `x86 asm` / `inline asm` 类型问题已用架构宏隔离
-- [ ] 所有 `type size` 类型问题已改用明确宽度类型
-- [ ] 所有 `memory align` 类型问题已排查并处理
-- [ ] 残留检查通过（grep 无遗漏输出）
+**Rule 级别（必须完成）：**
+
+- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目：avx2ki KSL 库已下载安装（`avx2ki.h` 和 `libavx2ki.so` 可访问）；否则跳过
+- [ ] **4.2.1（avx2ki）** 若 4.2.0 已执行：aarch64 编译选项中已添加 `-lavx2ki` 链接选项；否则跳过
+- [ ] **4.2.1** `-mavx`/`-mavx2` 等不支持选项已从 aarch64 构建中移除（Rule 必须）
+- [ ] **4.2.2** 所有 `ATTRIBUTE` 类型问题（x86 专属头文件）已用架构宏保护，鲲鹏侧引入 `avx2ki.h`
+- [ ] **4.2.3** 所有 `INTRINSICS`/`INTRINSICS_LIBRARY` 类型问题已处理（avx2ki.h 兼容层或架构宏隔离 + ARM 替代）
+- [ ] **4.2.5** 所有 `INVALID_CATEGORY` 类型问题（MKL 函数）已替换为 KML 函数并更新链接选项
+
+**Suggestion 级别（建议完成）：**
+
+- [ ] **4.2.1** 建议编译选项已添加：`-fsigned-char`、`-march=armv8.5-a`（或降级 `armv8-a`）、`-Werror=conversion`
+- [ ] **4.2.4** 所有 `BUILTIN_ASSEMBLES` 类型内联汇编已用架构宏隔离，aarch64 侧提供 ARM 等价实现或 GCC 内置函数替代
+
+**通用完整性检查：**
+
+- [ ] **4.2.6** 所有 `type size` 类型问题已改用明确宽度类型（`int32_t`、`int64_t` 等）
+- [ ] **4.2.7** 所有 `memory align` 类型问题已排查并处理（使用 `aligned_alloc` 或带 `u` 后缀的加载指令）
+- [ ] 残留检查通过（`grep` 无遗漏的未保护 x86 头文件和 intrinsics 调用）
 - [ ] 修改清单已记录到 `$WORK_DIR/reports/source_changes.txt`
-- [ ] 确认所有修改中 x86 代码路径未被删除（最小侵入）
+- [ ] 确认所有修改中 x86 代码路径未被删除（最小侵入原则）
 
