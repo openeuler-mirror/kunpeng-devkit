@@ -1,6 +1,8 @@
 ---
 name: cpp-kunpeng-migration
-description: C/C++ 项目 x86→ARM（aarch64/鲲鹏）迁移的主控 Skill，专注于双架构同时兼容编译运行。提供将 C/C++ 项目从 x86 迁移到 ARM 并实现双架构同时兼容编译运行的能力，支持 Bazel/CMake/Make/Blade/SCons 构建系统，通过六阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环→迁移总结报告）完成迁移。在用户要求把 C/C++ 项目适配/迁移到 ARM、鲲鹏、aarch64，或需要项目同时支持 x86 与 ARM 架构时触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
+description: C/C++ 项目 x86→鲲鹏（aarch64）迁移的主控 Skill，专注于双架构同时兼容编译运行。提供将 C/C++ 项目从 x86 迁移到 ARM 并实现双架构同时兼容编译运行的能力，支持 Bazel/CMake/Make/Blade/SCons 构建系统，通过五阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环）完成迁移。在用户要求把 C/C++ 项目适配/迁移到鲲鹏（aarch64），或需要项目同时支持 x86 与 鲲鹏（aarch64）架构时触发。
+use_when: 适用c/c++语言的鲲鹏迁移。
+do_not_ues_when: 不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
 ---
 
 # C/C++ 项目 Kunpeng 迁移主控 Skill
@@ -153,7 +155,8 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 | 私有库无 Kunpeng 预编译包 | `"libXXX 无 Kunpeng 版本，如何处理？"` 选项：从源码编译 / 提供已有包路径 / 禁用该模块 |
 | 私有库有 ARM 分支但不确定是否可用 | `"@xxx ARM 分支 arm64 是否可用？"` 选项：可用 / 不确定请等待 / 跳过 |
 | 依赖版本冲突（项目需求 A.B， Kunpeng 环境只有 A'.B'） | `"XXX 项目需求版本 A.B，Kunpeng 环境已有 A'.B'，如何处理？"` 选项：使用 A'.B' / 升级 / 中止 |
-| x86 专属功能（AVX 加速等）在 ARM 是否保留 | `"AVX 加速模块在 ARM 是否保留？"` 选项：保留（NEON 替代）/ 禁用 |
+| x86 专属 AVX 指令在 ARM 是否保留 | `"AVX 加速指令在 ARM 如何替代？"` 选项：使用鲲鹏加速库 KSL / 使用 NEON 替代 AVX / 禁用 |
+| x86 专属 Intel 数学库 MKL 在 ARM 是否保留 | `"Intel 数学库 MKL 在 ARM 如何替代？"` 选项：使用鲲鹏数学库 KML 替代 MKL / 使用 OpenBLAS 替代 MKL / 禁用 |
 | 所有依赖均已确认 | 追加一条"确认开始迁移"总项 |
 
 ---

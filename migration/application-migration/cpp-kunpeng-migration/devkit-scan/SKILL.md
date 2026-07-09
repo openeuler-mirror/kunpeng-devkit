@@ -107,11 +107,11 @@ find $DEVKIT_REPORT_DIR -name "*.csv" \
 
 | 问题类型 | 修改级别 | 说明 |
 | --- | --- | --- |
-| `INTRINSICS_LIBRARY`（avx2ki_option） | **Rule（必须）** | 需添加 avx2ki 编译选项并安装 KSL 包 |
+| `INTRINSICS_LIBRARY`（avx2ki_option） | **Rule（必须）** | 需添加 avx2ki 编译选项并安装 KSL 包；具体替代方案由阶段 2 用户决策决定（KSL/avx2ki 或开源 NEON） |
 | `COMPILER_OPTION`（-mavx/-mavx2 等不支持选项） | **Rule（必须）** | 鲲鹏不支持，必须移除或替换 |
 | `ATTRIBUTE`（x86 专属头文件） | **Rule（必须）** | 必须放入 x86 宏分支保护 |
-| `INTRINSICS`（`_mm*` 等 intrinsic 函数） | **Rule（必须）** | 必须使用 avx2ki.h 或 sse2neon.h 替代 |
-| `INVALID_CATEGORY`（MKL 函数如 cblas_sgemm） | **Rule（必须）** | 必须替换为 KML 函数 |
+| `INTRINSICS`（`_mm*` 等 intrinsic 函数） | **Rule（必须）** | 必须使用 avx2ki.h 或 sse2neon.h 替代；具体替代方案由阶段 2 用户决策决定（KSL/avx2ki 或开源 NEON） |
+| `INVALID_CATEGORY`（MKL 函数如 cblas_sgemm） | **Rule（必须）** | 必须替换为 KML 函数或 OpenBLAS 函数；具体替代方案由阶段 2 用户决策决定（KML 或 OpenBLAS） |
 | `COMPILER_BUILTIN`（__builtin_cpu_supports 等） | **Rule（必须）** | 鲲鹏不支持，必须移除或改写 |
 | `COMPILER_OPTION`（-fsigned-char/-march 等建议选项） | Suggestion（建议） | 建议添加以提升兼容性和性能 |
 | `PRECOMPILED_MACRO`（#if 缺少 aarch64 分支） | Suggestion（建议） | 建议补充 `#elif defined(__aarch64__)` 分支 |
@@ -122,19 +122,49 @@ find $DEVKIT_REPORT_DIR -name "*.csv" \
 扫描完成后，按以下顺序进行源码与构建配置适配。所有修改须遵循**双架构兼容**原则：修改后 x86 和 kunpeng 均能正常编译，不删除任何原有的 x86 实现。
 
 > **修改顺序**：
-> 1. 4.2.0（安装 avx2ki KSL 库）— **仅当报告中存在 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型的 Rule 级别问题时执行**，须最先完成，后续步骤依赖此库
-> 2. 4.2.1（aarch64 全局编译选项）— 编译前必做基础配置
-> 3. 4.2.2 ~ 4.2.9 按 DevKit 扫描报告逐条处理源码问题（Rule 级别优先）
+> 1. 4.2.0-prelude（确定 AVX/MKL 替代策略）— 须最先完成，读取阶段 2 用户决策，确定后续 4.2.0~4.2.5 采用的替代方案
+> 2. 4.2.0（安装 avx2ki KSL 库）— **仅当报告中存在 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型的 Rule 级别问题，且用户在阶段 2 选择鲲鹏方案 KSL/avx2ki 时执行**；若用户选择开源 NEON 方案则跳过 KSL 安装，改走 4.2.0-alt
+> 3. 4.2.1（aarch64 全局编译选项）— 编译前必做基础配置
+> 4. 4.2.2 ~ 4.2.9 按 DevKit 扫描报告逐条处理源码问题（Rule 级别优先）
+
+***
+
+### 4.2.0-prelude 确定 AVX / MKL 替代策略
+
+> **本节须最先执行**：从阶段 3 写入的 `$WORK_DIR/reports/user_decisions.txt` 读取用户对 AVX 指令和 MKL 库的替代决策，确定后续 4.2.0~4.2.5 各节采用的替代方案。两个维度相互独立，分别判定。
+
+读取并解析用户决策文件：
+
+```bash
+cat $WORK_DIR/reports/user_decisions.txt
+```
+
+按用户选择确定两个策略变量（写入本次执行上下文，供后续各节分支使用）：
+
+| 决策维度 | 阶段 2 用户选项 | 策略变量取值 | 后续执行路径 |
+|---------|---------------|------------|-----------|
+| AVX 指令替代 | 使用鲲鹏加速库 KSL | `AVX_STRATEGY=ksl` | 4.2.0 安装 KSL + avx2ki.h 兼容层（4.2.2/4.2.3 鲲鹏侧引入 `<avx2ki.h>`） |
+| AVX 指令替代 | 使用 NEON 替代 AVX | `AVX_STRATEGY=neon` | 跳过 4.2.0 KSL 安装，改走 4.2.0-alt；4.2.2/4.2.3 鲲鹏侧引入 `<arm_neon.h>` 并手写 NEON 实现 |
+| AVX 指令替代 | 禁用 | `AVX_STRATEGY=disable` | 4.2.3 策略 C（整体禁用该功能） |
+| MKL 库替代 | 使用鲲鹏数学库 KML 替代 MKL | `MKL_STRATEGY=kml` | 4.2.5 走 KML 路径（安装 KML、切换链接库） |
+| MKL 库替代 | 使用 OpenBLAS 替代 MKL | `MKL_STRATEGY=openblas` | 4.2.5 走 OpenBLAS 路径（安装 OpenBLAS、切换链接库） |
+| MKL 库替代 | 禁用 | `MKL_STRATEGY=disable` | 4.2.5 整体禁用该模块 |
+
+> **未读取到决策时的兜底**：若 `user_decisions.txt` 中缺失对应决策项，**必须向用户提问**确认 AVX 与 MKL 的替代方案，不得自行假定。
 
 ***
 
 ### 4.2.0 安装 avx2ki KSL 库（按需执行，Rule 级别）
 
-> **触发条件**：仅当 DevKit 扫描报告中存在以下任一情况时，才需执行本节安装步骤：
-> - 报告中有 `PortingCategory.INTRINSICS_LIBRARY`（avx2ki_option）类型的 **Rule** 级别条目
-> - 报告中有 `PortingCategory.INTRINSICS` 类型的 **Rule** 级别条目，且建议使用 `avx2ki.h` 进行替换
+> **触发条件**（须同时满足）：
+> 1. DevKit 扫描报告中存在以下任一情况：
+>    - 报告中有 `PortingCategory.INTRINSICS_LIBRARY`（avx2ki_option）类型的 **Rule** 级别条目
+>    - 报告中有 `PortingCategory.INTRINSICS` 类型的 **Rule** 级别条目，且建议使用 `avx2ki.h` 进行替换
+> 2. **`AVX_STRATEGY=ksl`**（用户在阶段 2 选择鲲鹏加速库 KSL 方案）
 >
 > 若报告中**不存在**上述条目，**跳过本节**，直接进入 4.2.1。
+>
+> 若报告中存在上述条目但 **`AVX_STRATEGY=neon`**（用户选择开源 NEON 方案），**跳过本节 KSL 安装**，改走 [4.2.0-alt 安装/准备 NEON 开源实现](#4.2.0-alt)。
 >
 > 满足触发条件时**必须执行**：需在鲲鹏平台上安装 KSL（Kunpeng Standard Library）以提供 `avx2ki.h` 头文件和 `libavx2ki.so` 动态库，使 x86 AVX/SSE intrinsics 映射到鲲鹏 NEON 指令。
 
@@ -192,13 +222,47 @@ echo "KSL_LIB=$KSL_LIB"
 
 ***
 
+### 4.2.0-alt 准备开源 NEON 实现（按需执行，`AVX_STRATEGY=neon` 时走本节）
+
+> **触发条件**（须同时满足）：
+> 1. DevKit 扫描报告中存在 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型的 **Rule** 级别条目
+> 2. **`AVX_STRATEGY=neon`**（用户在阶段 2 选择「使用 NEON 替代 AVX」开源方案）
+>
+> 本节不安装 KSL/avx2ki，改为使用 ARM 原生 NEON intrinsics（`<arm_neon.h>`）替代 x86 AVX/SSE intrinsics。NEON 头文件随 GCC/Clang aarch64 工具链自带，无需额外下载安装。
+
+#### 4.2.0-alt.1 确认 NEON 工具链可用
+
+```bash
+# 确认 aarch64 工具链自带 arm_neon.h
+find /usr -name "arm_neon.h" 2>/dev/null | head -3
+
+# 确认 NEON intrinsics 可编译（aarch64 默认启用 NEON）
+echo '#include <arm_neon.h>
+float32x4_t test(float32x4_t a, float32x4_t b){ return vaddq_f32(a,b); }' \
+  | gcc -xc - -c -o /dev/null 2>&1 && echo "NEON 可用" || echo "NEON 不可用，请检查工具链"
+```
+
+#### 4.2.0-alt.2 NEON 方案与 avx2ki 方案的差异说明
+
+| 对比项 | avx2ki（KSL，`AVX_STRATEGY=ksl`） | NEON（开源，`AVX_STRATEGY=neon`） |
+|--------|--------------------------------|--------------------------------|
+| 头文件 | `<avx2ki.h>` | `<arm_neon.h>` |
+| 代码改动量 | 小（`_mm*` 函数调用保持不变，由 avx2ki 映射） | 大（需将 `_mm*` 调用手动改写为 `v*` NEON intrinsics） |
+| 额外依赖 | 需安装 KSL 库并链接 `-lavx2ki` | 无额外依赖，工具链自带 |
+| 性能 | 鲲鹏优化 | 取决于手写 NEON 实现质量 |
+
+> **后续 4.2.1/4.2.2/4.2.3 中所有「鲲鹏侧引入 `<avx2ki.h>`」的指引，在本策略下均替换为「引入 `<arm_neon.h>` 并手写 NEON 等价实现」**，且 4.2.1 中 `-lavx2ki` 链接选项不再添加。
+
+***
+
 ### 4.2.1 添加 aarch64 全局编译选项
 
 > **aarch64 编译选项说明**：部分选项为 **Rule** 级别（必须），部分为 **Suggestion** 级别（建议）。Rule 级别不可跳过。
 
 | 编译选项 | 修改级别 | 作用 | 不处理的风险 |
 |---------|--------|------|-----------|
-| `-I /usr/local/ksl/include/ -L /usr/local/ksl/lib/ -lavx2ki -lm` | **Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）** | 链接 avx2ki.so 动态库 | 无法使用 avx2ki.h 中的 intrinsics 兼容层，编译失败 |
+| `-I /usr/local/ksl/include/ -L /usr/local/ksl/lib/ -lavx2ki -lm` | **Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 `AVX_STRATEGY=ksl` 时）** | 链接 avx2ki.so 动态库 | 无法使用 avx2ki.h 中的 intrinsics 兼容层，编译失败 |
+| 引入 `<arm_neon.h>`（NEON 开源方案） | **Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 `AVX_STRATEGY=neon` 时）** | 使用 ARM 原生 NEON intrinsics 替代 x86 AVX | 无法编译 ARM SIMD 代码 |
 | 移除 `-mavx`/`-mavx2` 等 x86 AVX 编译选项 | **Rule（必须）** | 鲲鹏平台不支持 AVX 指令集 | 编译报错，无法在鲲鹏平台构建 |
 | `-fsigned-char` | Suggestion（建议） | 强制 `char` 类型为有符号 | x86 默认有符号，aarch64 默认无符号，导致字符比较结果不同 |
 | `-march=armv8.5-a` | Suggestion（建议） | 指定目标鲲鹏架构版本 | 未指定时可能无法利用鲲鹏处理器指令集 |
@@ -220,7 +284,8 @@ echo | gcc -march=armv8.5-a -E -dM - 2>/dev/null | grep -q "__ARM_ARCH" \
 ```python
 # .bazelrc — aarch64 配置段
 
-# Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）：链接 avx2ki 动态库
+# Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 AVX_STRATEGY=ksl 时）：链接 avx2ki 动态库
+# 若 AVX_STRATEGY=neon，则不添加以下 avx2ki 链接选项（NEON 头文件随工具链自带，无需额外链接）
 build:linux_aarch64 --copt=-I/usr/local/ksl/include/
 build:linux_aarch64 --cxxopt=-I/usr/local/ksl/include/
 build:linux_aarch64 --linkopt=-L/usr/local/ksl/lib/
@@ -249,7 +314,8 @@ build:linux_aarch64 --cxxopt=-march=armv8.5-a
 ```cmake
 # CMakeLists.txt
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）：链接 avx2ki 库
+    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 AVX_STRATEGY=ksl 时）：链接 avx2ki 库
+    # 若 AVX_STRATEGY=neon，则跳过以下 avx2ki 链接（NEON 无需额外库）
     include_directories(/usr/local/ksl/include/)
     link_directories(/usr/local/ksl/lib/)
     link_libraries(avx2ki m)
@@ -274,7 +340,8 @@ endif()
 ```makefile
 # Makefile
 ifeq ($(shell uname -m),aarch64)
-    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目时）：链接 avx2ki 动态库
+    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 AVX_STRATEGY=ksl 时）：链接 avx2ki 动态库
+    # 若 AVX_STRATEGY=neon，则跳过以下 avx2ki 链接（NEON 无需额外库）
     CFLAGS   += -I/usr/local/ksl/include/
     CXXFLAGS += -I/usr/local/ksl/include/
     LDFLAGS  += -L/usr/local/ksl/lib/ -lavx2ki -lm
@@ -302,29 +369,35 @@ endif
 
 **常见 x86 专属头文件列表：**
 
-| 头文件 | 说明 | 鲲鹏替代 |
-|--------|------|----------|
-| `<immintrin.h>` | AVX/AVX2 intrinsics | 引入 `<avx2ki.h>`（KSL 兼容层） |
-| `<emmintrin.h>` | SSE2 intrinsics | 引入 `<avx2ki.h>` |
-| `<xmmintrin.h>` | SSE intrinsics | 引入 `<avx2ki.h>` |
-| `<nmmintrin.h>` | SSE4.2 intrinsics（含 CRC32） | 引入 `<avx2ki.h>` |
-| `<pmmintrin.h>` | SSE3 intrinsics（含 FTZ/DAZ） | 引入 `<avx2ki.h>` |
-| `<smmintrin.h>` | SSE4.1 intrinsics | 引入 `<avx2ki.h>` |
-| `<cpuid.h>` | CPU 特性检测（x86 专属） | 无直接替代，需改用系统接口 |
+| 头文件 | 说明 | 鲲鹏替代（`AVX_STRATEGY=ksl`） | 鲲鹏替代（`AVX_STRATEGY=neon`） |
+|--------|------|----------|----------|
+| `<immintrin.h>` | AVX/AVX2 intrinsics | 引入 `<avx2ki.h>`（KSL 兼容层） | 引入 `<arm_neon.h>` 并手写 NEON |
+| `<emmintrin.h>` | SSE2 intrinsics | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
+| `<xmmintrin.h>` | SSE intrinsics | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
+| `<nmmintrin.h>` | SSE4.2 intrinsics（含 CRC32） | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
+| `<pmmintrin.h>` | SSE3 intrinsics（含 FTZ/DAZ） | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
+| `<smmintrin.h>` | SSE4.1 intrinsics | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
+| `<cpuid.h>` | CPU 特性检测（x86 专属） | 无直接替代，需改用系统接口 | 无直接替代，需改用系统接口 |
 
-**修改方法**：用架构宏将 `#include` 语句包裹，鲲鹏侧引入 avx2ki.h：
+**修改方法**：用架构宏将 `#include` 语句包裹，鲲鹏侧按 `AVX_STRATEGY` 引入对应头文件：
 
 ```cpp
 // 原始代码（直接引用了 x86 的 intrinsic 头文件）
 #include <xmmintrin.h>
 
-// 修改后（Rule 级别：必须用架构宏保护，鲲鹏侧引入 avx2ki.h）
+// 修改后（Rule 级别：必须用架构宏保护）
 #if defined(__x86_64__) || defined(_M_X64)
 #include <xmmintrin.h>
-#elif defined(__aarch64__)
+#elif defined(__aarch64__) && defined(USE_AVX2KI)   // AVX_STRATEGY=ksl
 #include <avx2ki.h>   // KSL 提供的 x86 intrinsics 到鲲鹏 NEON 兼容层
+#elif defined(__aarch64__)                           // AVX_STRATEGY=neon
+#include <arm_neon.h> // ARM 原生 NEON intrinsics，需手写 NEON 等价实现
 #endif
 ```
+
+> **说明**：上方代码示例同时展示了两种策略的写法，实际执行时按 `AVX_STRATEGY` 取值二选一：
+> - `AVX_STRATEGY=ksl`：鲲鹏侧引入 `<avx2ki.h>`，原有 `_mm*` 调用无需修改
+> - `AVX_STRATEGY=neon`：鲲鹏侧引入 `<arm_neon.h>`，需将 `_mm*` 调用手动改写为 NEON `v*` intrinsics（详见 4.2.3）
 
 若整个源文件都是 x86 专属的 SIMD 实现，可在文件顶部整体保护：
 
@@ -345,7 +418,11 @@ endif
 
 **问题定位**：报告给出使用了 `_mm256_*`、`_mm512_*`、`_mm_*`、`_BitScanReverse64`、`_xgetbv`、`_MM_SET_FLUSH_ZERO_MODE`、`_MM_SET_DENORMALS_ZERO_MODE` 等 x86 专属 API 的具体位置。
 
-#### 4.2.3.1 使用 avx2ki.h 兼容层（首选策略）
+#### 4.2.3.1 按 AVX_STRATEGY 选择替代策略
+
+替代方案由 4.2.0-prelude 确定的 `AVX_STRATEGY` 决定，二选一：
+
+##### （a）`AVX_STRATEGY=ksl`：使用 avx2ki.h 兼容层
 
 avx2ki.h 是鲲鹏 KSL 提供的 x86 intrinsics 到 ARM NEON 的映射头文件，大多数 `_mm*` 函数均有对应映射：
 
@@ -366,6 +443,50 @@ void process(const float* a, const float* b, float* out, int n) {
     }
 }
 ```
+
+##### （b）`AVX_STRATEGY=neon`：手写开源 NEON 实现
+
+不使用 avx2ki，改为引入 `<arm_neon.h>` 并将 `_mm*` 调用手动改写为 NEON `v*` intrinsics。常见映射对照：
+
+| x86 AVX/SSE intrinsic | 用途 | ARM NEON 替代 |
+|----------------------|------|--------------|
+| `_mm256_loadu_ps` | 加载 8 个 float | `vld1q_f32`（每次 4 个，需两条） |
+| `_mm256_storeu_ps` | 存储 8 个 float | `vst1q_f32`（每次 4 个，需两条） |
+| `_mm256_add_ps` | 8 路 float 加 | `vaddq_f32`（每次 4 路，需两条） |
+| `_mm_loadu_ps` | 加载 4 个 float | `vld1q_f32` |
+| `_mm_storeu_ps` | 存储 4 个 float | `vst1q_f32` |
+| `_mm_add_ps` | 4 路 float 加 | `vaddq_f32` |
+
+```cpp
+// 修改方法：将 x86 头文件替换为 arm_neon.h，并将 _mm* 调用改写为 NEON v* 调用
+#if defined(__x86_64__) || defined(_M_X64)
+#include <immintrin.h>
+#elif defined(__aarch64__)
+#include <arm_neon.h>   // ARM 原生 NEON intrinsics
+#endif
+
+void process(const float* a, const float* b, float* out, int n) {
+#if defined(__x86_64__) || defined(_M_X64)
+    for (int i = 0; i < n; i += 8) {
+        __m256 va = _mm256_loadu_ps(a + i);
+        __m256 vb = _mm256_loadu_ps(b + i);
+        _mm256_storeu_ps(out + i, _mm256_add_ps(va, vb));
+    }
+#elif defined(__aarch64__)
+    // ARM NEON 手写实现（AVX 256 位需拆为两条 128 位 NEON 指令）
+    for (int i = 0; i < n; i += 8) {
+        float32x4_t va1 = vld1q_f32(a + i);
+        float32x4_t va2 = vld1q_f32(a + i + 4);
+        float32x4_t vb1 = vld1q_f32(b + i);
+        float32x4_t vb2 = vld1q_f32(b + i + 4);
+        vst1q_f32(out + i, vaddq_f32(va1, vb1));
+        vst1q_f32(out + i + 4, vaddq_f32(va2, vb2));
+    }
+#endif
+}
+```
+
+> **NEON 方案注意**：AVX 寄存器宽 256 位，NEON 寄存器宽 128 位，一条 AVX 指令通常需拆成两条 NEON 指令；`_mm256_*` 系列无直接 1:1 映射，需逐个改写。
 
 #### 4.2.3.2 对于 avx2ki 不覆盖的 intrinsics，使用架构宏隔离 + ARM 替代
 
@@ -436,6 +557,8 @@ void register_simd_optimizer() {
 #endif
 ```
 
+> **策略与 `AVX_STRATEGY` 的对应关系**：当 `AVX_STRATEGY=disable` 时，统一采用策略 C（整体禁用该 SIMD 功能）；当 `AVX_STRATEGY=neon` 时，优先采用策略 A（手写 NEON 替代），非热点路径可用策略 B（标量退化）。
+
 ***
 
 ### 4.2.4 处理内联汇编（`BUILTIN_ASSEMBLES` 类型，Suggestion_General 级别）
@@ -504,15 +627,25 @@ inline uint64_t get_timestamp() {
 
 
 
-### 4.2.5 替换 Intel MKL 函数为鲲鹏 KML（`INVALID_CATEGORY` 类型，Rule 级别）
+### 4.2.5 替换 Intel MKL 函数为 KML 或 OpenBLAS（`INVALID_CATEGORY` 类型，Rule 级别）
 
-> **Rule（必须）**：报告中 `PortingCategory.INVALID_CATEGORY` 类型条目修改级别为 `Rule`，涉及 Intel MKL（Math Kernel Library）函数（如 `cblas_sgemm`、`cblas_dgemm`、`cblas_cgemm` 等），**必须**替换为鲲鹏 KML（Kunpeng Math Library）提供的等价函数。
+> **Rule（必须）**：报告中 `PortingCategory.INVALID_CATEGORY` 类型条目修改级别为 `Rule`，涉及 Intel MKL（Math Kernel Library）函数（如 `cblas_sgemm`、`cblas_dgemm`、`cblas_cgemm` 等），**必须**替换为 aarch64 平台等价的数学库函数。
+>
+> **替代方案由 4.2.0-prelude 确定的 `MKL_STRATEGY` 决定，二选一**：
+> - `MKL_STRATEGY=kml`：使用鲲鹏数学库 KML（Kunpeng Math Library）
+> - `MKL_STRATEGY=openblas`：使用开源 OpenBLAS
+> - `MKL_STRATEGY=disable`：整体禁用该模块
+>
+> KML 与 OpenBLAS 均实现了标准 CBLAS/LAPACK 接口，函数签名与 Intel MKL 完全相同，**只需切换链接库即可**，无需修改函数调用代码本身；差异在于安装包、头文件路径与链接库名。
 
 **问题定位**：报告给出了调用 MKL 函数的源文件路径和行号（如 `runtime_matmul_mkl.cc`、`mkl_matmul_op.cc`），以及 DevKit 的建议链接：
 - KML 软件包获取：`https://www.hikunpeng.com/document/detail/en/kunpengaccel/math-lib/devg-kml/kunpengaccel_kml_16_0004.html`
-- 迁移指南：`https://www.hikunpeng.com/document/detail/en/kunpengaccel/math-lib/migration/kunpengaccel_12_0001.html`
+- KML 迁移指南：`https://www.hikunpeng.com/document/detail/en/kunpengaccel/math-lib/migration/kunpengaccel_12_0001.html`
+- OpenBLAS 获取：`https://www.openblas.net` 或通过系统包管理器安装
 
-#### 4.2.5.1 安装鲲鹏 KML 库
+#### 4.2.5.1 安装数学库（按 MKL_STRATEGY 二选一）
+
+##### （a）`MKL_STRATEGY=kml`：安装鲲鹏 KML 库
 
 ```bash
 # 方式一：通过 dnf/yum 安装 KML（推荐）
@@ -531,7 +664,30 @@ ls /usr/local/kml/lib/libkml*.so 2>/dev/null || \
 find /usr -name "libkml*.so" 2>/dev/null | head -3
 ```
 
+##### （b）`MKL_STRATEGY=openblas`：安装开源 OpenBLAS 库
+
+```bash
+# 方式一：通过 dnf/yum 安装 OpenBLAS（推荐）
+dnf install -y openblas-devel 2>/dev/null || yum install -y openblas-devel 2>/dev/null \
+  || apt-get install -y libopenblas-dev 2>/dev/null
+
+# 方式二：从源码编译（按 https://www.openblas.net 指引获取最新版）
+# tar xf OpenBLAS-*.tar.gz && cd OpenBLAS-* && make && make PREFIX=/usr/local/openblas install
+
+# 验证 OpenBLAS 安装（头文件）
+ls /usr/include/aarch64-linux-gnu/openblas_config.h 2>/dev/null || \
+ls /usr/local/openblas/include/cblas.h 2>/dev/null || \
+find /usr -name "cblas.h" 2>/dev/null | grep -i openblas | head -3
+
+# 验证 OpenBLAS 库文件
+ls /usr/lib64/libopenblas*.so 2>/dev/null || \
+ls /usr/local/openblas/lib/libopenblas*.so 2>/dev/null || \
+find /usr -name "libopenblas*.so" 2>/dev/null | head -3
+```
+
 #### 4.2.5.2 修改头文件引用
+
+KML 与 OpenBLAS 均提供标准 CBLAS 接口，头文件切换方式相同：
 
 ```cpp
 // 原始代码（引用 Intel MKL 头文件）
@@ -539,34 +695,37 @@ find /usr -name "libkml*.so" 2>/dev/null | head -3
 // 或
 #include "mkl_cblas.h"   // Intel MKL CBLAS 接口
 
-// 修改后（鲲鹏 KML 使用标准 CBLAS 接口，头文件切换）
+// 修改后（aarch64 切换为标准 CBLAS 头文件，x86 保留 MKL）
 #if defined(__aarch64__)
-#include "cblas.h"       // KML 提供标准 CBLAS 接口，头文件名与标准 BLAS 相同
-// KML 头文件路径通常为 /usr/local/kml/include/cblas.h
+#include "cblas.h"       // KML / OpenBLAS 均提供标准 CBLAS 接口
+// MKL 头文件路径通常为 /usr/local/kml/include/cblas.h（KML）
+// OpenBLAS 头文件路径通常为 /usr/include/cblas.h 或 /usr/local/openblas/include/cblas.h（OpenBLAS）
 #else
 #include "mkl.h"
 #endif
 ```
 
-#### 4.2.5.3 常见 MKL 函数对应 KML 替换（API 兼容）
+#### 4.2.5.3 常见 MKL 函数对应替换（API 兼容）
 
-KML 实现了标准 CBLAS/LAPACK 接口，函数签名与 Intel MKL 完全相同，**只需切换链接库即可**，无需修改函数调用代码本身：
+KML 与 OpenBLAS 均实现了标准 CBLAS/LAPACK 接口，函数签名与 Intel MKL 完全相同，**只需切换链接库即可**，无需修改函数调用代码本身：
 
-| Intel MKL 函数 | 说明 | KML 替换 | 是否需改代码 |
-|---------------|------|---------|------------|
-| `cblas_sgemm` | 单精度矩阵乘（BLAS Level 3） | `cblas_sgemm`（KML） | 否，仅切换链接库 |
-| `cblas_dgemm` | 双精度矩阵乘（BLAS Level 3） | `cblas_dgemm`（KML） | 否，仅切换链接库 |
-| `cblas_cgemm` | 复数单精度矩阵乘 | `cblas_cgemm`（KML） | 否，仅切换链接库 |
-| `cblas_zgemm` | 复数双精度矩阵乘 | `cblas_zgemm`（KML） | 否，仅切换链接库 |
-| `cblas_sgemv` | 单精度矩阵向量乘 | `cblas_sgemv`（KML） | 否，仅切换链接库 |
-| `cblas_dgemv` | 双精度矩阵向量乘 | `cblas_dgemv`（KML） | 否，仅切换链接库 |
-| `LAPACKE_sgetrf` | LU 分解 | `LAPACKE_sgetrf`（KML） | 否，仅切换链接库 |
+| Intel MKL 函数 | 说明 | KML 替换（`MKL_STRATEGY=kml`） | OpenBLAS 替换（`MKL_STRATEGY=openblas`） | 是否需改代码 |
+|---------------|------|---------|---------|------------|
+| `cblas_sgemm` | 单精度矩阵乘（BLAS Level 3） | `cblas_sgemm`（KML） | `cblas_sgemm`（OpenBLAS） | 否，仅切换链接库 |
+| `cblas_dgemm` | 双精度矩阵乘（BLAS Level 3） | `cblas_dgemm`（KML） | `cblas_dgemm`（OpenBLAS） | 否，仅切换链接库 |
+| `cblas_cgemm` | 复数单精度矩阵乘 | `cblas_cgemm`（KML） | `cblas_cgemm`（OpenBLAS） | 否，仅切换链接库 |
+| `cblas_zgemm` | 复数双精度矩阵乘 | `cblas_zgemm`（KML） | `cblas_zgemm`（OpenBLAS） | 否，仅切换链接库 |
+| `cblas_sgemv` | 单精度矩阵向量乘 | `cblas_sgemv`（KML） | `cblas_sgemv`（OpenBLAS） | 否，仅切换链接库 |
+| `cblas_dgemv` | 双精度矩阵向量乘 | `cblas_dgemv`（KML） | `cblas_dgemv`（OpenBLAS） | 否，仅切换链接库 |
+| `LAPACKE_sgetrf` | LU 分解 | `LAPACKE_sgetrf`（KML） | `LAPACKE_sgetrf`（OpenBLAS） | 否，仅切换链接库 |
 
 > **注意**：若代码中使用了 MKL 专有扩展接口（如 `mkl_malloc`、`mkl_set_num_threads` 等），则需要额外处理：`mkl_malloc` → `aligned_alloc`（C11 标准），`mkl_set_num_threads` → OpenMP `omp_set_num_threads`。
 
-#### 4.2.5.4 修改构建系统链接选项
+#### 4.2.5.4 修改构建系统链接选项（按 MKL_STRATEGY 二选一）
 
-将构建系统中链接 MKL 的选项替换为 KML：
+将构建系统中链接 MKL 的选项替换为 KML 或 OpenBLAS：
+
+##### （a）`MKL_STRATEGY=kml`：链接 KML
 
 **Bazel 项目**（`.bazelrc` 或 `BUILD` 文件）：
 
@@ -603,6 +762,46 @@ ifeq ($(shell uname -m),aarch64)
     CFLAGS   += -I/usr/local/kml/include/
     LDFLAGS  := $(patsubst -lmkl%,,$(LDFLAGS))   # 移除所有 -lmkl* 选项
     LDFLAGS  += -L/usr/local/kml/lib/ -lkml_blas -lkml_lapack
+endif
+```
+
+##### （b）`MKL_STRATEGY=openblas`：链接 OpenBLAS
+
+**Bazel 项目**（`.bazelrc` 或 `BUILD` 文件）：
+
+```python
+# 原始（链接 Intel MKL）
+# --linkopt=-lmkl_rt 或 --linkopt=-lmkl_intel_lp64
+
+# 修改后（aarch64 链接 OpenBLAS，x86 保留 MKL）
+# .bazelrc
+build:linux_aarch64 --linkopt=-L/usr/local/openblas/lib/
+build:linux_aarch64 --linkopt=-lopenblas
+# 若通过系统包管理器安装，OpenBLAS 默认在 /usr/lib64，可省略 -L
+```
+
+**CMake 项目**：
+
+```cmake
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    # 链接 OpenBLAS
+    find_package(OpenBLAS REQUIRED)
+    target_link_libraries(${TARGET_NAME} ${OpenBLAS_LIBRARIES})
+else()
+    # x86 保留 MKL 链接（不修改）
+    target_link_libraries(${TARGET_NAME} mkl_rt)
+endif()
+```
+
+**Make 项目**：
+
+```makefile
+ifeq ($(shell uname -m),aarch64)
+    # Rule（必须）：替换 MKL 为 OpenBLAS
+    CFLAGS   += -I/usr/local/openblas/include/
+    LDFLAGS  := $(patsubst -lmkl%,,$(LDFLAGS))   # 移除所有 -lmkl* 选项
+    LDFLAGS  += -L/usr/local/openblas/lib/ -lopenblas
+    # 若通过系统包管理器安装，可省略 -I/-L，直接 -lopenblas
 endif
 ```
 
@@ -698,12 +897,13 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
 
 **Rule 级别（必须完成）：**
 
-- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目：avx2ki KSL 库已下载安装（`avx2ki.h` 和 `libavx2ki.so` 可访问）；否则跳过
-- [ ] **4.2.1（avx2ki）** 若 4.2.0 已执行：aarch64 编译选项中已添加 `-lavx2ki` 链接选项；否则跳过
+- [ ] **4.2.0-prelude** 已读取 `user_decisions.txt` 并确定 `AVX_STRATEGY`（ksl/neon/disable）与 `MKL_STRATEGY`（kml/openblas/disable）
+- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目且 `AVX_STRATEGY=ksl`：avx2ki KSL 库已下载安装（`avx2ki.h` 和 `libavx2ki.so` 可访问）；若 `AVX_STRATEGY=neon` 则走 4.2.0-alt 确认 NEON 工具链可用；否则跳过
+- [ ] **4.2.1（avx2ki）** 若 4.2.0 已执行（`AVX_STRATEGY=ksl`）：aarch64 编译选项中已添加 `-lavx2ki` 链接选项；若 `AVX_STRATEGY=neon` 则不添加 avx2ki 链接（NEON 无需额外库）；否则跳过
 - [ ] **4.2.1** `-mavx`/`-mavx2` 等不支持选项已从 aarch64 构建中移除（Rule 必须）
-- [ ] **4.2.2** 所有 `ATTRIBUTE` 类型问题（x86 专属头文件）已用架构宏保护，鲲鹏侧引入 `avx2ki.h`
-- [ ] **4.2.3** 所有 `INTRINSICS`/`INTRINSICS_LIBRARY` 类型问题已处理（avx2ki.h 兼容层或架构宏隔离 + ARM 替代）
-- [ ] **4.2.5** 所有 `INVALID_CATEGORY` 类型问题（MKL 函数）已替换为 KML 函数并更新链接选项
+- [ ] **4.2.2** 所有 `ATTRIBUTE` 类型问题（x86 专属头文件）已用架构宏保护，鲲鹏侧按 `AVX_STRATEGY` 引入 `avx2ki.h`（ksl）或 `arm_neon.h`（neon）
+- [ ] **4.2.3** 所有 `INTRINSICS`/`INTRINSICS_LIBRARY` 类型问题已处理（`AVX_STRATEGY=ksl` 用 avx2ki.h 兼容层；`AVX_STRATEGY=neon` 手写 NEON 实现；或架构宏隔离 + ARM 替代）
+- [ ] **4.2.5** 所有 `INVALID_CATEGORY` 类型问题（MKL 函数）已按 `MKL_STRATEGY` 替换：`kml` 替换为 KML 函数并链接 `-lkml_blas -lkml_lapack`；`openblas` 替换为 OpenBLAS 并链接 `-lopenblas`
 
 **Suggestion 级别（建议完成）：**
 
