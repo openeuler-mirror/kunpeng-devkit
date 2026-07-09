@@ -1,6 +1,8 @@
 ---
 name: dependency-analysis
-description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分析与 Kunpeng 兼容性探测环节。提供全面分析项目所有外部依赖（Bazel/CMake/Blade/SCons/Git Submodule/手动脚本）的能力，评估每个依赖的 ARM 兼容性，识别预编译二进制架构，递归分析子模块依赖，命中免检清单的依赖自动记录待切换。在作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 被调用时触发，当用户需要单独分析项目依赖的 ARM 兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也应直接触发。适用于 C/C++ 项目的 x86→ARM（鲲鹏）架构迁移的依赖分析。不适用于非 C/C++ 语言的 ARM 迁移、非鲲鹏架构的迁移。
+description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分析与 Kunpeng 兼容性探测环节。提供全面分析项目所有外部依赖（Bazel/CMake/Blade/SCons/Git Submodule/手动脚本）的能力，评估每个依赖的 ARM 兼容性，识别预编译二进制架构，递归分析子模块依赖，命中免检清单的依赖自动记录待切换。在作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 被调用时触发，当用户需要单独分析项目依赖的 ARM 兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也应直接触发。
+use_when: 适用c/c++语言的鲲鹏迁移。
+do_not_ues_when: 不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
 ---
 
 # C++ 项目依赖分析
