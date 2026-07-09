@@ -168,50 +168,42 @@ cat $WORK_DIR/reports/user_decisions.txt
 >
 > 满足触发条件时**必须执行**：需在鲲鹏平台上安装 KSL（Kunpeng Standard Library）以提供 `avx2ki.h` 头文件和 `libavx2ki.so` 动态库，使 x86 AVX/SSE intrinsics 映射到鲲鹏 NEON 指令。
 
-#### 4.2.0.1 下载 BoostKit KSL 包
+#### 4.2.0.1 下载并安装 BoostKit KSL 包
+
+使用专用脚本 `scripts/ksl-install.sh` 完成下载、解压、安装 RPM 及验证，脚本封装了重试、完整性校验、RPM 工具自动选择（dnf > yum > rpm）和路径持久化逻辑：
 
 ```bash
-# 创建工作目录
-mkdir -p $WORK_DIR/ksl && cd $WORK_DIR/ksl
-
-# 下载 BoostKit-ksl 包（包含 avx2ki.h 和 libavx2ki.so）
-wget -O BoostKit-ksl_2.5.3.zip \
-  "https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20BoostKit/Kunpeng%20BoostKit%2025.3.0/BoostKit-ksl_2.5.3.zip"
-
-# 验证下载
-ls -lh BoostKit-ksl_2.5.3.zip
+bash scripts/ksl-install.sh
 ```
 
-#### 4.2.0.2 解压并安装 RPM 包
+> **脚本前置条件**：环境变量 `WORK_DIR` 已设置（由阶段 1 确定）。
+>
+> **脚本输出**：
+> - stdout 打印 `KSL_INCLUDE=<路径>` 与 `KSL_LIB=<路径>`
+> - 路径同时写入 `$WORK_DIR/reports/ksl_path.txt`，供后续编译选项使用
+>
+> **脚本退出码**：
+>
+> | 退出码 | 含义 |
+> |-------|------|
+> | 0 | 成功 |
+> | 1 | 参数/环境校验失败（`WORK_DIR` 未设置、缺少 `wget`/`unzip`/`find` 或 RPM 安装工具） |
+> | 2 | 下载失败或文件不完整 |
+> | 3 | 解压失败 |
+> | 4 | 解压后未找到 RPM 包 |
+> | 5 | RPM 安装失败 |
+> | 6 | 安装后验证失败（未找到 `avx2ki.h` 或 `libavx2ki.so`） |
+> | 7 | 路径持久化写入失败 |
+>
+> 失败时按退出码定位问题：检查网络（2）、zip 完整性（3）、包结构（4）、RPM 依赖（5）、安装路径（6）、磁盘/权限（7）。
+
+#### 4.2.0.2 读取安装路径
+
+脚本执行成功后，从 `$WORK_DIR/reports/ksl_path.txt` 读取后续编译选项所需的路径：
 
 ```bash
-# 解压 zip 包
-unzip BoostKit-ksl_2.5.3.zip -d BoostKit-ksl_2.5.3
-
-# 查看解压内容，找到 rpm 包
-find BoostKit-ksl_2.5.3 -name "*.rpm" | sort
-
-# 安装所有 rpm 包（通常包含 ksl-devel 和 ksl 运行时包）
-# 方式一：使用 dnf/yum 安装（推荐，自动处理依赖）
-find BoostKit-ksl_2.5.3 -name "*.rpm" | xargs dnf install -y 2>/dev/null || \
-find BoostKit-ksl_2.5.3 -name "*.rpm" | xargs yum install -y 2>/dev/null || \
-find BoostKit-ksl_2.5.3 -name "*.rpm" -exec rpm -ivh --nodeps {} \;
-```
-
-#### 4.2.0.3 验证安装
-
-```bash
-# 验证头文件已安装
-ls /usr/local/ksl/include/avx2ki.h 2>/dev/null || \
-find /usr -name "avx2ki.h" 2>/dev/null | head -3
-
-# 验证动态库已安装
-ls /usr/local/ksl/lib/libavx2ki.so 2>/dev/null || \
-find /usr -name "libavx2ki.so" 2>/dev/null | head -3
-
-# 确认安装路径（后续编译选项中使用）
-KSL_INCLUDE=$(dirname $(find /usr -name "avx2ki.h" 2>/dev/null | head -1))
-KSL_LIB=$(dirname $(find /usr -name "libavx2ki.so" 2>/dev/null | head -1))
+# 读取脚本持久化的安装路径
+source $WORK_DIR/reports/ksl_path.txt
 echo "KSL_INCLUDE=$KSL_INCLUDE"
 echo "KSL_LIB=$KSL_LIB"
 ```
@@ -898,7 +890,7 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
 **Rule 级别（必须完成）：**
 
 - [ ] **4.2.0-prelude** 已读取 `user_decisions.txt` 并确定 `AVX_STRATEGY`（ksl/neon/disable）与 `MKL_STRATEGY`（kml/openblas/disable）
-- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目且 `AVX_STRATEGY=ksl`：avx2ki KSL 库已下载安装（`avx2ki.h` 和 `libavx2ki.so` 可访问）；若 `AVX_STRATEGY=neon` 则走 4.2.0-alt 确认 NEON 工具链可用；否则跳过
+- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目且 `AVX_STRATEGY=ksl`：`scripts/ksl-install.sh` 执行成功（exit 0），`$WORK_DIR/reports/ksl_path.txt` 已生成且 `avx2ki.h`/`libavx2ki.so` 可访问；若 `AVX_STRATEGY=neon` 则走 4.2.0-alt 确认 NEON 工具链可用；否则跳过
 - [ ] **4.2.1（avx2ki）** 若 4.2.0 已执行（`AVX_STRATEGY=ksl`）：aarch64 编译选项中已添加 `-lavx2ki` 链接选项；若 `AVX_STRATEGY=neon` 则不添加 avx2ki 链接（NEON 无需额外库）；否则跳过
 - [ ] **4.2.1** `-mavx`/`-mavx2` 等不支持选项已从 aarch64 构建中移除（Rule 必须）
 - [ ] **4.2.2** 所有 `ATTRIBUTE` 类型问题（x86 专属头文件）已用架构宏保护，鲲鹏侧按 `AVX_STRATEGY` 引入 `avx2ki.h`（ksl）或 `arm_neon.h`（neon）
