@@ -151,9 +151,16 @@ grep -rn "_GLIBCXX_USE_CXX11_ABI" \
 # 工具链文件硬编码 x86 编译器
 find <项目根目录> -name "*.toolchain.cmake" -o -name "toolchain*.cmake" \
   | xargs grep -l "x86_64\|gcc-7" 2>/dev/null
+
+# Intel MKL 引用检查（find_package(MKL) / find_package(BLAS)、头文件、链接标志）
+grep -rn "MKL\|mkl\|Intel.*Math.*Kernel\|MKLROOT\|mkl_core\|mkl_intel_lp64" \
+  <项目根目录>/CMakeLists.txt <项目根目录>/cmake/ \
+  --include="*.cmake" --include="CMakeLists.txt"
 ```
 
 **ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
+
+**MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 
 ---
 
@@ -203,6 +210,32 @@ BLADE_ROOT 中声明的全局依赖项：
 | `cc_config.cxxflags` | 全局编译标志 | 检查是否含 x86 专属标志（如 `-mavx`），是否缺少 ARM 必需标志（如 `-fsigned-char`） |
 | 代码生成工具路径（protoc/thrift 等） | 代码生成工具二进制路径 | 检查是否指向目标架构版本 |
 | 代码生成工具头文件路径 | 生成代码依赖的头文件路径 | 检查是否指向目标架构版本 |
+
+---
+
+## 编译标志检查（BLADE_ROOT 全局标志与 x86 专属标志）
+
+```bash
+# x86 专属编译标志（BLADE_ROOT 中 cc_config.cxxflags）
+grep -n "msse\|mavx\|mf16c\|mpopcnt\|march=.*86\|march=core\|march=native" \
+  <项目根目录>/BLADE_ROOT
+
+# C++ ABI 标志（_GLIBCXX_USE_CXX11_ABI=0 强绑老 ABI，跨 GCC 版本有兼容风险）
+grep -n "_GLIBCXX_USE_CXX11_ABI" \
+  <项目根目录>/BLADE_ROOT
+
+# 工具链硬编码 x86 编译器路径
+grep -n "x86_64\|gcc-7\|g++-7" \
+  <项目根目录>/BLADE_ROOT
+
+# Intel MKL 引用检查（链接标志、头文件路径、MKLROOT 环境变量引用）
+grep -n "MKL\|mkl\|Intel.*Math.*Kernel\|MKLROOT\|mkl_core\|mkl_intel_lp64" \
+  <项目根目录>/BLADE_ROOT
+```
+
+**ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
+
+**MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 
 ---
 
@@ -302,7 +335,7 @@ grep -rn '"#.*"' <项目根目录>/thirdparty/*/BUILD <项目根目录>/*/BUILD 
 - BLADE_ROOT 中 `extra_incs`/`cxxflags` 是否指向 ARM 版路径
 - 检查 BUILD/BUILD.x86 双架构分离是否完整（每个有 BUILD.x86 的组件都应有 ARM 版 BUILD）
 - ARM 库查找顺序：先查 `thirdparty/<组件名>/` 下是否有 `*_arm` 子目录，若无则查 `thirdparty_arm/<组件名>/`；找到后需回迁到 `thirdparty/` 下构建系统才能识别
-- 若项目目录下同时存在 `SConstruct` 文件，需额外检查其中的 x86 编译标志（`-msse`/`-mavx`/`-m64`）；参考本文 [SCons 构建系统依赖分析](#scons-构建系统依赖分析) 中「SCons 关键检查项」一节
+- 若项目目录下同时存在 `SConstruct` 文件，需额外对 `SConstruct`/`SConscript` 执行上述编译标志检查（文件路径替换为 `<项目根目录>/SConstruct <项目根目录>/*/SConscript`）
 
 ---
 
@@ -358,6 +391,63 @@ grep -A20 'name = "<依赖名>"' <项目根目录>/WORKSPACE
 # 方式 2：若使用独立 BUILD 文件（通常在 third_party/ 或 .bazel 版本管理目录下）
 find <项目根目录> -name "<依赖名>.BUILD" -o -name "BUILD.bazel" | xargs grep -l "<依赖名>"
 ```
+
+---
+
+## 编译标志检查（.bazelrc 与 BUILD 文件中的 x86 专属标志）
+
+```bash
+# x86 专属编译标志（.bazelrc 中的 --copt/--host_copt）
+grep -n "msse\|mavx\|mf16c\|mpopcnt\|march=.*86\|march=core\|march=native" \
+  <项目根目录>/.bazelrc 2>/dev/null
+
+# BUILD/BUILD.bazel 文件中 copts/linkopts 硬编码的 x86 标志
+grep -rn "msse\|mavx\|mf16c\|mpopcnt\|march=.*86\|march=core\|march=native" \
+  --include="BUILD" --include="BUILD.bazel" --include="*.bzl" \
+  --exclude-dir=.git \
+  <项目根目录>/ 2>/dev/null
+
+# C++ ABI 标志（_GLIBCXX_USE_CXX11_ABI=0 强绑老 ABI，跨 GCC 版本有兼容风险）
+grep -rn "_GLIBCXX_USE_CXX11_ABI" \
+  <项目根目录>/.bazelrc \
+  --include="BUILD" --include="BUILD.bazel" --include="*.bzl" \
+  <项目根目录>/ 2>/dev/null
+
+# 工具链文件硬编码 x86 编译器（CROSSTOOL / toolchain/*.bzl）
+find <项目根目录> -name "CROSSTOOL" -o -name "cc_toolchain_config.bzl" \
+  | xargs grep -l "x86_64\|gcc-7" 2>/dev/null
+
+# Intel MKL 引用检查（.bazelrc --copt / BUILD deps / linkopts）
+grep -n "MKL\|mkl\|Intel.*Math.*Kernel\|MKLROOT\|mkl_core\|mkl_intel_lp64" \
+  <项目根目录>/.bazelrc 2>/dev/null
+grep -rn "MKL\|mkl\|Intel.*Math.*Kernel\|MKLROOT\|mkl_core\|mkl_intel_lp64" \
+  --include="BUILD" --include="BUILD.bazel" --include="*.bzl" \
+  --exclude-dir=.git \
+  <项目根目录>/ 2>/dev/null
+```
+
+**`add_compile_options` / `copts` 全局生效注意**：写在顶层 `BUILD` 的 `copts = ["-mavx"]` 会污染所有子目标，改为在目标级别使用 `select()` 按架构条件化：
+
+```python
+# 修改前（x86 专属，污染所有架构）
+cc_binary(
+    name = "foo",
+    copts = ["-mavx2"],
+)
+
+# 修改后（双架构兼容）
+cc_binary(
+    name = "foo",
+    copts = select({
+        "@platforms//cpu:x86_64": ["-mavx2"],
+        "//conditions:default": [],
+    }),
+)
+```
+
+**ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
+
+**MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 
 ---
 
@@ -420,15 +510,45 @@ find <项目根目录> -name "SConscript" -type f | sort
 ## SCons 关键检查项
 
 ```bash
-# 检查 SConstruct 中硬编码的 x86 编译标志
-grep -rn "-msse\|-mavx\|-mf16c\|-mpopcnt\|-m64" <项目根目录>/SConstruct <项目根目录>/*/SConscript
+# x86 专属编译标志（env.Append(CXXFLAGS=[...]) / env.Replace(CCFLAGS=...) 等）
+grep -rn "msse\|mavx\|mf16c\|mpopcnt\|march=.*86\|march=core\|march=native" \
+  <项目根目录>/SConstruct <项目根目录>/*/SConscript
 
-# 检查硬编码的库路径
-grep -rn "/usr/lib64\|/lib64\|/usr/lib/x86_64" <项目根目录>/SConstruct <项目根目录>/*/SConscript
+# C++ ABI 标志（_GLIBCXX_USE_CXX11_ABI=0 强绑老 ABI，跨 GCC 版本有兼容风险）
+grep -rn "_GLIBCXX_USE_CXX11_ABI" \
+  <项目根目录>/SConstruct <项目根目录>/*/SConscript
+
+# 工具链硬编码 x86 编译器路径（env['CC'] / env['CXX'] 直接赋值）
+grep -rn "x86_64\|gcc-7\|g++-7" \
+  <项目根目录>/SConstruct <项目根目录>/*/SConscript
+
+# 检查硬编码的库搜索路径（ARM 通常为 /usr/lib/aarch64-linux-gnu）
+grep -rn "/usr/lib64\|/lib64\|/usr/lib/x86_64" \
+  <项目根目录>/SConstruct <项目根目录>/*/SConscript
+
+# Intel MKL 引用检查（env.Append(LIBS=['mkl_...']) / MKLROOT 环境变量引用）
+grep -rn "MKL\|mkl\|Intel.*Math.*Kernel\|MKLROOT\|mkl_core\|mkl_intel_lp64" \
+  <项目根目录>/SConstruct <项目根目录>/*/SConscript
 
 # 检查 SCons 版本
 scons --version
 ```
+
+**`env.Append(CXXFLAGS=[...])` 全局生效注意**：写在顶层 `SConstruct` 的 `env.Append(CXXFLAGS=['-mavx'])` 会影响所有子目标，改为按平台条件化：
+
+```python
+# 修改前（x86 专属，污染所有架构）
+env.Append(CXXFLAGS=['-mavx2'])
+
+# 修改后（双架构兼容）
+import platform
+if platform.machine() == 'x86_64':
+    env.Append(CXXFLAGS=['-mavx2'])
+```
+
+**ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
+
+**MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 
 ---
 
