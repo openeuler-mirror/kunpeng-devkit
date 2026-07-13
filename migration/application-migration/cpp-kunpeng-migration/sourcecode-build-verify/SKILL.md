@@ -1,8 +1,6 @@
 ---
 name: sourcecode-build-verify
-description: C/C++ 项目 ARM 迁移的阶段 5 子 Skill，专注于编译验证与循环修复环节。提供在 ARM（aarch64）环境循环执行编译的能力，提取关键错误，按两级查询（build-error-quickfix 速查表 → migration-cases 案例库）定位修复方案，修复后重试，直到编译成功或触发人工介入，处理代码仓权限问题、连续相同错误检测、最大重试次数（10 次）收尾。在作为 cpp-kunpeng-migration 主 Skill 的阶段 5 子 Skill 被调用时触发，当用户需要单独进行 ARM 编译验证、排查编译错误、或查询 ARM 迁移案例库时也应直接触发。
-use_when: 适用c/c++语言的鲲鹏迁移。
-do_not_ues_when: 不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+description: C/C++ 项目鲲鹏迁移的阶段 5 子 Skill，专注于编译验证与循环修复环节。提供在 鲲鹏（aarch64）环境循环执行编译的能力，提取关键错误，按两级查询（build-error-quickfix 速查表 → migration-cases 案例库）定位修复方案，修复后重试，直到编译成功或触发人工介入，处理代码仓权限问题、连续相同错误检测、最大重试次数（10 次）收尾。在作为 cpp-kunpeng-migration 主 Skill 的阶段 5 子 Skill 被调用时触发，当用户需要单独进行鲲鹏编译验证、排查编译错误、或查询 ARM 迁移案例库时也应直接触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
 ---
 
 # 阶段 5：编译验证与循环修复
