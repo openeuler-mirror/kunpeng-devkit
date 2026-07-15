@@ -1,15 +1,18 @@
 ---
 name: dependency-analysis
 description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分析与 Kunpeng 兼容性探测环节。提供全面分析项目所有外部依赖（Bazel/CMake/Blade/SCons/Git Submodule/手动脚本）的能力，评估每个依赖的 ARM 兼容性，识别预编译二进制架构，递归分析子模块依赖，命中免检清单的依赖自动记录待切换。在作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 被调用时触发，当用户需要单独分析项目依赖的 ARM 兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也应直接触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+license: MulanPSL-2.0
+metadata:
+  author: Kunpeng DevKit
 ---
 
-# C++ 项目依赖分析
+## C++ 项目依赖分析功能描述
 
-> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 调用，由主编排以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独分析项目依赖的 ARM 兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也可直接调用本子 Skill。
+> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 调用，由主编排以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独分析项目依赖的鲲鹏兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也可直接调用本 子Skill。
 >
 > **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_2_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖写入 `$WORK_DIR/reports/stage_2_switch_list.md` 待切换清单，由主编排在阶段 3 统一处理。
 
-## 输入参数
+### 输入参数
 
 主编排读取本文件全文，将下列占位符替换为实际值后作为子 agent 提示词传入：
 
@@ -37,9 +40,9 @@ description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分�
 
 ---
 
-## 主流程
+## 使用流程
 
-### 第一步：从环境检测报告读取构建系统
+### 1. 从环境检测报告读取构建系统
 
 > **从阶段 1 环境检测报告中读取**，不再重复检测。
 
@@ -58,7 +61,7 @@ cat "$REPORT"
 
 ---
 
-### 第二步：读取免检清单（全局去重）
+### 2. 读取免检清单（全局去重）
 
 **在启动任何仓库分析之前**，先读取全局免检清单，避免对已确认兼容的依赖重复探测：
 
@@ -72,7 +75,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 ---
 
-### 第三步：主循环 — 递归分析所有仓库
+### 3. 递归分析所有仓库（主循环）
 
 加载 [repo-analysis-flow.md](references/repo-analysis-flow.md)，对**主仓库**执行完整分析：
 
@@ -95,7 +98,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 ---
 
-### 第四步：生成报告（写入文件 + 输出到客户端）
+### 4. 生成报告（写入文件 + 输出到客户端）
 
 > **输出方式**：报告以 Markdown 格式**写入** `$WORK_DIR/reports/dependency_analysis_<项目名>.md`，同时将完整内容**输出到客户端对话界面**。
 >
@@ -105,7 +108,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 > # 使用文件写入将报告内容写入该路径
 > ```
 
-#### 报告精简原则
+#### 4.1 报告精简
 
 以下情况判定为「必定兼容」，从整个报告的所有章节中**完全省略**：
 
@@ -120,32 +123,18 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 > **命中 `kunpeng_confirmed.md` 的依赖单独处理**：按依赖库名命中区块的依赖**不属于**「必定兼容、完全省略」，而是在报告中**展示一条**并标注「已知 ARM 适配，待阶段 3 末尾切换」（让用户看到哪些依赖复用了历史成果），把 ARM 分支/commit/URL/备注记下供阶段 3 末尾切换，**不进入报告末尾的「待用户手动确认清单」**。
 
-#### 报告末尾必须输出「待用户手动确认清单」
+#### 4.2 报告末尾必须输出「待用户手动确认清单」
 
-**只要存在任何待确认项，此章节不可省略**：
-
-```markdown
-## 待用户手动确认清单
-
-> **移植提速建议：优先推动私有子仓库完成 ARM 适配，再编译主仓库**
->
-> 当项目存在私有仓库依赖时，应优先联系各子仓库维护团队完成 ARM 适配并发布稳定版本，
-> 主仓库只需更新构建配置中对应的版本号即可直接构建，无需在主仓库侧做任何代码改动。
-
-以下依赖为**私有地址**且**未发现任何 ARM 兼容性证据**，请逐条确认：
-
-- [ ] `<依赖名>` (`<url>`) — 未发现 ARM 分支或相关提交历史，请确认该库是否兼容 ARM/aarch64
-- [ ] `<依赖名>` (`<url>`) — 预编译二进制，架构未知，请提供 ARM 版本或源码
-```
+**只要存在任何待确认项，此章节不可省略**
 
 > 强制要求：
 > - 所有 标记的依赖**必须**出现在此清单中
 > - 「配置与 `kunpeng_confirmed.md` 不一致」的依赖也**必须**在此清单中提示
 > - 建议按依赖深度标注优先级（P0 = 基础通信/IO 库，P1 = 核心基础设施客户端，P2 = 通用工具类库）
 
-#### 报告模板
+#### 4.3 报告模板
 
-见 [report-template-example.md](assets/report-template-example.md)。
+报告模板文件见 [report-template-example.md](assets/report-template-example.md)。
 
 ---
 

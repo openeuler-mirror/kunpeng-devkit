@@ -1,34 +1,30 @@
 ---
 name: environment-prepare
-description: C/C++ 项目鲲鹏迁移的阶段 1 子 Skill，专注于环境检测与编译环境准备环节。提供检测鲲鹏目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf）的能力，对不满足要求的项自动修复（安装/升级），准备编译环境。在作为 cpp-kunpeng-migration 主 Skill 的阶段 1 子 Skill 被调用时触发，当用户需要单独执行环境检测、检查构建工具版本兼容性、准备鲲鹏编译环境、或处理 Blade/Bazel 版本不匹配时也应直接触发。适用于 C/C++ 项目的 x86→鲲鹏架构迁移的环境准备。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
-use_when: 适用c/c++语言的鲲鹏迁移。
+description: C/C++ 项目鲲鹏迁移的阶段 1 子 Skill，专注于环境检测与编译环境准备环节。提供检测鲲鹏目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf）的能力，对不满足要求的项自动修复（安装/升级），准备编译环境。在作为 cpp-kunpeng-migration 主 Skill 的阶段 1 子 Skill 被调用时触发，当用户需要单独执行环境检测、检查构建工具版本兼容性、准备鲲鹏编译环境、或处理 Blade/Bazel 版本不匹配时也应直接触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+license: MulanPSL-2.0
+metadata:
+  author: Kunpeng DevKit
 ---
 
-# 阶段 1：环境检测、修复与准备编译环境
+# 功能描述
 
 本阶段用于检测鲲鹏目标环境的编译器、构建工具和基础依赖，对不满足要求的项自动修复（安装/升级），准备编译环境，确保项目在鲲鹏上具备编译条件。
 
-> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 1 子 Skill 调用，由主编排以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独执行环境检测、检查构建工具版本兼容性、准备鲲鹏编译环境、或处理 Blade/Bazel 版本不匹配时也可直接调用本子 Skill。
->
-> **子 agent 边界**：子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_1_pending_items.md`，由主编排在阶段 3 统一提问。
+**执行方式**：
+- 作为 cpp-kunpeng-migration 主 Skill 的阶段 1 子 Skill 调用，由主编排以子 agent 模式拉起执行（调用方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独执行环境检测、检查构建工具版本兼容性、准备鲲鹏编译环境、或处理 Blade/Bazel 版本不匹配时也可直接调用本子 Skill。
 
-> 构建工具的下载链接参见 [build-tools-reference.md](references/build-tools-reference.md)，安装时优先使用内部定制版链接，无内部定制版时使用官方链接。
+**子 agent 边界**：
+- 子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_1_pending_items.md`，由主编排在阶段 3 统一提问。
 
-## 输入参数
-
-主编排读取本文件全文，将下列占位符替换为实际值后作为子 agent 提示词传入：
-
-- `<项目绝对路径>` → `PROJECT_ROOT`
-- `<工作目录绝对路径>` → `WORK_DIR`
-- `<skill目录绝对路径>` → `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
-
-参数定义：
+**参数定义**：
 
 - PROJECT_ROOT = <项目绝对路径>（主编排传入）
 - WORK_DIR = <工作目录绝对路径>（主编排传入）
-- SKILL_DIR = <cpp-kunpeng-migration skill 目录绝对路径>（主编排传入）
+- SKILL_DIR = <skill目录绝对路径>（主编排传入）
 
-## 1.1 收集系统环境信息
+# 使用流程
+
+## 1. 收集系统环境信息
 
 在 **x86_64 源环境** 和 **鲲鹏目标环境** 分别执行以下命令，收集基线信息：
 
@@ -48,7 +44,7 @@ cat /etc/os-release
 
 记录两个环境的 gcc 版本、glibc 版本、内核版本和操作系统版本，这些信息将在阶段 4（DevKit 扫描）中用于识别潜在的兼容性问题。
 
-## 1.2 识别构建系统
+## 2. 识别构建系统
 
 扫描项目根目录，识别项目使用的构建系统。查找以下标志文件：
 
@@ -62,7 +58,7 @@ cat /etc/os-release
 
 如果检测到多个构建系统，根据根目录级别的文件判断主构建系统。
 
-## 1.3 检查构建工具版本和可用性
+## 3. 检查构建工具版本和可用性
 
 在 **鲲鹏目标环境** 检查构建工具版本：
 
@@ -88,15 +84,13 @@ javac -version
 echo $JAVA_HOME
 ```
 
-如果构建工具未安装或版本不满足要求，**自动尝试安装**（安装流程见下方各构建系统章节），安装时按 [build-tools-reference.md](references/build-tools-reference.md) 中的链接选取规则下载：
-1. 优先使用内部定制版下载链接
-2. 如无内部定制版，使用官方下载链接
+如果构建工具未安装或版本不满足要求，**自动尝试安装**（安装流程见下方各构建系统章节），安装时按 [build-tools-reference.md](references/build-tools-reference.md) 中的链接选取规则下载：优先使用内部定制版下载链接，若无内部定制版，使用官方下载链接
 
-## 1.4 处理 Blade 构建系统（特殊情况）
+## 4 处理 Blade 构建系统（特殊情况）
 
 如果项目使用 Blade 作为构建系统，需要执行额外的步骤：
 
-### 1.4.1 检查项目中的 Blade 来源
+### 4.1 检查项目中的 Blade 来源
 
 在项目中搜索 blade zip 包或 blade 目录：
 
@@ -112,7 +106,7 @@ find . -name "blade" -type f
 find . -name "blade.py"
 ```
 
-### 1.4.2 检查 Blade 的 鲲鹏 和 Python3 兼容性
+### 4.2 检查 Blade 的 鲲鹏 和 Python3 兼容性
 
 如果 blade 以 zip 包形式存放在代码仓库中：
 
@@ -125,7 +119,7 @@ find . -name "blade.py"
    ```
 
 2. 检查 blade 版本是否支持鲲鹏架构。**2.0 之前**的 blade 版本不支持鲲鹏和 Python3。如果版本不支持鲲鹏，**优先升级到 Blade 2.0**（而非直接跳到 3.0），以减少版本跨度过大导致的兼容性问题：
-   - 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版
+   - 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版下载链接，若无内部定制版，使用官方下载链接
    - 下载并替换项目中的 blade zip 包：
      ```bash
      # 从 reference 文档获取下载链接
@@ -143,11 +137,11 @@ find . -name "blade.py"
    ```
    如果 blade 需要 Python3 但系统默认使用 Python2，确保构建脚本使用 `python3` 调用 blade。
 
-## 1.5 处理 Bazel 构建系统（特殊情况）
+## 5 处理 Bazel 构建系统（特殊情况）
 
 如果项目使用 Bazel 作为构建系统，需要检测项目依赖的 Bazel 版本与系统安装的版本是否一致，不一致时需要安装匹配版本。
 
-### 1.5.1 确定项目所需的 Bazel 版本
+### 5.1 确定项目所需的 Bazel 版本
 
 在项目中搜索 Bazel 版本约束：
 
@@ -171,7 +165,7 @@ grep -r "bazel" --include="*.yml" --include="*.yaml" --include="Jenkinsfile" --i
 3. CI/CD 配置中使用的版本
 4. 如果以上均未找到，使用系统当前安装的 Bazel 版本
 
-### 1.5.2 检查系统 Bazel 版本
+### 5.2 检查系统 Bazel 版本
 
 在 **鲲鹏目标环境** 上：
 
@@ -181,11 +175,11 @@ bazel --version
 
 如果 Bazel 未安装，输出类似 `bazel: command not found`，需要安装。
 
-### 1.5.3 安装或切换 Bazel 版本
+### 5.3 安装或切换 Bazel 版本
 
 如果项目所需的 Bazel 版本与系统安装的版本不一致，或系统未安装 Bazel，**自动尝试安装**匹配版本：
 
-1. 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版：
+1. 从 [build-tools-reference.md](references/build-tools-reference.md) 中查找对应版本的下载链接，优先使用内部定制版下载链接，若无内部定制版，使用官方下载链接：
    ```bash
    BAZEL_VERSION="<项目所需版本>"
    # 从 reference 文档获取下载链接，优先内部定制版
@@ -208,9 +202,9 @@ bazel --version
 
 **注意**：Bazel 版本不一致可能导致构建规则不兼容、远程缓存失效等问题，必须确保项目使用的 Bazel 版本与鲲鹏环境安装的版本一致。
 
-## 1.6 识别 Protobuf 版本
+## 6 识别 Protobuf 版本
 
-### 1.6.1 确定项目使用的 Protobuf 版本
+### 6.1 确定项目使用的 Protobuf 版本
 
 在项目中搜索 protobuf 版本标识：
 
@@ -235,7 +229,7 @@ find . -name "*.proto" | head -20
 - Bazel：WORKSPACE/MODULE.bazel 中的 `protobuf` 依赖版本
 - Make：`pkg-config --modversion protobuf`
 
-### 1.6.2 检查系统 protoc 版本
+### 6.2 检查系统 protoc 版本
 
 在 **鲲鹏环境** 检查protoc版本：
 
@@ -243,7 +237,7 @@ find . -name "*.proto" | head -20
 protoc --version
 ```
 
-### 1.6.3 处理 Protobuf 版本不一致
+### 6.3 处理 Protobuf 版本不一致
 
 如果系统 protoc 版本与项目所需的 protobuf 版本不一致，**自动尝试编译安装**：
 
@@ -271,7 +265,7 @@ protoc --version
 
 **重要**：即使鲲鹏系统安装了更高版本的 protobuf，也**绝不能**升级项目使用的 protobuf 版本。项目必须使用其原始 protobuf 版本以保持兼容性。只需为鲲鹏编译安装匹配版本的 protoc 二进制文件即可。
 
-## 1.7 生成环境检测与修复报告
+## 7 生成环境检测与修复报告
 
 完成以上所有检查和修复后，生成汇总报告。
 
