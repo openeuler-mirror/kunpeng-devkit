@@ -1,17 +1,28 @@
 ---
 name: migration-summary
 description: C/C++ 项目 ARM 迁移的阶段 6 子 Skill，专注于迁移总结报告生成环节。提供在编译验证（阶段 5）成功或触发人工介入后汇总整个迁移过程的能力，生成结构化总结报告，包含各阶段执行时长、修改文件清单及修改点描述、重要提示与建议。在作为 cpp-kunpeng-migration 主 Skill 的阶段 6 子 Skill 被调用时触发，当用户需要生成迁移总结报告、查看各阶段耗时统计、梳理修改清单、或归档迁移成果时也应直接触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+license: MulanPSL-2.0
+metadata:
+  author: Kunpeng DevKit
 ---
 
-# 阶段 6：迁移总结报告
+# 迁移报告总结功能描述
 
-本阶段在编译验证成功（阶段 5.8）后执行，汇总整个迁移过程的关键信息，生成结构化总结报告。
+本阶段在编译验证成功后汇总整个迁移过程的关键信息，生成结构化总结报告。
 
-> **前置条件**：阶段 5 编译成功（5.8 已执行），或阶段 5 触发人工介入（5.7 已输出人工介入报告）。
+**执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段6 子 Skill 调用。
+
+**前置条件**：阶段 5 编译成功（8. 编译成功后收尾 流程执行完成），或阶段 5 触发人工介入（7. 人工介入报告 流程执行完成）。
+
+**参数定义**：
+- PROJECT_ROOT = <项目绝对路径>（主编排传入）
+- WORK_DIR = <工作目录绝对路径>（主编排传入）
+- SKILL_DIR = <skill目录绝对路径>（主编排传入）
 
 ---
+# 使用流程
 
-## 6.1 收集各阶段执行时长
+## 1. 收集各阶段执行时长
 
 读取 `$WORK_DIR/reports/timeline.log`（由主编排在各阶段边界记录），计算各阶段时长。
 
@@ -38,7 +49,7 @@ PHASE_2_START|2024-01-01 10:16:00
 
 ---
 
-## 6.2 收集所有修改文件及修改点描述
+## 2. 收集所有修改文件及修改点描述
 
 从以下来源汇总修改信息：
 
@@ -60,11 +71,11 @@ PHASE_2_START|2024-01-01 10:16:00
 
 ---
 
-## 6.3 生成 patch 文件
+## 3. 生成 patch 文件
 
 将源码与构建配置的改动导出为 patch 文件，供归档与跨环境应用。二进制文件（如 `.so`/`.a`/`.o`/`.dll`/`.dylib`/`.exe`/`.bin` 及图片/压缩包等）不纳入 patch，改为在报告中说明（见 6.4）。
 
-### 6.3.1 识别二进制文件改动
+### 3.1. 识别二进制文件改动
 
 用 git 的二进制检测能力精确识别工作区中的二进制改动（基于内容而非扩展名）：
 
@@ -78,7 +89,7 @@ grep $'^-\t-' $WORK_DIR/reports/binary_changes.txt | cut -f3 > $WORK_DIR/reports
 
 若 `binary_files.txt` 中存在扩展名清单外的二进制文件，在报告中标注"未识别类型"。
 
-### 6.3.2 生成 patch
+### 3.2. 生成 patch
 
 用 pathspec exclude 排除二进制文件，生成纯净的源码 + 构建配置 patch：
 
@@ -93,7 +104,7 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 
 ---
 
-## 6.4 收集重要提示与建议
+## 4. 收集重要提示与建议
 
 从迁移过程中提取需要用户注意的重要信息：
 
@@ -129,19 +140,19 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 
 ---
 
-## 6.5 生成总结报告
+## 5. 生成总结报告
 
-将 6.1 ~ 6.4 的内容整合为一份完整的 Markdown 报告，保存到：
+将 1 ~ 4 的内容整合为一份完整的 Markdown 报告，保存到：
 
 ```
 $WORK_DIR/reports/migration_summary_report.md
 ```
 
-**报告完整结构模板**见 [assets/migration_summary_report_template.md](assets/migration_summary_report_template.md)。生成报告时按该模板填充 6.1 ~ 6.4 的内容。
+**报告完整结构模板**见 [assets/migration_summary_report_template.md](assets/migration_summary_report_template.md)。生成报告时按该模板填充 1 ~ 4 的内容。
 
 ---
 
-## 6.6 快速检查清单
+## 6. 快速检查清单
 
 阶段 6 完成后，确认以下所有项均已完成：
 
