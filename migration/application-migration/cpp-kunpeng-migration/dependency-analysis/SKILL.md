@@ -1,6 +1,6 @@
 ---
 name: dependency-analysis
-description: C/C++ 项目 ARM 迁移的阶段 2 子 Skill，专注于依赖分析与 Kunpeng 兼容性探测环节。提供全面分析项目所有外部依赖（Bazel/CMake/Blade/SCons/Git Submodule/手动脚本）的能力，评估每个依赖的 ARM 兼容性，识别预编译二进制架构，递归分析子模块依赖，命中免检清单的依赖自动记录待切换。在作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 被调用时触发，当用户需要单独分析项目依赖的 ARM 兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也应直接触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+description: C/C++ 鲲鹏迁移的依赖分析子 Skill。作为 cpp-kunpeng-migration 阶段 2 被调用，或用户需要分析 C/C++ 项目依赖的鲲鹏（aarch64）兼容性以及查询 kunpeng_confirmed.md 免检清单时使用。负责识别 Bazel、CMake、Blade、SCons、Git Submodule 及自定义脚本中的外部依赖，检查预编译二进制架构，递归分析子模块，并识别私有库和免检清单kunpeng_confirmed.md依赖。不负责环境检测、源码兼容性改造和编译验证。
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit

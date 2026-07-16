@@ -1,6 +1,6 @@
 ---
 name: cpp-kunpeng-migration
-description: C/C++ 项目 x86→鲲鹏（aarch64）迁移的主控 Skill，专注于双架构同时兼容编译运行。提供将 C/C++ 项目从 x86 迁移到 ARM 并实现双架构同时兼容编译运行的能力，支持 Bazel/CMake/Make/Blade/SCons 构建系统，通过五阶段自动化流程（环境检测→依赖分析→用户确认→DevKit 扫描适配→编译验证循环）完成迁移。在用户要求把 C/C++ 项目适配/迁移到鲲鹏（aarch64），或需要项目同时支持 x86 与 鲲鹏（aarch64）架构时触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+description: C/C++ 项目 x86→鲲鹏（aarch64）源码迁移主控 Skill。当用户需要将 C/C++ 项目适配到鲲鹏平台，或实现 x86 与鲲鹏双架构兼容构建和运行时使用。支持 Bazel、CMake、Make、Blade、SCons 等构建系统，负责环境检测、依赖分析、兼容性改造、编译验证及问题迭代。不用于非 C/C++ 项目或非鲲鹏平台迁移。
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit
