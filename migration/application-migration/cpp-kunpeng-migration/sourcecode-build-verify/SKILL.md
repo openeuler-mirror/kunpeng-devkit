@@ -1,6 +1,6 @@
 ---
 name: sourcecode-build-verify
-description: C/C++ 项目鲲鹏迁移的阶段 5 子 Skill，专注于编译验证与循环修复环节。提供在 鲲鹏（aarch64）环境循环执行编译的能力，提取关键错误，按两级查询（build-error-quickfix 速查表 → migration-cases 案例库）定位修复方案，修复后重试，直到编译成功或触发人工介入，处理代码仓权限问题、连续相同错误检测、最大重试次数（10 次）收尾。在作为 cpp-kunpeng-migration 主 Skill 的阶段 5 子 Skill 被调用时触发，当用户需要单独进行鲲鹏编译验证、排查编译错误、或查询 ARM 迁移案例库时也应直接触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+description: C/C++ 鲲鹏迁移的编译验证子 Skill。作为 cpp-kunpeng-migration 阶段 5 被调用，或用户需要在鲲鹏（aarch64）环境编译 C/C++ 项目、排查编译错误或查询鲲鹏迁移案例时使用。负责执行编译、提取关键错误，并依次查询 build-error-quickfix 速查表和 migration-cases 案例库完成修复与重试，直至编译成功或需要人工介入。不负责前置环境准备、依赖分析和 DevKit 扫描适配。
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit

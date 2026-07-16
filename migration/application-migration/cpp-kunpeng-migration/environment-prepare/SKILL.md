@@ -1,6 +1,6 @@
 ---
 name: environment-prepare
-description: C/C++ 项目鲲鹏迁移的阶段 1 子 Skill，专注于环境检测与编译环境准备环节。提供检测鲲鹏目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf）的能力，对不满足要求的项自动修复（安装/升级），准备编译环境。在作为 cpp-kunpeng-migration 主 Skill 的阶段 1 子 Skill 被调用时触发，当用户需要单独执行环境检测、检查构建工具版本兼容性、准备鲲鹏编译环境、或处理 Blade/Bazel 版本不匹配时也应直接触发。适用c/c++语言的鲲鹏迁移，不适用于非 C/C++ 语言的鲲鹏迁移、非鲲鹏架构的迁移。
+description: C/C++ 鲲鹏迁移的环境准备子 Skill。作为 cpp-kunpeng-migration 阶段 1 被调用，或当用户需要检测鲲鹏目标环境的编译器（GCC）、构建工具（Make/CMake/Bazel/Blade/SCons）和基础依赖（Protobuf），处理工具缺失、版本不兼容或准备鲲鹏编译环境时使用。仅负责环境检测与准备，不负责源码兼容性改造和编译验证。
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit
