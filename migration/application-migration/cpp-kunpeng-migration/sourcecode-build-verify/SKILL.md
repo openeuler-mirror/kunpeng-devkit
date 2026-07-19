@@ -1,13 +1,13 @@
 ---
 name: sourcecode-build-verify
-description: C/C++ 鲲鹏迁移的编译验证子 Skill。作为 cpp-kunpeng-migration 阶段 5 被调用，或用户需要在鲲鹏（aarch64）环境编译 C/C++ 项目、排查编译错误或查询鲲鹏迁移案例时使用。负责执行编译、提取关键错误，并依次查询 build-error-quickfix 速查表和 migration-cases 案例库完成修复与重试，直至编译成功或需要人工介入。不负责前置环境准备、依赖分析和 DevKit 扫描适配。
+description: C/C++ 鲲鹏迁移的编译验证子 Skill。作为 cpp-kunpeng-migration 阶段 5 被调用，或用户需要在鲲鹏（aarch64）环境编译 C/C++ 项目、排查编译错误或查询鲲鹏迁移案例时使用。负责执行编译、提取关键错误，并依次查询 build-error-quickfix 速查表和 migration-cases 案例库完成修复与重试，直至编译成功。不负责前置环境准备、依赖分析和 DevKit 扫描适配。
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit
 ---
 
 # 编译验证与循环修复功能描述
-本阶段用于循环执行鲲鹏编译验证，分析编译错误，查阅案例库，修复后重试，直到编译成功或达到人工介入条件。
+本阶段用于循环执行鲲鹏编译验证，分析编译错误，查阅案例库，修复后重试，直到编译成功。
 
 **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段5 子 Skill 调用。
 
@@ -94,10 +94,8 @@ COMPILE_CMD="cd $PROJECT_ROOT && blade build <目标> --toolchain-prefix=<prefix
 
 ```
 ATTEMPT = 1
-MAX_ATTEMPTS = 10
-last_error_hash = ""
 
-while ATTEMPT <= MAX_ATTEMPTS:
+while true:
 
     ┌─────────────────────────────────────────┐
     │  执行编译，输出重定向到日志              │
@@ -112,26 +110,20 @@ while ATTEMPT <= MAX_ATTEMPTS:
     └─────────────────────────────────────────┘
 
     if BUILD_EXIT_CODE == 0 && 日志中无 "error:" 行:
-        → 编译成功，跳到 5.8 收尾
+        → 编译成功，跳到第 7 节收尾
 
     ┌─────────────────────────────────────────┐
     │  提取关键错误信息                       │
     └─────────────────────────────────────────┘
 
-    current_errors = 5.3 节的错误提取方法
-    current_error_hash = hash(current_errors)
-
-    if current_error_hash == last_error_hash:
-        → 连续相同错误，修复无效，跳到 5.7 人工介入
-
-    last_error_hash = current_error_hash
+    current_errors = 第 4 节的错误提取方法
 
     ┌─────────────────────────────────────────┐
     │  代码仓权限问题检测（特殊分支）         │
     └─────────────────────────────────────────┘
 
-    if current_errors 命中代码仓权限问题关键字（见 5.2.1）:
-        → 跳到 5.2.1 权限问题处理（向用户提问）
+    if current_errors 命中代码仓权限问题关键字（见 2.1 节）:
+        → 跳到 2.1 节权限问题处理（向用户提问）
         → 用户提供代码仓路径后，更新构建配置并继续编译
         → ATTEMPT += 1，继续循环
 
@@ -147,18 +139,12 @@ while ATTEMPT <= MAX_ATTEMPTS:
     路由：references/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
     若案例库命中 → 按案例修复方法修复
 
-    每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见 5.5 节），
+    每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见第 5 节），
        便于核验 skill 是否实际使用了案例库知识
 
     记录修复操作到 $WORK_DIR/reports/fix_history.txt
 
-    if 判断无法自动修复:
-        → 跳到 5.7 人工介入
-
     ATTEMPT += 1
-
-if ATTEMPT > MAX_ATTEMPTS:
-    → 跳到 5.7 人工介入
 ```
 
 ---
@@ -273,7 +259,7 @@ if [ $BUILD_EXIT_CODE -eq 0 ]; then
     REAL_ERRORS=$(grep -cE "^ERROR |: error:|error: " $LOG_FILE 2>/dev/null || echo 0)
     if [ "$REAL_ERRORS" -eq 0 ]; then
         echo "编译成功（第 ${ATTEMPT} 次尝试）"
-        # 进入 5.8 收尾
+        # 进入第 7 节收尾
     else
         echo "退出码为 0 但日志中仍有 ${REAL_ERRORS} 条 error，继续分析"
     fi
@@ -326,7 +312,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 > ```
 > [案例库查询] 错误关键字：<从日志提取的关键字>
 >    查询路由：<generic-index / version-index / project-index> → <generic-cases / version-cases / project-cases>
->    查询结果：<命中 GENERIC-XX / VERSION-XX / PROJECT-XX，将按案例修复> 或 <未命中，需人工介入或新增案例>
+>    查询结果：<命中 GENERIC-XX / VERSION-XX / PROJECT-XX，将按案例修复> 或 <未命中，尝试推理修复>
 > ```
 
 ### 第1级：速查表
@@ -349,7 +335,7 @@ grep ": error:" $LOG_FILE | grep -v "Werror" \
 2. 按错误类别选路由索引文件，扫描「摘要」列匹配关键字 → 定位案例 ID（如 `GENERIC-01`）
 3. 跳到对应案例库文件，按 ID 查看完整修复方法（错误现象 / 根因 / 修复方法 / 验证方式）
 4. **输出醒目标识**（见上方格式），命中与否都要输出
-5. 命中 → 按案例修复方法执行；未命中 → 跳到 5.6 记录后进入 5.7 人工介入
+5. 命中 → 按案例修复方法执行；未命中 → 基于错误信息与 ARM 迁移知识推理修复，继续循环
 
 > **类别判定速查**：
 > - 错误含 x86 编译标志 / intrinsics 头文件 / 内联汇编 → **通用 ARM 适配系列**
@@ -383,50 +369,7 @@ EOF
 
 ---
 
-## 7. 人工介入报告
-
-当出现以下情况时，**停止自动修复**并输出人工介入报告：
-
-**触发条件：**
-- 连续两次编译出现完全相同的错误（修复无效）
-- 已达到最大重试次数（10 次）
-- 遇到无法自动判断的错误类型
-
-**人工介入报告格式：**
-
-```
-自动修复已达到极限，需要人工介入
-
-【当前编译错误（最近 50 行）】
-<粘贴 $WORK_DIR/logs/build_N.log 末尾 50 行>
-
-【错误分析】
-- 错误类型：<类型，如"链接错误/头文件缺失/类型不兼容">
-- 可能根因：<分析>
-- 已排除的原因：<列出已尝试但无效的修复方向>
-
-【已完成的修改清单（共 N 项）】
-<文件路径>：<修改说明>
-
-【已尝试的修复记录（共 N 次）】
-第1次：<修复内容> → 结果：<下次编译的变化>
-第2次：<修复内容> → 结果：<下次编译的变化>
-...
-
-【建议人工排查方向】
-<基于错误类型的具体建议>
-
-【相关文件路径】
-- 工作目录：$WORK_DIR
-- 最近编译日志：$WORK_DIR/logs/build_N.log
-- 修复历史：$WORK_DIR/reports/fix_history.txt
-- 修改清单：$WORK_DIR/reports/source_changes.txt
-- DevKit 报告：$WORK_DIR/reports/devkit-<时间戳>/
-```
-
----
-
-## 8. 编译成功后收尾
+## 7. 编译成功后收尾
 
 ```bash
 # 1. 清理临时 WORKSPACE（仅当由本 Skill 临时复制时才删除，避免误删项目原有文件）
@@ -434,38 +377,19 @@ WORKSPACE_COPIED_MARKER="$PROJECT_ROOT/.arm_migration_workspace_copied"
 if [ -e "$WORKSPACE_COPIED_MARKER" ] && [ -e "$PROJECT_ROOT/WORKSPACE" ]; then
     rm "$PROJECT_ROOT/WORKSPACE"
     rm "$WORKSPACE_COPIED_MARKER"
-    echo "临时 WORKSPACE 已清理"
 fi
 
-# 2. 保存最终修改清单
-FINAL_CHANGES="$WORK_DIR/reports/final_changes_$(date +%Y%m%d).txt"
-git -C $PROJECT_ROOT diff --stat 2>/dev/null > $FINAL_CHANGES
-git -C $PROJECT_ROOT diff 2>/dev/null >> $FINAL_CHANGES
-echo "修改清单已保存：$FINAL_CHANGES"
-
-# 3. 记录成功信息
+# 2. 记录成功信息到 build_summary.txt
 echo "ARM 编译成功（第 ${ATTEMPT} 次）：$(date)" >> $WORK_DIR/reports/build_summary.txt
-
-# 4. 统计修改概要
-echo "=== 修改概要 ==="
-git -C $PROJECT_ROOT diff --stat 2>/dev/null | tail -5
-
-# 5. 提示 x86 双架构验证
-echo ""
-echo " 请验证 x86 编译未被破坏："
-echo "   在 x86 机器上执行以下命令之一："
-echo "   - 方式1：使用项目的构建脚本（若已添加架构自动检测，在 x86 上会自动走 x86 路径）"
-echo "   - 方式2：cd $PROJECT_ROOT && bazel build <target> --verbose_failures --config=linux_x86"
-
-# 6. 引导进入阶段 6
-echo ""
-echo "阶段 5 完成，进入阶段 6：生成迁移总结报告"
-echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 ```
+
+编译成功后还需向用户提示：
+
+- **x86 双架构验证**：提示用户在 x86 机器上验证编译未被破坏--方式1 用项目构建脚本（若已加架构自动检测，x86 上自动走 x86 路径），方式2 执行 `cd $PROJECT_ROOT && bazel build <target> --verbose_failures --config=linux_x86`。
 
 ---
 
-## 9. 快速检查清单
+## 8. 快速检查清单
 
 编译验证阶段完成后，确认以下所有项均已完成：
 
@@ -477,6 +401,5 @@ echo "   报告将保存到 $WORK_DIR/reports/migration_summary_report.md"
 - [ ] 每次修复均已记录到 `fix_history.txt`
 - [ ] 最终编译成功（退出码 0，无 `error:` 行）
 - [ ] 临时 WORKSPACE 文件已清理
-- [ ] 最终修改清单已保存
 - [ ] 已提示进行 x86 双架构兼容性验证
 - [ ] 已记录阶段 5 结束时间戳到 timeline.log

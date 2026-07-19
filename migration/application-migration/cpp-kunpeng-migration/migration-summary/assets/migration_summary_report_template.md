@@ -58,7 +58,6 @@
 | 环境检测报告 | $WORK_DIR/reports/environment_check_report.md |
 | 依赖分析报告 | $WORK_DIR/reports/dependency_analysis_<项目名>.md |
 | 修复历史 | $WORK_DIR/reports/fix_history.txt |
-| 修改清单（git diff） | $WORK_DIR/reports/final_changes_<日期>.txt |
 | DevKit 扫描报告 | $WORK_DIR/reports/devkit-<时间戳>/ |
 | 用户决策记录 | $WORK_DIR/reports/user_decisions.txt |
 | 时间线日志 | $WORK_DIR/reports/timeline.log |
