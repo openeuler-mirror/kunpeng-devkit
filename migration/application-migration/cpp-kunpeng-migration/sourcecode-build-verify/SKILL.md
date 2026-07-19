@@ -166,17 +166,6 @@ while true:
 | `ERROR: error cloning` + 权限相关字样 | Bazel `git_repository` 拉取失败 |
 | `fatal: could not clone` + 权限相关字样 | CMake `FetchContent` / submodule 拉取失败 |
 
-```bash
-# 权限错误检测命令
-LOG_FILE="$WORK_DIR/logs/build_${ATTEMPT}.log"
-PERM_ERR=$(grep -iE "Permission denied|could not read Username|Could not read from remote repository|Authentication failed|Access denied|Repository not found|unable to access.*(403|401)|error cloning|could not clone" "$LOG_FILE" | head -5)
-if [ -n "$PERM_ERR" ]; then
-    echo "检测到代码仓权限问题"
-    echo "$PERM_ERR"
-    # 进入下方提问流程
-fi
-```
-
 ### 2.1.2. 向用户提问流程
 
 检测到权限问题后，**立即停止自动修复**，**必须**向用户提问：
@@ -270,34 +259,13 @@ fi
 
 ## 4. 提取关键错误信息
 
-每次编译失败后，使用以下命令提取关键错误：
+每次编译失败后，从 `$WORK_DIR/logs/build_${ATTEMPT}.log` 提取关键错误。日志可能很大，不要整篇读，按以下策略定位：
 
-```bash
-LOG_FILE="$WORK_DIR/logs/build_${ATTEMPT}.log"
-
-# 方法1：提取所有 error: 行（去除常见误报）
-echo "--- 所有错误行 ---"
-grep -n "error:\|ERROR:\|FAILED:" $LOG_FILE \
-  | grep -v "^Binary\|Werror\|is error\|no error\|zero error" \
-  | head -30
-
-# 方法2：获取第一个错误的上下文（通常是根因）
-echo "--- 第一个错误的上下文 ---"
-FIRST_ERROR_LINE=$(grep -n ": error:" $LOG_FILE \
-  | grep -v "Werror\|is error" | head -1 | cut -d: -f1)
-if [ -n "$FIRST_ERROR_LINE" ]; then
-    sed -n "$((FIRST_ERROR_LINE-5)),$((FIRST_ERROR_LINE+15))p" $LOG_FILE
-fi
-
-# 方法3：获取日志末尾（Bazel 的 FAILED 摘要通常在最后）
-echo "--- 编译日志末尾 100 行 ---"
-tail -100 $LOG_FILE
-
-# 方法4：若有多个错误，按文件分组
-echo "--- 错误文件分布 ---"
-grep ": error:" $LOG_FILE | grep -v "Werror" \
-  | awk -F':' '{print $1}' | sort | uniq -c | sort -rn | head -20
-```
+- **第一个 `: error:` 通常是根因**：后续错误常是连锁反应。定位第一个错误行，看其前后上下文（错误往往由上一行引起）。
+- **Bazel 的 FAILED 摘要在日志末尾**：Bazel 会在最后汇总失败目标和原因，看末尾即可拿到概览。
+- **多错误按文件分组找热点**：报错最集中的文件往往是根因所在。
+- **过滤误报**：`-Werror` 升级、含 `is error`/`no error`/`zero error` 的描述性文字不是真实错误，提取时排除。
+- **退出码为 0 也要查**：部分构建系统即使编译失败也返回 0，最终靠日志里的 `error:` 行判断（见第 3 节）。
 
 ---
 
