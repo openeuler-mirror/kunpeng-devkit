@@ -32,7 +32,6 @@ metadata:
 ```bash
 # 确认架构
 ARCH=$(uname -m)
-echo "当前架构：$ARCH"
 
 # 确认 WORKSPACE 已切换到 arm（若 build.sh 不自动处理，手动切换）
 # 仅在项目无 WORKSPACE 且存在 WORKSPACE_arm 时临时复制，避免误删项目原有 WORKSPACE
@@ -235,24 +234,16 @@ if [ -e "$WORKSPACE_COPIED_MARKER" ]; then
     [ -e "WORKSPACE" ] && rm WORKSPACE
     rm "$WORKSPACE_COPIED_MARKER"
 fi
-
-echo "编译退出码：$BUILD_EXIT_CODE"
-echo "日志：$LOG_FILE"
 ```
 
 ### 判断编译成功的标准
 
+退出码为 0 且日志中无真实 `error:` 行才算成功（部分构建系统即使编译失败也返回 0，故需双重判断）：
+
 ```bash
-if [ $BUILD_EXIT_CODE -eq 0 ]; then
-    # 退出码 0，但需确认日志中无真实 error 行
-    REAL_ERRORS=$(grep -cE "^ERROR |: error:|error: " $LOG_FILE 2>/dev/null || echo 0)
-    if [ "$REAL_ERRORS" -eq 0 ]; then
-        echo "编译成功（第 ${ATTEMPT} 次尝试）"
-        # 进入第 7 节收尾
-    else
-        echo "退出码为 0 但日志中仍有 ${REAL_ERRORS} 条 error，继续分析"
-    fi
-fi
+REAL_ERRORS=$(grep -cE "^ERROR |: error:|error: " $LOG_FILE 2>/dev/null || echo 0)
+# BUILD_EXIT_CODE -eq 0 且 REAL_ERRORS -eq 0 -> 编译成功，进入第 7 节收尾
+# 否则进入第 4 节提取错误、第 5 节修复
 ```
 
 ---
