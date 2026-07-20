@@ -25,6 +25,7 @@
 set -euo pipefail
 
 log() { echo "[report-summary] $*" >&2; }
+warn() { echo "[report-summary] WARN: $*" >&2; }
 fail() { log "ERROR: $2"; exit "$1"; }
 
 # --- 0. 前置校验 ---
@@ -56,30 +57,58 @@ SUMMARY_FILE="$DEVKIT_REPORT_DIR/summary.txt"
 JSON_FILE="$WORK_DIR/reports/devkit_summary.json"
 
 # --- 1. 探测表头（确定列索引） ---
-# DevKit CSV 表头典型字段：File, Line, Category, Level, Suggestion
-# 不同版本列顺序可能不同，扫描表头动态定位 Category 与 Level 列
-HEADER=$(head -1 "${CSV_FILES[0]}")
-log "表头：$HEADER"
+# DevKit CSV 报告前部包含元数据（Scanned time、Configuration、统计信息等），
+# 真正的数据表头行包含 "filename" 和 "category" 字段，需动态查找其所在行号
+HEADER_LINE_NUM=$(grep -n '"filename"' "${CSV_FILES[0]}" | head -1 | cut -d: -f1 || true)
+if [[ -z "$HEADER_LINE_NUM" ]]; then
+  # 兼容旧格式：表头可能在第 1 行（无元数据前导）
+  HEADER_LINE_NUM=1
+  HEADER=$(head -1 "${CSV_FILES[0]}")
+  if ! echo "$HEADER" | grep -qi 'category'; then
+    fail 3 "CSV 中未找到包含 filename/category 的数据表头行（非标准 DevKit 报告格式）"
+  fi
+fi
+HEADER=$(sed -n "${HEADER_LINE_NUM}p" "${CSV_FILES[0]}")
+log "数据表头（第 ${HEADER_LINE_NUM} 行）：$HEADER"
 
 # 去除可能的 BOM
 HEADER=${HEADER#$'\xef\xbb\xbf'}
-IFS=',' read -r -a COLS <<< "$HEADER"
 
-CAT_IDX=-1
-LVL_IDX=-1
-FILE_IDX=-1
-LINE_IDX=-1
-SUG_IDX=-1
-for i in "${!COLS[@]}"; do
-  col=$(echo "${COLS[$i]}" | tr -d ' "')
-  case "$col" in
-    *ategory*|*CATEGORY*) CAT_IDX=$i ;;
-    *evel*|*LEVEL*)       LVL_IDX=$i ;;
-    *ile*|*FILE*)         FILE_IDX=$i ;;
-    *ine*|*LINE*)         LINE_IDX=$i ;;
-    *uggestion*|*SUG*)    SUG_IDX=$i ;;
-  esac
-done
+# 使用 awk CSV 解析检测列索引（表头字段 "line number(start line, end line)" 含逗号，
+# 不能用 bash IFS=',' 简单拆分，否则后续列索引全部错位）
+INDICES=$(awk -v hdr="$HEADER" '
+  function csv_parse(line,    i, c, fld, q, n) {
+    n = 0; fld = ""; q = 0
+    for (i = 1; i <= length(line); i++) {
+      c = substr(line, i, 1)
+      if (c == "\"") {
+        if (q && substr(line, i+1, 1) == "\"") { fld = fld "\""; i++ }
+        else { q = !q }
+      } else if (c == "," && !q) {
+        CSV[n++] = fld; fld = ""
+      } else {
+        fld = fld c
+      }
+    }
+    CSV[n++] = fld
+    return n
+  }
+  BEGIN {
+    nf = csv_parse(hdr)
+    cat = -1; lvl = -1; file = -1; line = -1; sug = -1
+    for (i = 0; i < nf; i++) {
+      col = CSV[i]
+      gsub(/^[ \t"]+|[ \t"]+$/, "", col)
+      if (col ~ /ategory/ || col ~ /CATEGORY/)         cat = i
+      else if (col ~ /evel/ || col ~ /LEVEL/)          lvl = i
+      else if (col ~ /ilename/ || col ~ /FILENAME/)    file = i
+      else if (col ~ /ine.*number/ || col ~ /ine.*num/ || col ~ /LINE/) line = i
+      else if (col ~ /uggestion/ || col ~ /SUG/)       sug = i
+    }
+    printf "%d %d %d %d %d", cat, lvl, file, line, sug
+  }
+')
+read -r CAT_IDX LVL_IDX FILE_IDX LINE_IDX SUG_IDX <<< "$INDICES"
 
 if [[ $CAT_IDX -lt 0 || $LVL_IDX -lt 0 ]]; then
   fail 3 "CSV 表头缺少 PortingCategory 或 Level 列（无法定位问题类型/级别）。表头：$HEADER"
@@ -93,38 +122,79 @@ TMP_RULE=$(mktemp)
 TMP_SUGG=$(mktemp)
 trap 'rm -f "$TMP_STATS" "$TMP_DETAIL" "$TMP_RULE" "$TMP_SUGG"' EXIT
 
-# 逐文件流式处理：跳过表头行，按 Level 分类收集明细
+# 逐文件流式处理：跳过元数据前导与表头行，按 Level 分类收集明细
+# DevKit CSV 字段含双引号包裹的逗号（如 "(1, 1)"）及跨行换行（如汇编寄存器建议列表），
+# 需 RFC4180 风格解析：先合并跨行记录，再逐字段解析
 for f in "${CSV_FILES[@]}"; do
-  awk -F',' -v cat="$CAT_IDX" -v lvl="$LVL_IDX" -v file_idx="$FILE_IDX" \
-         -v line_idx="$LINE_IDX" -v sug_idx="$SUG_IDX" '
-    function get(i) { return $i }
-    NR==1 { next }
-    # CSV 字段可能含逗号（被双引号包裹），此处采用简化解析；如遇复杂 CSV 改用 python -c
+  awk -v cat_idx="$CAT_IDX" -v lvl_idx="$LVL_IDX" '
+    function csv_parse(line,    i, c, fld, q, n) {
+      n = 0; fld = ""; q = 0
+      for (i = 1; i <= length(line); i++) {
+        c = substr(line, i, 1)
+        if (c == "\"") {
+          if (q && substr(line, i+1, 1) == "\"") { fld = fld "\""; i++ }
+          else { q = !q }
+        } else if (c == "," && !q) {
+          CSV[n++] = fld; fld = ""
+        } else {
+          fld = fld c
+        }
+      }
+      CSV[n++] = fld
+      return n
+    }
+    # 合并跨行 CSV 记录：双引号字段内含换行符时，引号计数为奇数表示记录未结束
     {
-      cat = $cat
-      lvl = $lvl
-      gsub(/^[ \t"]+|[ \t"]+$/, "", cat)
-      gsub(/^[ \t"]+|[ \t"]+$/, "", lvl)
-      print cat "|" lvl
+      if (pending) {
+        buf = buf "\n" $0
+      } else {
+        buf = $0
+      }
+      tmp = buf
+      if (gsub(/"/, "", tmp) % 2 == 1) {
+        pending = 1
+        next
+      }
+      pending = 0
+      line = buf
+    }
+    # 跳过元数据前导行，直到找到数据表头（含 filename 和 category）
+    !found_hdr {
+      if (line ~ /filename/ && line ~ /category/) found_hdr = 1
+      next
+    }
+    line ~ /^[[:space:]]*$/ { next }
+    {
+      csv_parse(line)
+      cat_v = CSV[cat_idx]
+      lvl_v = CSV[lvl_idx]
+      gsub(/^[ \t"]+|[ \t"]+$/, "", cat_v)
+      gsub(/^[ \t"]+|[ \t"]+$/, "", lvl_v)
+      if (cat_v == "" && lvl_v == "") next
+      print cat_v "|" lvl_v
     }
   ' "$f" >> "$TMP_STATS"
 done
 
 # 按 Category 统计（总数 + Rule/Suggestion 拆分）
-awk -F'|' '
-  {
-    cat = $1; lvl = $2
-    total[cat]++
-    if (lvl ~ /Rule/) rule[cat]++; else sugg[cat]++
-  }
-  END {
-    printf "%s|%s|%s\n", "Category", "Total", "Rule"
-    for (c in total) printf "%s|%d|%d\n", c, total[c], rule[c]+0
-  }
-' "$TMP_STATS" | sort -t'|' -k2 -nr > "$TMP_DETAIL"
+# 表头单独写入，避免 sort 将表头排到末尾导致 NR>1 跳过最大行
+{
+  echo "Category|Total|Rule"
+  awk -F'|' '
+    {
+      cat = $1; lvl = $2
+      total[cat]++
+      if (lvl ~ /Rule/) rule[cat]++; else sugg[cat]++
+    }
+    END {
+      for (c in total) printf "%s|%d|%d\n", c, total[c], rule[c]+0
+    }
+  ' "$TMP_STATS" | sort -t'|' -k2 -nr
+} > "$TMP_DETAIL"
 
 # 提取 Rule 级别类别（用于后续 4.2.x 触发条件判定）
-awk -F'|' '$3 > 0 {print $1}' "$TMP_DETAIL" | sort -u > "$TMP_RULE"
+# NR>1 跳过表头，($3+0) 强制数值比较避免 "Rule" 被误判为 > 0
+awk -F'|' 'NR>1 && ($3+0) > 0 {print $1}' "$TMP_DETAIL" | sort -u > "$TMP_RULE"
 
 # 统计各 Level 总量
 LEVEL_TOTAL=$(awk -F'|' '{print $2}' "$TMP_STATS" | sort | uniq -c | sort -rn || true)
@@ -132,25 +202,62 @@ TOTAL_ROWS=$(wc -l < "$TMP_STATS" | tr -d ' ')
 
 # --- 3. 提取 Rule 级问题明细（按 Category 截取前 N 条，防止输出过大） ---
 DETAIL_HEAD_LIMIT=10
-awk -F',' -v cat="$CAT_IDX" -v lvl="$LVL_IDX" -v file_idx="$FILE_IDX" \
+awk -v cat_idx="$CAT_IDX" -v lvl_idx="$LVL_IDX" -v file_idx="$FILE_IDX" \
        -v line_idx="$LINE_IDX" -v sug_idx="$SUG_IDX" -v limit="$DETAIL_HEAD_LIMIT" '
-  NR==1 { next }
-  {
-    # 简化解析
-    cat_v = $cat
-    lvl_v = $lvl
-    file_v = (file_idx >= 0 ? $file_idx : "")
-    line_v = (line_idx >= 0 ? $line_idx : "")
-    sug_v  = (sug_idx  >= 0 ? $sug_idx  : "")
-    gsub(/^[ \t"]+|[ \t"]+$/, "", cat_v)
-    gsub(/^[ \t"]+|[ \t"]+$/, "", lvl_v)
-    gsub(/^[ \t"]+|[ \t"]+$/, "", file_v)
-    gsub(/^[ \t"]+|[ \t"]+$/, "", line_v)
-    gsub(/^[ \t"]+|[ \t"]+$/, "", sug_v)
-    if (lvl_v ~ /Rule/) {
-      print cat_v "|" file_v ":" line_v "|" sug_v
+    function csv_parse(line,    i, c, fld, q, n) {
+      n = 0; fld = ""; q = 0
+      for (i = 1; i <= length(line); i++) {
+        c = substr(line, i, 1)
+        if (c == "\"") {
+          if (q && substr(line, i+1, 1) == "\"") { fld = fld "\""; i++ }
+          else { q = !q }
+        } else if (c == "," && !q) {
+          CSV[n++] = fld; fld = ""
+        } else {
+          fld = fld c
+        }
+      }
+      CSV[n++] = fld
+      return n
     }
-  }
+    # 多文件处理：每个文件重置表头探测与跨行合并状态
+    FNR == 1 { found_hdr = 0; pending = 0 }
+    # 合并跨行 CSV 记录
+    {
+      if (pending) {
+        buf = buf "\n" $0
+      } else {
+        buf = $0
+      }
+      tmp = buf
+      if (gsub(/"/, "", tmp) % 2 == 1) {
+        pending = 1
+        next
+      }
+      pending = 0
+      line = buf
+    }
+    !found_hdr {
+      if (line ~ /filename/ && line ~ /category/) found_hdr = 1
+      next
+    }
+    line ~ /^[[:space:]]*$/ { next }
+    {
+      csv_parse(line)
+      cat_v = CSV[cat_idx]
+      lvl_v = CSV[lvl_idx]
+      file_v = (file_idx >= 0 ? CSV[file_idx] : "")
+      line_v = (line_idx >= 0 ? CSV[line_idx] : "")
+      sug_v  = (sug_idx  >= 0 ? CSV[sug_idx]  : "")
+      gsub(/^[ \t"]+|[ \t"]+$/, "", cat_v)
+      gsub(/^[ \t"]+|[ \t"]+$/, "", lvl_v)
+      gsub(/^[ \t"]+|[ \t"]+$/, "", file_v)
+      gsub(/^[ \t"]+|[ \t"]+$/, "", line_v)
+      gsub(/^[ \t"]+|[ \t"]+$/, "", sug_v)
+      if (lvl_v ~ /Rule/) {
+        print cat_v "|" file_v ":" line_v "|" sug_v
+      }
+    }
 ' "${CSV_FILES[@]}" | head -"$DETAIL_HEAD_LIMIT" > "$TMP_SUGG" || true
 
 # --- 4. 写入人类可读摘要 ---
@@ -163,7 +270,11 @@ awk -F',' -v cat="$CAT_IDX" -v lvl="$LVL_IDX" -v file_idx="$FILE_IDX" \
   echo "问题总数：$TOTAL_ROWS"
   echo
   echo "--- 按 Level 统计 ---"
-  echo "$LEVEL_TOTAL" | awk '{$1=""; printf "  %-20s %s\n", $1, $0}' | sed 's/^  $/  (无)/'
+  if [[ -n "$LEVEL_TOTAL" ]]; then
+    printf "%s\n" "$LEVEL_TOTAL" | awk '{printf "  %-30s %5s\n", $2, $1}'
+  else
+    echo "  (无)"
+  fi
   echo
   echo "--- 按 Category 统计（按总数降序）---"
   printf "  %-30s %-8s %-8s\n" "Category" "Total" "Rule"
