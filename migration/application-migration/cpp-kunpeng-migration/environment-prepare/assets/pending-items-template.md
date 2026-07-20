@@ -49,6 +49,18 @@
   context: "项目 .bazelversion 文件指定版本 4.0.0，自动从 build-tools-reference.md 获取链接后 wget 失败（网络超时），需用户介入。"
 ```
 
+```yaml
+- id: env_disk_space_project_root
+  category: 环境检测
+  question: "项目根目录所在分区可用空间不足，迁移过程涉及依赖源码签出、子模块更新、构建工具下载和编译产物写入，请选择处理方式。"
+  options:
+    - id: change_workdir
+      label: "更改产物落盘地址到空间充足的分区"
+    - id: abort
+      label: "中止迁移"
+  context: "项目代码大小 500 MB，估算所需空间 2.5 GB，项目根目录 /data/projects/myapp 所在分区 /data 可用空间 1.1G，不足 1.4 GB。"
+```
+
 ---
 
 ## 实际输出示例（无待确认项）

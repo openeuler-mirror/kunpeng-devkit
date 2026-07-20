@@ -129,6 +129,7 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 | Bazel 项目要求 X.Y，Kunpeng 已装 X'.Y' | `"Bazel 项目需要 X.Y，ARM 已安装 X'.Y'，如何处理？"` 选项：安装项目指定版本 / 使用已安装版本 / 中止 |
 | protoc 版本与项目 protobuf 版本不匹配 | `"ARM 上 protoc 为 X，项目使用 protobuf Y，如何处理？"` 选项：为 ARM 重新编译匹配版 protoc / 中止 |
 | Blade 版本不支持 arm64 | `"Blade 版本过旧不支持 arm64，需要升级，是否确认？"` 选项：确认升级 / 中止 |
+| 磁盘可用空间低于阈值 | `"项目代码 X MB，估算所需空间 Y GB，当前可用 Z GB，如何处理？"` 选项：更改产物落盘地址到空间充足的分区 / 中止 |
 | 所有工具版本均一致 | 追加一条"确认继续"总项即可 |
 
 ---
