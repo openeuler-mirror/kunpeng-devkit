@@ -82,20 +82,73 @@ $DEVKIT porting src-mig \
 
 ### 4.1.4 读取并汇总扫描报告
 
-DevKit 通常输出 CSV 或 HTML 格式的报告，先确认报告文件：
+> **重要约束**：本节使用专用脚本 `scripts/devkit-report-summary.sh` 流式处理报告，输出压缩型摘要文件。
+
+使用脚本流式读取并汇总扫描报告：
 
 ```bash
-# 查看生成的报告文件
-ls $DEVKIT_REPORT_DIR
-
-# CSV 格式：提取问题列表（跳过表头行）
-find $DEVKIT_REPORT_DIR -name "*.csv" \
-  -exec awk -F',' 'NR>1 {print NR, $0}' {} \; | head -60
-
-# 按问题类型统计数量，了解整体规模
-find $DEVKIT_REPORT_DIR -name "*.csv" \
-  -exec awk -F',' 'NR>1 {print $3}' {} \; | sort | uniq -c | sort -rn
+bash scripts/devkit-report-summary.sh
 ```
+
+> **脚本前置条件**：环境变量 `DEVKIT_REPORT_DIR` 已设置（由 4.1.3 阶段确定）。脚本自动探测 CSV 表头列索引（兼容 DevKit 不同版本列顺序差异）。
+>
+> **脚本输出**：
+> - `$DEVKIT_REPORT_DIR/summary.txt`
+> - `$WORK_DIR/reports/devkit_summary.json` 
+>
+> **脚本退出码**：
+>
+> | 退出码 | 含义 |
+> |-------|------|
+> | 0 | 成功（报告目录为空时也返回 0，仅输出"无问题"摘要） |
+> | 1 | 环境校验失败（`DEVKIT_REPORT_DIR` 未设置或不存在） |
+> | 2 | 未找到任何 CSV/HTML 报告文件 |
+> | 3 | CSV 表头格式不符合预期（无 `PortingCategory` 或 `Level` 列） |
+>
+> 失败时按退出码定位：检查目录与文件存在性（1/2）、表头兼容性（3）。
+>
+> **JSON 摘要生成工具自动降级**（脚本内部处理，无需手动干预）：
+>
+> | 优先级 | 工具 | 适用场景 |
+> |-------|------|----------|
+> | 1 | `jq` | 服务器标准工具（首选） |
+> | 2 | `python3` | 鲲鹏服务器通常自带（推荐预装） |
+> | 3 | `python2` | 旧系统兜底 |
+> | 4 | `awk` 手工拼接 | 极简环境最后兜底（语法未校验，标记 `_fallback: awk_manual_no_jq_no_python`） |
+>
+> 脚本按 jq → python3 → python2 → awk 顺序自动选择可用工具，**任何环境下均能生成可读取的 JSON 摘要**，但仅 jq 路径会做语法校验。降级路径下若需严格 JSON 校验，事后用 `python3 -m json.tool devkit_summary.json` 二次校验即可。
+
+**读取 JSON 摘要供后续阶段使用：**
+
+```bash
+# 后续阶段统一通过专用脚本读取摘要，三级工具（jq / python3 / awk）兜底已封装在脚本内
+bash scripts/devkit-summary-read.sh <field>
+```
+
+> **脚本**：`scripts/devkit-summary-read.sh`，封装 jq → python3 → python2 → awk 降级路径，**任何环境下均可读取生成的 JSON 摘要**，无需 agent 自行判断工具可用性。
+>
+> **支持的字段**：
+>
+> | 字段 | 用途 | 典型用法 |
+> |------|------|---------|
+> | `rule_categories` | Rule 级问题类别列表（每行一个） | 4.2.0-prelude / 4.2.0 / 4.2.5 触发条件判定 |
+> | `categories` | 按 Category 统计的总数 | 输出 `category<TAB>total<TAB>rule` 三列 |
+> | `rule_detail_sample` | Rule 明细示例 | 输出 `[CATEGORY] LOCATION: SUGGESTION` |
+> | `all` | 依次输出以上三段（空行分隔） | 调试/全量预览 |
+> | `has_rule` | 判定 Rule 类别是否非空 | `if bash devkit-summary-read.sh has_rule >/dev/null; then ...` |
+> | `has <CATEGORY>` | 判定指定类别是否在 Rule 列表中 | `bash devkit-summary-read.sh has INTRINSICS` |
+>
+> **脚本退出码**：
+>
+> | 退出码 | 含义 |
+> |-------|------|
+> | 0 | 成功（has_rule/has 检查且条件满足） |
+> | 1 | 参数/环境错误（参数缺失、`WORK_DIR` 未设置、JSON 文件不存在或为空） |
+> | 2 | 字段名无效 |
+> | 11 | `has_rule` 检查：Rule 类别列表为空 |
+> | 12 | `has <CATEGORY>` 检查：未找到该类别 |
+>
+> **后续阶段读取约定**：4.2.0-prelude、4.2.0、4.2.5 等章节统一通过 `bash scripts/devkit-summary-read.sh <field>` 读取摘要，**不得**直接 `cat` 报告 CSV 文件或内联 `jq`/`python3`/`awk` 代码，避免上下文膨胀与工具可用性判断逻辑散落。
 
 **理解报告中的问题修改级别：**
 
@@ -270,87 +323,16 @@ echo | gcc -march=armv8.5-a -E -dM - 2>/dev/null | grep -q "__ARM_ARCH" \
 
 **按构建系统添加全局编译选项：**
 
-#### Bazel 项目
+**详细修改案例（Bazel `.bazelrc` / CMake `CMakeLists.txt` / Make `Makefile` 三个完整模板、全局编译选项对照表、`-march` 检测命令、执行流程、失败处置）见** [references/build-system-flags.md](./references/build-system-flags.md)。本节仅给出执行摘要：
 
-在 `.bazelrc` 的 aarch64 配置段中添加：
-
-```python
-# .bazelrc — aarch64 配置段
-
-# Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 AVX_STRATEGY=ksl 时）：链接 avx2ki 动态库
-# 若 AVX_STRATEGY=neon，则不添加以下 avx2ki 链接选项（NEON 头文件随工具链自带，无需额外链接）
-build:linux_aarch64 --copt=-I/usr/local/ksl/include/
-build:linux_aarch64 --cxxopt=-I/usr/local/ksl/include/
-build:linux_aarch64 --linkopt=-L/usr/local/ksl/lib/
-build:linux_aarch64 --linkopt=-lavx2ki
-build:linux_aarch64 --linkopt=-lm
-
-# Rule（必须）：移除 x86 AVX 相关编译选项（在 x86 配置段保留，aarch64 段不添加）
-# 注意：在 BUILD 文件和 .bazelrc 中查找并移除/隔离 -mavx, -mavx2, -mavx512f, -msse4.1, -msse4.2, -msse2 等
-
-# Suggestion（建议）：基础编译兼容选项
-build:linux_aarch64 --copt=-fsigned-char
-build:linux_aarch64 --cxxopt=-fsigned-char
-build:linux_aarch64 --copt=-Werror=conversion
-build:linux_aarch64 --cxxopt=-Werror=conversion
-build:linux_aarch64 --copt=-march=armv8.5-a
-build:linux_aarch64 --cxxopt=-march=armv8.5-a
-# 若编译器/硬件不支持 armv8.5-a，将上述 armv8.5-a 改为 armv8-a
-```
-
-> **关于 `-mavx`/`-mavx2` 的处理（Rule 级别，必须）**：检查 `.bazelrc` 和各 `BUILD` 文件中是否存在 `-mavx`/`-mavx2` 等编译选项，通过架构宏或构建配置段进行隔离，确保这些选项只在 x86 配置下生效。
-
-#### CMake 项目
-
-在 `CMakeLists.txt` 中添加全局编译选项：
-
-```cmake
-# CMakeLists.txt
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 AVX_STRATEGY=ksl 时）：链接 avx2ki 库
-    # 若 AVX_STRATEGY=neon，则跳过以下 avx2ki 链接（NEON 无需额外库）
-    include_directories(/usr/local/ksl/include/)
-    link_directories(/usr/local/ksl/lib/)
-    link_libraries(avx2ki m)
-
-    # Rule（必须）：移除 x86 AVX 选项
-    string(REPLACE "-mavx2" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-    string(REPLACE "-mavx2" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REPLACE "-mavx" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-    string(REPLACE "-mavx" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-    # Suggestion（建议）：基础编译兼容选项
-    add_compile_options(-fsigned-char -Werror=conversion -march=armv8.5-a)
-    # 若编译器/硬件不支持 armv8.5-a，改为：
-    # add_compile_options(-fsigned-char -Werror=conversion -march=armv8-a)
-endif()
-```
-
-#### Make 项目
-
-在 `Makefile` 中追加全局编译选项：
-
-```makefile
-# Makefile
-ifeq ($(shell uname -m),aarch64)
-    # Rule（必须，仅当报告有 `INTRINSICS_LIBRARY`/`INTRINSICS` Rule 条目且 AVX_STRATEGY=ksl 时）：链接 avx2ki 动态库
-    # 若 AVX_STRATEGY=neon，则跳过以下 avx2ki 链接（NEON 无需额外库）
-    CFLAGS   += -I/usr/local/ksl/include/
-    CXXFLAGS += -I/usr/local/ksl/include/
-    LDFLAGS  += -L/usr/local/ksl/lib/ -lavx2ki -lm
-
-    # Rule（必须）：移除 x86 AVX 相关选项
-    CFLAGS   := $(filter-out -mavx -mavx2 -mavx512f -msse4.1 -msse4.2 -msse2,$(CFLAGS))
-    CXXFLAGS := $(filter-out -mavx -mavx2 -mavx512f -msse4.1 -msse4.2 -msse2,$(CXXFLAGS))
-
-    # Suggestion（建议）：基础编译兼容选项
-    CFLAGS   += -fsigned-char -Werror=conversion -march=armv8.5-a
-    CXXFLAGS += -fsigned-char -Werror=conversion -march=armv8.5-a
-    # 若编译器/硬件不支持 armv8.5-a，改为 -march=armv8-a
-endif
-```
-
-> **双架构兼容说明**：上述选项仅在鲲鹏构建时生效（通过构建系统的架构判断或配置段隔离），不影响 x86 编译。
+- **Bazel**：在 `.bazelrc` 的 `build:linux_aarch64` 配置段追加 `--copt` / `--cxxopt` / `--linkopt`
+- **CMake**：用 `if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")` 隔离，必要时 `string(REPLACE ...)` 移除 `-mavx*`
+- **Make**：用 `ifeq ($(shell uname -m),aarch64)` 隔离，`$(filter-out ...)` 移除 x86 指令
+- **关键策略**：
+  - `AVX_STRATEGY=ksl` → 添加 `-I/usr/local/ksl/include/` 与 `-L/usr/local/ksl/lib/ -lavx2ki -lm`
+  - `AVX_STRATEGY=neon` → **不添加** avx2ki 链接（NEON 头文件随工具链自带）
+  - 基础兼容选项：`-fsigned-char` / `-Werror=conversion` / `-march=armv8.5-a`（不支持则降级 `armv8-a`）
+- **agent 工作流**：阅读 references → 识别构建系统类型 → 按 `AVX_STRATEGY` 决定 avx2ki 处理 → 移除 x86 AVX/SSE 选项 → 添加基础兼容 → 双架构编译验证
 
 ***
 
@@ -360,48 +342,12 @@ endif
 
 **问题定位**：DevKit 报告给出了包含 x86 专属头文件的源文件路径和行号，直接跳转到对应行。
 
-**常见 x86 专属头文件列表：**
+**详细修改案例、头文件对照表与失败处置见** [references/x86-header-migration.md](./references/x86-header-migration.md)。本节仅给出执行摘要：
 
-| 头文件 | 说明 | 鲲鹏替代（`AVX_STRATEGY=ksl`） | 鲲鹏替代（`AVX_STRATEGY=neon`） |
-|--------|------|----------|----------|
-| `<immintrin.h>` | AVX/AVX2 intrinsics | 引入 `<avx2ki.h>`（KSL 兼容层） | 引入 `<arm_neon.h>` 并手写 NEON |
-| `<emmintrin.h>` | SSE2 intrinsics | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
-| `<xmmintrin.h>` | SSE intrinsics | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
-| `<nmmintrin.h>` | SSE4.2 intrinsics（含 CRC32） | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
-| `<pmmintrin.h>` | SSE3 intrinsics（含 FTZ/DAZ） | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
-| `<smmintrin.h>` | SSE4.1 intrinsics | 引入 `<avx2ki.h>` | 引入 `<arm_neon.h>` 并手写 NEON |
-| `<cpuid.h>` | CPU 特性检测（x86 专属） | 无直接替代，需改用系统接口 | 无直接替代，需改用系统接口 |
-
-**修改方法**：用架构宏将 `#include` 语句包裹，鲲鹏侧按 `AVX_STRATEGY` 引入对应头文件：
-
-```cpp
-// 原始代码（直接引用了 x86 的 intrinsic 头文件）
-#include <xmmintrin.h>
-
-// 修改后（Rule 级别：必须用架构宏保护）
-#if defined(__x86_64__) || defined(_M_X64)
-#include <xmmintrin.h>
-#elif defined(__aarch64__) && defined(USE_AVX2KI)   // AVX_STRATEGY=ksl
-#include <avx2ki.h>   // KSL 提供的 x86 intrinsics 到鲲鹏 NEON 兼容层
-#elif defined(__aarch64__)                           // AVX_STRATEGY=neon
-#include <arm_neon.h> // ARM 原生 NEON intrinsics，需手写 NEON 等价实现
-#endif
-```
-
-> **说明**：上方代码示例同时展示了两种策略的写法，实际执行时按 `AVX_STRATEGY` 取值二选一：
-> - `AVX_STRATEGY=ksl`：鲲鹏侧引入 `<avx2ki.h>`，原有 `_mm*` 调用无需修改
-> - `AVX_STRATEGY=neon`：鲲鹏侧引入 `<arm_neon.h>`，需将 `_mm*` 调用手动改写为 NEON `v*` intrinsics（详见 4.2.3）
-
-若整个源文件都是 x86 专属的 SIMD 实现，可在文件顶部整体保护：
-
-```cpp
-// 文件顶部整体保护，ARM 上跳过整个文件
-#if defined(__x86_64__) || defined(_M_X64)
-
-// ... 文件全部内容 ...
-
-#endif  // __x86_64__
-```
+- **修改方法**：用架构宏将 `#include` 语句包裹，鲲鹏侧按 `AVX_STRATEGY` 引入 `<avx2ki.h>`（`ksl`）或 `<arm_neon.h>`（`neon`）
+- **整体保护**：若整个源文件都是 x86 专属 SIMD，在文件顶部用 `#if defined(__x86_64__)` 整体包裹
+- **常用头文件**：`<immintrin.h>` / `<emmintrin.h>` / `<xmmintrin.h>` / `<nmmintrin.h>` / `<pmmintrin.h>` / `<smmintrin.h>` / `<cpuid.h>`（详见 references 完整对照表）
+- **agent 工作流**：阅读 references → 定位源文件 → 按 `AVX_STRATEGY` 二选一应用 → 双架构编译验证
 
 ***
 
@@ -413,144 +359,24 @@ endif
 
 #### 4.2.3.1 按 AVX_STRATEGY 选择替代策略
 
-替代方案由 4.2.0-prelude 确定的 `AVX_STRATEGY` 决定，二选一：
+替代方案由 4.2.0-prelude 确定的 `AVX_STRATEGY` 决定。**详细修改案例（avx2ki 兼容层代码、NEON 改写样例、常见 intrinsics 映射对照表、avx2ki 不覆盖函数的手动替换）见** [references/intrinsics-migration.md](./references/intrinsics-migration.md)。本节仅给出策略摘要：
 
-##### （a）`AVX_STRATEGY=ksl`：使用 avx2ki.h 兼容层
+| `AVX_STRATEGY` | 推荐案例 | 改造量 |
+|----------------|---------|--------|
+| `ksl` | 案例 1（avx2ki 兼容层） | 最小，仅切换头文件 |
+| `neon` | 案例 2（手写 NEON）或案例 3（`__builtin_clzll` 等内置） | 中，需逐个改写 `_mm*` |
+| `disable` | 案例 4 策略 C（整体禁用） | 最小，仅保留 x86 路径 |
 
-avx2ki.h 是鲲鹏 KSL 提供的 x86 intrinsics 到 ARM NEON 的映射头文件，大多数 `_mm*` 函数均有对应映射：
-
-```cpp
-// 修改方法：将 x86 头文件替换为 avx2ki.h，原有 intrinsics 调用代码无需修改
-#if defined(__x86_64__) || defined(_M_X64)
-#include <immintrin.h>
-#elif defined(__aarch64__)
-#include <avx2ki.h>   // avx2ki 提供与 immintrin.h 相同的 API 映射到 NEON
-#endif
-
-// 原有 intrinsics 代码可保持不变，avx2ki 负责在 aarch64 上完成映射
-void process(const float* a, const float* b, float* out, int n) {
-    for (int i = 0; i < n; i += 8) {
-        __m256 va = _mm256_loadu_ps(a + i);
-        __m256 vb = _mm256_loadu_ps(b + i);
-        _mm256_storeu_ps(out + i, _mm256_add_ps(va, vb));
-    }
-}
-```
-
-##### （b）`AVX_STRATEGY=neon`：手写开源 NEON 实现
-
-不使用 avx2ki，改为引入 `<arm_neon.h>` 并将 `_mm*` 调用手动改写为 NEON `v*` intrinsics。常见映射对照：
-
-| x86 AVX/SSE intrinsic | 用途 | ARM NEON 替代 |
-|----------------------|------|--------------|
-| `_mm256_loadu_ps` | 加载 8 个 float | `vld1q_f32`（每次 4 个，需两条） |
-| `_mm256_storeu_ps` | 存储 8 个 float | `vst1q_f32`（每次 4 个，需两条） |
-| `_mm256_add_ps` | 8 路 float 加 | `vaddq_f32`（每次 4 路，需两条） |
-| `_mm_loadu_ps` | 加载 4 个 float | `vld1q_f32` |
-| `_mm_storeu_ps` | 存储 4 个 float | `vst1q_f32` |
-| `_mm_add_ps` | 4 路 float 加 | `vaddq_f32` |
-
-```cpp
-// 修改方法：将 x86 头文件替换为 arm_neon.h，并将 _mm* 调用改写为 NEON v* 调用
-#if defined(__x86_64__) || defined(_M_X64)
-#include <immintrin.h>
-#elif defined(__aarch64__)
-#include <arm_neon.h>   // ARM 原生 NEON intrinsics
-#endif
-
-void process(const float* a, const float* b, float* out, int n) {
-#if defined(__x86_64__) || defined(_M_X64)
-    for (int i = 0; i < n; i += 8) {
-        __m256 va = _mm256_loadu_ps(a + i);
-        __m256 vb = _mm256_loadu_ps(b + i);
-        _mm256_storeu_ps(out + i, _mm256_add_ps(va, vb));
-    }
-#elif defined(__aarch64__)
-    // ARM NEON 手写实现（AVX 256 位需拆为两条 128 位 NEON 指令）
-    for (int i = 0; i < n; i += 8) {
-        float32x4_t va1 = vld1q_f32(a + i);
-        float32x4_t va2 = vld1q_f32(a + i + 4);
-        float32x4_t vb1 = vld1q_f32(b + i);
-        float32x4_t vb2 = vld1q_f32(b + i + 4);
-        vst1q_f32(out + i, vaddq_f32(va1, vb1));
-        vst1q_f32(out + i + 4, vaddq_f32(va2, vb2));
-    }
-#endif
-}
-```
-
-> **NEON 方案注意**：AVX 寄存器宽 256 位，NEON 寄存器宽 128 位，一条 AVX 指令通常需拆成两条 NEON 指令；`_mm256_*` 系列无直接 1:1 映射，需逐个改写。
+> **NEON 方案注意**：AVX 寄存器宽 256 位，NEON 寄存器宽 128 位，一条 AVX 指令通常需拆成两条 NEON 指令；`_mm256_*` 系列无直接 1:1 映射，需逐个改写（详见 references 常见 intrinsics 映射对照表）。
 
 #### 4.2.3.2 对于 avx2ki 不覆盖的 intrinsics，使用架构宏隔离 + ARM 替代
 
-**`_BitScanReverse64`**（位扫描，报告中 bfc_allocator.h 出现）：
+**详细修改案例（`_BitScanReverse64` 位扫描、策略 A/B/C 完整代码模板、策略与 `AVX_STRATEGY` 对应关系）见** [references/intrinsics-migration.md](./references/intrinsics-migration.md) 案例 3 与案例 4。
 
-```cpp
-// Rule 级别，需手动替换
-#if defined(__x86_64__) || defined(_M_X64)
-    unsigned long index;
-    _BitScanReverse64(&index, val);
-    int result = (int)index;
-#elif defined(__aarch64__)
-    // ARM 替代：63 - clz 即最高有效位位置
-    int result = 63 - __builtin_clzll(val);
-#endif
-```
-
-**修改方法**：根据该段代码的业务重要性，选择以下策略之一：
-
-**策略 A：架构宏隔离 + 提供 ARM NEON 替代实现**（推荐，性能不退化）
-
-```cpp
-// 以加法运算为例
-void add_vectors(const float* a, const float* b, float* out, int n) {
-#if defined(__x86_64__) || defined(_M_X64)
-    // 原有 AVX 实现（保留不变）
-    for (int i = 0; i < n; i += 8) {
-        __m256 va = _mm256_loadu_ps(a + i);
-        __m256 vb = _mm256_loadu_ps(b + i);
-        _mm256_storeu_ps(out + i, _mm256_add_ps(va, vb));
-    }
-#elif defined(__aarch64__)
-    // ARM NEON 替代实现
-    for (int i = 0; i < n; i += 4) {
-        float32x4_t va = vld1q_f32(a + i);
-        float32x4_t vb = vld1q_f32(b + i);
-        vst1q_f32(out + i, vaddq_f32(va, vb));
-    }
-#else
-    // 通用标量实现（fallback）
-    for (int i = 0; i < n; i++) out[i] = a[i] + b[i];
-#endif
-}
-```
-
-**策略 B：架构宏隔离 + 标量退化**（适用于非热点路径，编码成本低）
-
-```cpp
-void process(const float* src, float* dst, int n) {
-#if defined(__x86_64__) || defined(_M_X64)
-    // 原有 x86 SIMD 实现（保留不变）
-    // ...
-#else
-    // 非 x86 平台退化为标量，功能等价，性能可能降低
-    for (int i = 0; i < n; i++) dst[i] = transform(src[i]);
-#endif
-}
-```
-
-**策略 C：整体禁用该功能**（仅适用于可选的性能优化路径，核心功能不可用此策略）
-
-```cpp
-// 仅在 x86 上启用该优化特性
-#if defined(__x86_64__) || defined(_M_X64)
-void register_simd_optimizer() {
-    // 注册 SIMD 加速处理器
-}
-#endif
-```
-
-> **策略与 `AVX_STRATEGY` 的对应关系**：当 `AVX_STRATEGY=disable` 时，统一采用策略 C（整体禁用该 SIMD 功能）；当 `AVX_STRATEGY=neon` 时，优先采用策略 A（手写 NEON 替代），非热点路径可用策略 B（标量退化）。
+**策略选择速查**：
+- **策略 A**（架构宏隔离 + ARM NEON 替代）— 性能不退化，推荐用于热点路径
+- **策略 B**（架构宏隔离 + 标量退化）— 编码成本低，适用于非热点路径
+- **策略 C**（整体禁用）— 仅适用于可选的性能优化路径，**核心功能不可用此策略**
 
 ***
 
@@ -575,46 +401,11 @@ void register_simd_optimizer() {
 | `lock xadd` | 原子加 | `ldadd` / `ldaddal` | `__atomic_fetch_add()` |
 | `bsf`/`bsr` | 位扫描 | `rbit`+`clz` 组合 | `__builtin_ctz()` / `__builtin_clz()` |
 
-修改模式（以 CPUID 为例，报告中 cpu_info.cc 出现）：
-
-```cpp
-// 原始代码（x86 CPUID 用于检测 CPU 特性）
-inline void RunCpuid(uint32_t eax, uint32_t ecx, uint32_t* abcd) {
-    uint32_t ebx, edx;
-#if defined(__x86_64__)
-    __asm__("cpuid"
-            : "=a"(abcd[0]), "=b"(ebx), "=c"(abcd[2]), "=d"(edx)
-            : "0"(eax), "2"(ecx));
-    abcd[1] = ebx;
-    abcd[3] = edx;
-#elif defined(__aarch64__)
-    // aarch64 无 CPUID 指令，建议改用 getauxval(AT_HWCAP) 检测 CPU 特性
-    abcd[0] = abcd[1] = abcd[2] = abcd[3] = 0;
-#endif
-}
-```
-
-```cpp
-// 示例：读取时钟周期（rdtsc）
-inline uint64_t get_timestamp() {
-#if defined(__x86_64__) || defined(_M_X64)
-    uint32_t lo, hi;
-    __asm__ volatile("rdtsc" : "=a"(lo), "=d"(hi));
-    return ((uint64_t)hi << 32) | lo;
-#elif defined(__aarch64__)
-    uint64_t val;
-    __asm__ volatile("mrs %0, cntvct_el0" : "=r"(val));
-    return val;
-#else
-    // 通用 fallback：使用标准时钟
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
-#endif
-}
-```
-
-> **优先使用 GCC 内置函数替代内联汇编**：`__builtin_popcount()`、`__builtin_ctz()`、`__builtin_clz()`、`__atomic_*` 系列等均支持 ARM64，编译器会自动选择最优指令，无需手动区分架构。
+> **详细修改模式（CPUID 案例、rdtsc 时钟周期案例、通用修改框架）见** [references/inline-asm-migration.md](./references/inline-asm-migration.md)。本节仅给出执行摘要：
+>
+> - **修改方法**：架构宏隔离（保留 x86 实现，aarch64 侧用 ARM 指令或 GCC 内置函数替代）
+> - **优先策略**：优先使用 GCC 内置函数（`__builtin_popcount` / `__builtin_ctz` / `__builtin_clz` / `__atomic_*`），编译器自动选择最优指令，无需手动区分架构
+> - **agent 工作流**：阅读 references → 在上表查找指令 → 按优先级选择替代 → 双架构编译验证
 
 ***
 
@@ -636,171 +427,14 @@ inline uint64_t get_timestamp() {
 - KML 迁移指南：`https://www.hikunpeng.com/document/detail/en/kunpengaccel/math-lib/migration/kunpengaccel_12_0001.html`
 - OpenBLAS 获取：`https://www.openblas.net` 或通过系统包管理器安装
 
-#### 4.2.5.1 安装数学库（按 MKL_STRATEGY 二选一）
+**详细修改案例（KML/OpenBLAS 安装命令、头文件引用修改、API 兼容函数表、Bazel/CMake/Make 链接模板、MKL 专有扩展接口处理）见** [references/mkl-migration.md](./references/mkl-migration.md)。本节仅给出执行摘要：
 
-##### （a）`MKL_STRATEGY=kml`：安装鲲鹏 KML 库
-
-```bash
-# 方式一：通过 dnf/yum 安装 KML（推荐）
-# KML 通常随鲲鹏 BoostKit 软件包分发
-dnf install -y kml-devel 2>/dev/null || yum install -y kml-devel 2>/dev/null
-
-# 方式二：从华为官网下载 KML 软件包（按上方 DevKit 报告链接获取最新版）
-# 下载后按软件包内 README 安装
-
-# 验证 KML 安装
-ls /usr/local/kml/include/cblas.h 2>/dev/null || \
-find /usr -name "cblas.h" 2>/dev/null | grep -i kml | head -3
-
-# 验证 KML 库文件
-ls /usr/local/kml/lib/libkml*.so 2>/dev/null || \
-find /usr -name "libkml*.so" 2>/dev/null | head -3
-```
-
-##### （b）`MKL_STRATEGY=openblas`：安装开源 OpenBLAS 库
-
-```bash
-# 方式一：通过 dnf/yum 安装 OpenBLAS（推荐）
-dnf install -y openblas-devel 2>/dev/null || yum install -y openblas-devel 2>/dev/null \
-  || apt-get install -y libopenblas-dev 2>/dev/null
-
-# 方式二：从源码编译（按 https://www.openblas.net 指引获取最新版）
-# tar xf OpenBLAS-*.tar.gz && cd OpenBLAS-* && make && make PREFIX=/usr/local/openblas install
-
-# 验证 OpenBLAS 安装（头文件）
-ls /usr/include/aarch64-linux-gnu/openblas_config.h 2>/dev/null || \
-ls /usr/local/openblas/include/cblas.h 2>/dev/null || \
-find /usr -name "cblas.h" 2>/dev/null | grep -i openblas | head -3
-
-# 验证 OpenBLAS 库文件
-ls /usr/lib64/libopenblas*.so 2>/dev/null || \
-ls /usr/local/openblas/lib/libopenblas*.so 2>/dev/null || \
-find /usr -name "libopenblas*.so" 2>/dev/null | head -3
-```
-
-#### 4.2.5.2 修改头文件引用
-
-KML 与 OpenBLAS 均提供标准 CBLAS 接口，头文件切换方式相同：
-
-```cpp
-// 原始代码（引用 Intel MKL 头文件）
-#include "mkl.h"         // Intel MKL 主头文件
-// 或
-#include "mkl_cblas.h"   // Intel MKL CBLAS 接口
-
-// 修改后（aarch64 切换为标准 CBLAS 头文件，x86 保留 MKL）
-#if defined(__aarch64__)
-#include "cblas.h"       // KML / OpenBLAS 均提供标准 CBLAS 接口
-// MKL 头文件路径通常为 /usr/local/kml/include/cblas.h（KML）
-// OpenBLAS 头文件路径通常为 /usr/include/cblas.h 或 /usr/local/openblas/include/cblas.h（OpenBLAS）
-#else
-#include "mkl.h"
-#endif
-```
-
-#### 4.2.5.3 常见 MKL 函数对应替换（API 兼容）
-
-KML 与 OpenBLAS 均实现了标准 CBLAS/LAPACK 接口，函数签名与 Intel MKL 完全相同，**只需切换链接库即可**，无需修改函数调用代码本身：
-
-| Intel MKL 函数 | 说明 | KML 替换（`MKL_STRATEGY=kml`） | OpenBLAS 替换（`MKL_STRATEGY=openblas`） | 是否需改代码 |
-|---------------|------|---------|---------|------------|
-| `cblas_sgemm` | 单精度矩阵乘（BLAS Level 3） | `cblas_sgemm`（KML） | `cblas_sgemm`（OpenBLAS） | 否，仅切换链接库 |
-| `cblas_dgemm` | 双精度矩阵乘（BLAS Level 3） | `cblas_dgemm`（KML） | `cblas_dgemm`（OpenBLAS） | 否，仅切换链接库 |
-| `cblas_cgemm` | 复数单精度矩阵乘 | `cblas_cgemm`（KML） | `cblas_cgemm`（OpenBLAS） | 否，仅切换链接库 |
-| `cblas_zgemm` | 复数双精度矩阵乘 | `cblas_zgemm`（KML） | `cblas_zgemm`（OpenBLAS） | 否，仅切换链接库 |
-| `cblas_sgemv` | 单精度矩阵向量乘 | `cblas_sgemv`（KML） | `cblas_sgemv`（OpenBLAS） | 否，仅切换链接库 |
-| `cblas_dgemv` | 双精度矩阵向量乘 | `cblas_dgemv`（KML） | `cblas_dgemv`（OpenBLAS） | 否，仅切换链接库 |
-| `LAPACKE_sgetrf` | LU 分解 | `LAPACKE_sgetrf`（KML） | `LAPACKE_sgetrf`（OpenBLAS） | 否，仅切换链接库 |
-
-> **注意**：若代码中使用了 MKL 专有扩展接口（如 `mkl_malloc`、`mkl_set_num_threads` 等），则需要额外处理：`mkl_malloc` → `aligned_alloc`（C11 标准），`mkl_set_num_threads` → OpenMP `omp_set_num_threads`。
-
-#### 4.2.5.4 修改构建系统链接选项（按 MKL_STRATEGY 二选一）
-
-将构建系统中链接 MKL 的选项替换为 KML 或 OpenBLAS：
-
-##### （a）`MKL_STRATEGY=kml`：链接 KML
-
-**Bazel 项目**（`.bazelrc` 或 `BUILD` 文件）：
-
-```python
-# 原始（链接 Intel MKL）
-# --linkopt=-lmkl_rt 或 --linkopt=-lmkl_intel_lp64
-
-# 修改后（aarch64 链接 KML，x86 保留 MKL）
-# .bazelrc
-build:linux_aarch64 --linkopt=-L/usr/local/kml/lib/
-build:linux_aarch64 --linkopt=-lkml_blas
-build:linux_aarch64 --linkopt=-lkml_lapack
-```
-
-**CMake 项目**：
-
-```cmake
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    # 链接 KML
-    include_directories(/usr/local/kml/include/)
-    link_directories(/usr/local/kml/lib/)
-    target_link_libraries(${TARGET_NAME} kml_blas kml_lapack)
-else()
-    # x86 保留 MKL 链接（不修改）
-    target_link_libraries(${TARGET_NAME} mkl_rt)
-endif()
-```
-
-**Make 项目**：
-
-```makefile
-ifeq ($(shell uname -m),aarch64)
-    # Rule（必须）：替换 MKL 为 KML
-    CFLAGS   += -I/usr/local/kml/include/
-    LDFLAGS  := $(patsubst -lmkl%,,$(LDFLAGS))   # 移除所有 -lmkl* 选项
-    LDFLAGS  += -L/usr/local/kml/lib/ -lkml_blas -lkml_lapack
-endif
-```
-
-##### （b）`MKL_STRATEGY=openblas`：链接 OpenBLAS
-
-**Bazel 项目**（`.bazelrc` 或 `BUILD` 文件）：
-
-```python
-# 原始（链接 Intel MKL）
-# --linkopt=-lmkl_rt 或 --linkopt=-lmkl_intel_lp64
-
-# 修改后（aarch64 链接 OpenBLAS，x86 保留 MKL）
-# .bazelrc
-build:linux_aarch64 --linkopt=-L/usr/local/openblas/lib/
-build:linux_aarch64 --linkopt=-lopenblas
-# 若通过系统包管理器安装，OpenBLAS 默认在 /usr/lib64，可省略 -L
-```
-
-**CMake 项目**：
-
-```cmake
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    # 链接 OpenBLAS
-    find_package(OpenBLAS REQUIRED)
-    target_link_libraries(${TARGET_NAME} ${OpenBLAS_LIBRARIES})
-else()
-    # x86 保留 MKL 链接（不修改）
-    target_link_libraries(${TARGET_NAME} mkl_rt)
-endif()
-```
-
-**Make 项目**：
-
-```makefile
-ifeq ($(shell uname -m),aarch64)
-    # Rule（必须）：替换 MKL 为 OpenBLAS
-    CFLAGS   += -I/usr/local/openblas/include/
-    LDFLAGS  := $(patsubst -lmkl%,,$(LDFLAGS))   # 移除所有 -lmkl* 选项
-    LDFLAGS  += -L/usr/local/openblas/lib/ -lopenblas
-    # 若通过系统包管理器安装，可省略 -I/-L，直接 -lopenblas
-endif
-```
-
-***
-
-
+- **4.2.5.1 安装**：按 `MKL_STRATEGY` 二选一（`kml` → BoostKit KML 包；`openblas` → dnf/apt/源码安装）
+- **4.2.5.2 头文件**：用 `#if defined(__aarch64__)` 切换 `cblas.h`（KML/OpenBLAS）与 `mkl.h`（x86）
+- **4.2.5.3 函数调用**：CBLAS/LAPACK 接口与 MKL 完全兼容，**无需改函数调用代码**，仅切换链接库
+- **4.2.5.4 构建系统**：按 `MKL_STRATEGY` 二选一修改 Bazel/CMake/Make 链接选项
+- **MKL 专有扩展**：`mkl_malloc` → `aligned_alloc`、`mkl_set_num_threads` → `omp_set_num_threads`
+- **agent 工作流**：阅读 references → 按 `MKL_STRATEGY` 二选一应用 → 双架构编译验证
 
 ### 4.2.6 处理类型大小/字节序依赖（`type size` 类型）
 
@@ -824,7 +458,6 @@ int64_t value = some_function();
 uint32_t network_val = htonl(host_val);   // 主机序 → 网络序（跨平台安全）
 uint32_t host_val    = ntohl(network_val); // 网络序 → 主机序
 ```
-
 ***
 
 ### 4.2.7 处理内存对齐假设（`memory align` 类型）
