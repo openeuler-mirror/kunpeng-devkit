@@ -160,6 +160,8 @@ grep -rn "MKL\|mkl\|Intel.*Math.*Kernel\|MKLROOT\|mkl_core\|mkl_intel_lp64" \
 
 **ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
 
+**x86 专属编译标志（msse/mavx 等）注意**：`-msse/-msse2/-msse4.1/-msse4.2/-mavx/-mavx2/-mavx512f` 等标志会启用对应的 x86 intrinsic 函数（`_mm*` / `_mm256*` / `_mm512*`），ARM 平台不支持这些指令集。检测到后需生成待确认项，替代方案：使用鲲鹏加速库 KSL（提供 `avx2ki.h` 兼容层将 `_mm*` 映射到 NEON）替代，或手写 ARM NEON intrinsics（引入 `<arm_neon.h>`）替代，具体选择由阶段 3 用户决策决定。
+
 **MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 
 ---
@@ -235,8 +237,9 @@ grep -n "MKL\|mkl\|Intel.*Math.*Kernel\|MKLROOT\|mkl_core\|mkl_intel_lp64" \
 
 **ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
 
-**MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
+**x86 专属编译标志（msse/mavx 等）注意**：`-msse/-msse2/-msse4.1/-msse4.2/-mavx/-mavx2/-mavx512f` 等标志会启用对应的 x86 intrinsic 函数（`_mm*` / `_mm256*` / `_mm512*`），ARM 平台不支持这些指令集。检测到后需生成待确认项，替代方案：使用鲲鹏加速库 KSL（提供 `avx2ki.h` 兼容层将 `_mm*` 映射到 NEON）替代，或手写 ARM NEON intrinsics（引入 `<arm_neon.h>`）替代，具体选择由阶段 3 用户决策决定。
 
+**MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 ---
 
 ## 扫描 thirdparty 目录下的 BUILD 文件
@@ -447,6 +450,8 @@ cc_binary(
 
 **ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
 
+**x86 专属编译标志（msse/mavx 等）注意**：`-msse/-msse2/-msse4.1/-msse4.2/-mavx/-mavx2/-mavx512f` 等标志会启用对应的 x86 intrinsic 函数（`_mm*` / `_mm256*` / `_mm512*`），ARM 平台不支持这些指令集。检测到后需生成待确认项，替代方案：使用鲲鹏加速库 KSL（提供 `avx2ki.h` 兼容层将 `_mm*` 映射到 NEON）替代，或手写 ARM NEON intrinsics（引入 `<arm_neon.h>`）替代，具体选择由阶段 3 用户决策决定。
+
 **MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 
 ---
@@ -547,6 +552,8 @@ if platform.machine() == 'x86_64':
 ```
 
 **ABI=0 工具链注意**：使用 `_GLIBCXX_USE_CXX11_ABI=0` 编译的 ARM 库**必须**与项目自身保持一致，否则会出现 `undefined reference to std::string` 等链接错误。在依赖分析报告中需将该项作为**全局编译约束**单独提示。
+
+**x86 专属编译标志（msse/mavx 等）注意**：`-msse/-msse2/-msse4.1/-msse4.2/-mavx/-mavx2/-mavx512f` 等标志会启用对应的 x86 intrinsic 函数（`_mm*` / `_mm256*` / `_mm512*`），ARM 平台不支持这些指令集。检测到后需生成待确认项，替代方案：使用鲲鹏加速库 KSL（提供 `avx2ki.h` 兼容层将 `_mm*` 映射到 NEON）替代，或手写 ARM NEON intrinsics（引入 `<arm_neon.h>`）替代，具体选择由阶段 3 用户决策决定。
 
 **MKL 注意**：Intel MKL 仅支持 x86，ARM 上不可用。检测到后需生成待确认项，替代方案：使用鲲鹏数学库 KML（`-lkblas`/`-lklapack`）替代 MKL，或使用开源 OpenBLAS（`-lopenblas`）替代，具体选择由阶段 3 用户决策决定。
 
