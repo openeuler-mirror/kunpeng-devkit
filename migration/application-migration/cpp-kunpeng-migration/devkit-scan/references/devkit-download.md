@@ -1,7 +1,7 @@
 # DevKit CLI 包下载与安装
 
 > **做什么**：从华为云镜像站动态匹配并下载最新 DevKit CLI 包，解压验证后输出 `DEVKIT` 路径变量。
-> **何时调用**：由 [SKILL.md](../SKILL.md) 4.1.1 节用户选择 `download` 时，经读取文件加载执行。
+> **何时调用**：由 [SKILL.md](SKILL.md) 4.1.1 节用户选择 `download` 时，经读取文件加载执行。
 
 ## 输入 / 输出契约
 
@@ -20,7 +20,7 @@
 
 ## 调用方式：优先执行脚本
 
-agent **优先以脚本形式一次性调用** [devkit-download.sh](../scripts/devkit-download.sh)，不要逐段执行下方说明中的 bash 片段。脚本已内建参数校验、重试、完整性校验与语义化退出码。
+agent **优先以脚本形式一次性调用** [devkit-download.sh](scripts/devkit-download.sh)，不要逐段执行下方说明中的 bash 片段。脚本已内建参数校验、重试、完整性校验与语义化退出码。
 
 ```bash
 WORK_DIR="<工作目录>" bash $SKILL_DIR/devkit-scan/scripts/devkit-download.sh

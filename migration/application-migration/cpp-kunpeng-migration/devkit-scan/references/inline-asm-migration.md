@@ -1,7 +1,7 @@
 # x86 内联汇编处理案例
 
 > **做什么**：将 x86 特定汇编指令改为 ARM aarch64 等价指令或跨平台替代方案。
-> **何时调用**：由 [SKILL.md](../SKILL.md) 4.2.4 节按 DevKit 报告中的 `BUILTIN_ASSEMBLES` 类型条目触发。修改级别为 `Suggestion_General`（建议，非强制）。
+> **何时调用**：由 [SKILL.md](SKILL.md) 4.2.4 节按 DevKit 报告中的 `BUILTIN_ASSEMBLES` 类型条目触发。修改级别为 `Suggestion_General`（建议，非强制）。
 
 ## 输入 / 输出契约
 

@@ -157,8 +157,6 @@ if [ -d "$DEP_DIR" ]; then
 fi
 ```
 
-> **WORKSPACE 文件管理**：阶段 5 编译成功后必须 `rm WORKSPACE`（保留 `WORKSPACE_arm` 和 `WORKSPACE.x86_backup`），避免错把 ARM 版的临时 WORKSPACE 提交到 master。该清理动作已在 [sourcecode-build-verify/SKILL.md](../sourcecode-build-verify/SKILL.md) 5.8 节落实。
-
 ### CMake 项目：清缓存 + 关自动签出 + 逐个钉定子模块分支
 
 CMake 切换最易踩的两个坑：①`CMakeCache.txt` 缓存 x86 路径；②**子模块自动签出在 cmake 阶段把手动切的 ARM 分支默默重置回去**。
@@ -230,7 +228,7 @@ git -C $PROJECT_ROOT/third_party/foo branch --show-current 2>/dev/null \
 - [ ] 对阶段 3 中用户回复「禁用该模块」的依赖，对应的构建目标已被注释/移除（不要静默保留）
 - [ ] `$WORK_DIR/reports/user_decisions.txt` 与本次切换实际动作一致
 
-校验通过后，阶段 3 结束，进入阶段 4（DevKit 扫描，见 [SKILL.md](../../devkit-scan/SKILL.md)）。
+校验通过后，阶段 3 结束，进入阶段 4（DevKit 扫描）。
 
 ---
 

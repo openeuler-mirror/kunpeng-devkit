@@ -142,7 +142,7 @@ rm -rf $BUILD_DIR && mkdir -p $BUILD_DIR
 make clean
 
 # 重新编译（编译命令会自动带上全局 -D_GLIBCXX_USE_CXX11_ABI=0）
-# 回到 ../../sourcecode-build-verify/SKILL.md 5.2 主循环重新执行编译
+# 回到 SKILL.md 5.2 主循环重新执行编译
 ```
 
 **修改前（不一致状态）：**
