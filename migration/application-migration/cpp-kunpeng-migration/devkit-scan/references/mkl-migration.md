@@ -1,7 +1,6 @@
 # Intel MKL 函数替换案例
 
-> **做什么**：将 Intel MKL（Math Kernel Library）函数（如 `cblas_sgemm`）替换为 aarch64 平台等价的数学库函数（KML 或 OpenBLAS）。
-> **何时调用**：由 [SKILL.md](SKILL.md) 4.2.5 节按 DevKit 报告中的 `INVALID_CATEGORY` 类型条目触发。修改级别为 `Rule`（必须）。
+> **做什么**：将 Intel MKL（Math Kernel Library）函数（如 `cblas_sgemm`）替换为 aarch64 平台等价的数学库函数（KML 或 OpenBLAS）（修改级别 `Rule`，必须）。
 
 ## 输入 / 输出契约
 

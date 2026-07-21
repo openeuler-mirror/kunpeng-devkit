@@ -1,7 +1,6 @@
 # Intrinsics 函数处理案例
 
 > **做什么**：将 x86 AVX/SSE intrinsics 函数调用按 `AVX_STRATEGY` 改造为 avx2ki 兼容层、NEON 手写实现或标量退化。
-> **何时调用**：由 [SKILL.md](SKILL.md) 4.2.3 节按 DevKit 报告中的 `INTRINSICS` / `INTRINSICS_LIBRARY` 类型条目触发。
 
 ## 输入 / 输出契约
 
