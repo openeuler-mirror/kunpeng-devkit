@@ -189,7 +189,7 @@ options:
 > **必须读取文件 `dependency-analysis/references/kunpeng-confirmed-write.md` 获取完整执行步骤。**
 
 本步骤在阶段 3 末尾一次性完成三件事：
-1. **登记**：把用户确认的依赖 Kunpeng 适配信息按依赖库写入 [kunpeng_confirmed.md](dependency-analysis/references/kunpeng_confirmed.md)
+1. **登记**：把用户确认的依赖 Kunpeng 适配信息按依赖库写入 `$WORK_DIR/kunpeng_confirmed.md`
 2. **确认切换**：把待切换清单**逐项向用户确认**后，立即把构建配置分支/commit/URL 切换为清单记录的 Kunpeng 版本
 3. **校验**：切换后逐项核对分支是否真切到 Kunpeng 版（一句话提醒：切错会让后续编译错误极难排查）
 

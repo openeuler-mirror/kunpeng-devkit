@@ -76,13 +76,15 @@ git log --oneline --all | grep -iE "arm|aarch64|cross.?compil|kunpeng" | head -5
 
 ## 1.5 与已确认清单比对（按依赖库名匹配）
 
-> 这是「查到分支 → 用户确认 → 阶段 3 末尾切换」闭环的查询端。[kunpeng_confirmed.md](kunpeng_confirmed.md) 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/路径）。
+> 这是「查到分支 → 用户确认 → 阶段 3 末尾切换」闭环的查询端。`$WORK_DIR/kunpeng_confirmed.md` 按**依赖库**索引，每个依赖库一条 ARM 适配记录（分支/commit/路径）。
 
 **在执行 1.2/1.3 探测之前**，先读本清单，命中的依赖免探测、免询问，并记下 ARM 适配信息供阶段 3 末尾切换使用：
 
 ```bash
-# 读取已确认清单（skill 目录下）
-cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
+# 实例不存在时从 skill 模板复制（首次使用）；读取 $WORK_DIR 下的可写实例
+[ -f "$WORK_DIR/kunpeng_confirmed.md" ] || \
+  cp "$SKILL_DIR/dependency-analysis/assets/kunpeng_confirmed_template.md" "$WORK_DIR/kunpeng_confirmed.md"
+cat "$WORK_DIR/kunpeng_confirmed.md" 2>/dev/null
 ```
 
 ### 比对方法

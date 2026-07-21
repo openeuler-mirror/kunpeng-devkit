@@ -1,7 +1,7 @@
 # 写入 ARM 确认清单与执行真实切换
 
 > 本文件是「查到分支 → 用户确认 → 切换并校验」闭环的写入端与切换端，描述阶段 3 中的两个连续动作：
-> 1. **阶段 3 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 [kunpeng_confirmed.md](kunpeng_confirmed.md)（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
+> 1. **阶段 3 登记与确认**：用户确认某依赖的 ARM 适配分支后，按**依赖库**将其登记到 `$WORK_DIR/kunpeng_confirmed.md`（仅写清单文件），再就每个待切换依赖**逐项经用户确认**
 > 2. **阶段 3 末尾切换**：确认通过后，立即把构建配置里这些依赖的分支 / commit / URL 替换为清单记录的 ARM 版本，并做基础校验，让项目在进入阶段 4（源码迁移扫描）前就已是 ARM 版本
 >
 > 切换放在阶段 3 末尾（而非阶段 4）的原因：用户刚确认完、信息最全时顺手切掉，避免拖到阶段 4 与源码适配交织；阶段 4 因此可专注源码迁移扫描与适配。
@@ -20,7 +20,14 @@
 
 ### 步骤 1：定位依赖库区块
 
-打开 [kunpeng_confirmed.md](kunpeng_confirmed.md)，按**依赖库名**查找区块。区块标题格式：
+先确保可写实例存在（首次使用时从 skill 模板复制；阶段 2 已初始化则跳过）：
+
+```bash
+[ -f "$WORK_DIR/kunpeng_confirmed.md" ] || \
+  cp "$SKILL_DIR/dependency-analysis/assets/kunpeng_confirmed_template.md" "$WORK_DIR/kunpeng_confirmed.md"
+```
+
+打开 `$WORK_DIR/kunpeng_confirmed.md`，按**依赖库名**查找区块。区块标题格式：
 
 ```markdown
 ## <依赖库名>
@@ -72,7 +79,7 @@
 
 | 来源 | 依赖的 ARM 适配信息从哪取 |
 |------|------------------------|
-| 阶段 2 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（compat-and-binary-detect.md 第一部分 的 1.5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
+| 阶段 2 命中 `$WORK_DIR/kunpeng_confirmed.md`（compat-and-binary-detect.md 第一部分 的 1.5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
 | 阶段 3 新登记 | 刚写入清单的记录 |
 
 #### 切换前必须用户确认（不可跳过）

@@ -117,7 +117,7 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 | 阶段 3 用户决策 | 用户选择"跳过"的依赖及降级方案、用户确认切换的分支 |
 | 阶段 4 DevKit 报告 | 仍有潜在风险但未修改的扫描项、需人工验证的适配点 |
 | 阶段 5 编译日志 | x86 双架构兼容性验证提示、编译尝试次数、人工介入记录（如有） |
-| kunpeng_confirmed.md | 本次迁移新增登记的 ARM 适配依赖（供后续项目复用） |
+| `$WORK_DIR/kunpeng_confirmed.md` | 本次迁移新增登记的 ARM 适配依赖（供后续项目复用） |
 
 ### 报告中的提示格式
 
@@ -133,7 +133,7 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 - <文件名> 中的 <函数名> 使用标量退化替代 SIMD，性能可能下降，建议后续优化为 NEON 实现
 
 ### 本次迁移产出
-- kunpeng_confirmed.md 新增登记： <依赖名1>、<依赖名2>
+- `$WORK_DIR/kunpeng_confirmed.md` 新增登记： <依赖名1>、<依赖名2>
 - 编译尝试次数：<N> 次
 - 最终编译状态：成功 / 人工介入
 ```

@@ -66,7 +66,10 @@ cat "$REPORT"
 **在启动任何仓库分析之前**，先读取全局免检清单，避免对已确认兼容的依赖重复探测：
 
 ```bash
-cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
+# 实例不存在时从 skill 模板复制（首次使用）；实例随 $WORK_DIR 在同一 workspace 内跨项目积累
+[ -f "$WORK_DIR/kunpeng_confirmed.md" ] || \
+  cp "$SKILL_DIR/dependency-analysis/assets/kunpeng_confirmed_template.md" "$WORK_DIR/kunpeng_confirmed.md"
+cat "$WORK_DIR/kunpeng_confirmed.md" 2>/dev/null
 ```
 
 将免检清单的内容缓存在上下文中，供后续每次调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) 时使用（第一部分 的 1.5 比对）。
@@ -218,7 +221,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 | 文件 | 职责 | 调用方 |
 |------|------|--------|
 | [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 写入 ARM 确认清单、执行真实分支切换、切换后校验 | **阶段 3 主编排**（本子 skill 仅产生供其消费的待切换清单，不执行其中步骤） |
-| [kunpeng_confirmed.md](references/kunpeng_confirmed.md) | ARM 适配已确认依赖知识库（按依赖库名索引，跨项目复用） | 阶段 2 读取（免检）、阶段 3 写入 |
+| [kunpeng_confirmed_template.md](assets/kunpeng_confirmed_template.md) | ARM 适配已确认依赖知识库**模板**（按依赖库名索引，跨项目复用）；首次使用复制到 `$WORK_DIR/kunpeng_confirmed.md` 作为可写实例 | 阶段 2 读取实例（免检）、阶段 3 写入实例 |
 
 ### 输出模板
 

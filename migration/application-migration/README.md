@@ -84,9 +84,9 @@ cpp-kunpeng-migration/
 │   │   ├── repo-analysis-flow.md                     # 单仓库分析闭环步骤
 │   │   ├── compat-and-binary-detect.md               # 通用 Kunpeng 兼容性探测 + 预编译二进制识别
 │   │   ├── kunpeng-confirmed-write.md                # 阶段 3：写入确认清单 + 执行切换
-│   │   ├── kunpeng_confirmed.md                      # 已确认 Kunpeng 适配的依赖库清单
 │   │   └── build-system-dep-scan.md                  # 四构建系统合集（Bazel/CMake/Blade/SCons 按章节按需加载）
 │   └── assets/
+│       ├── kunpeng_confirmed_template.md             # ARM 适配确认清单模板（首次使用复制到 $WORK_DIR 作可写实例）
 │       └── report-template-example.md                # 报告输出模板
 ├── source-migration-scan/                            # 阶段 4 子 Skill：源码迁移扫描与适配
 │   ├── SKILL.md                                      # 完整扫描 + 适配流程
@@ -338,7 +338,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: 如何复用已确认的 ARM 适配依赖？
 
-阶段 3 会将用户确认的依赖 ARM 适配信息写入 [kunpeng_confirmed.md](cpp-kunpeng-migration/dependency-analysis/references/kunpeng_confirmed.md)。后续项目迁移时，阶段 2 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。
+阶段 3 会将用户确认的依赖 ARM 适配信息写入 `$WORK_DIR/kunpeng_confirmed.md`（首次使用时从 skill 模板 [kunpeng_confirmed_template.md](cpp-kunpeng-migration/dependency-analysis/assets/kunpeng_confirmed_template.md) 复制）。后续项目迁移时，阶段 2 会读取该免检清单，命中的依赖自动标记为待切换，无需重复探测和提问。实例随 `$WORK_DIR` 在同一 workspace 内跨项目复用。
 
 ---
 
