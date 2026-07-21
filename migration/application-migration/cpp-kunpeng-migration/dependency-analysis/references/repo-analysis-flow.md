@@ -64,7 +64,7 @@ grep -rn "yum install\|apt-get install\|apt install" "$REPO_PATH"/*.sh "$REPO_PA
 
 ### Step 3：对 deps_list 执行 ARM 兼容性探测
 
-加载 [compat-and-binary-detect.md](compat-and-binary-detect.md) Part A，对 Step 2 收集的每个依赖执行：
+加载 [compat-and-binary-detect.md](compat-and-binary-detect.md) 第一部分，对 Step 2 收集的每个依赖执行：
 
 1. 与 `kunpeng_confirmed.md` 免检清单比对（命中则跳过后续探测）
 2. 私有 URL 判断（公开平台直接豁免）
@@ -77,7 +77,7 @@ grep -rn "yum install\|apt-get install\|apt install" "$REPO_PATH"/*.sh "$REPO_PA
 
 ### Step 4：预编译二进制识别与源码溯源
 
-加载 [compat-and-binary-detect.md](compat-and-binary-detect.md) Part B，对 `$REPO_PATH` 执行：
+加载 [compat-and-binary-detect.md](compat-and-binary-detect.md) 第二部分，对 `$REPO_PATH` 执行：
 
 1. 扫描仓库内置 `.so`/`.a`/可执行文件
 2. `file` 命令判断架构（x86-64 / aarch64 / ARM32 等）
@@ -122,7 +122,7 @@ git submodule status
 递归执行：Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6
 ```
 
-同时检查每个子模块的 ARM 兼容性（加载 `compat-and-binary-detect.md` Part A 即可，此处无需重复写命令）。
+同时检查每个子模块的 ARM 兼容性（加载 `compat-and-binary-detect.md` 第一部分 即可，此处无需重复写命令）。
 
 #### 情况 B：`HAS_SUBMODULES=false`
 

@@ -15,7 +15,7 @@
 ## 阶段 3：写入 ARM 确认清单
 
 > **输入来源有两条**，写入方式相同：
-> - 阶段 2 通过 [compat-and-binary-detect.md](compat-and-binary-detect.md) Part A 的 A.5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 2 就已查到，阶段 3 只需补登尚未在清单里、但用户刚确认的新依赖
+> - 阶段 2 通过 [compat-and-binary-detect.md](compat-and-binary-detect.md) 第一部分 的 1.5 **命中清单**的依赖（已知 ARM 适配，无需再问用户）——这些其实在阶段 2 就已查到，阶段 3 只需补登尚未在清单里、但用户刚确认的新依赖
 > - 阶段 3 通过向用户提问让用户**新确认**的依赖（清单里没有、探测后由用户提供 ARM 分支/包路径）
 
 ### 步骤 1：定位依赖库区块
@@ -72,7 +72,7 @@
 
 | 来源 | 依赖的 ARM 适配信息从哪取 |
 |------|------------------------|
-| 阶段 2 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（compat-and-binary-detect.md Part A 的 A.5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
+| 阶段 2 命中 [kunpeng_confirmed.md](kunpeng_confirmed.md)（compat-and-binary-detect.md 第一部分 的 1.5） | 清单该依赖库区块记下的 ARM 分支/commit/URL/备注 |
 | 阶段 3 新登记 | 刚写入清单的记录 |
 
 #### 切换前必须用户确认（不可跳过）

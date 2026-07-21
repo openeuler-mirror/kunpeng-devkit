@@ -69,7 +69,7 @@ cat "$REPORT"
 cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 ```
 
-将免检清单的内容缓存在上下文中，供后续每次调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) 时使用（Part A 的 A.5 比对）。
+将免检清单的内容缓存在上下文中，供后续每次调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) 时使用（第一部分 的 1.5 比对）。
 
 > **在清单中命中（按依赖库名定位到 ARM 适配区块）的依赖，已知 ARM 适配方案**：在报告中**展示一条**并标注「已知 ARM 适配，待阶段 3 末尾切换」，把区块记录的 ARM 分支/commit/URL/备注记下供阶段 3 末尾切换，不再探测、不再询问用户。
 
@@ -90,8 +90,8 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 
 `repo-analysis-flow.md` 内部会自动：
 - 检测主仓构建系统，加载对应专用分析文件
-- 调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) Part A 执行 ARM 兼容性探测
-- 调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) Part B 执行预编译二进制识别与溯源
+- 调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) 第一部分 执行 ARM 兼容性探测
+- 调用 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) 第二部分 执行预编译二进制识别与溯源
 - 递归处理所有子模块，每个子仓**独立检测构建系统**
 
 最终返回包含所有层级信息的结构化结果，用于第四步聚合。
@@ -202,7 +202,7 @@ cat "$SKILL_DIR/dependency-analysis/references/kunpeng_confirmed.md" 2>/dev/null
 | 文件 | 职责 |
 |------|------|
 | [repo-analysis-flow.md](references/repo-analysis-flow.md) | 代码仓分析闭环：检测构建系统 → 分发依赖扫描 → 调用通用模块 → 递归子模块 |
-| [compat-and-binary-detect.md](references/compat-and-binary-detect.md) | 通用共享模块：Part A ARM 兼容性探测（私有 URL 判断、远端分支检查、提交历史检查、免检清单比对）+ Part B 二进制文件扫描（扫描、架构判断、四级源码溯源、截断策略） |
+| [compat-and-binary-detect.md](references/compat-and-binary-detect.md) | 通用共享模块：第一部分 ARM 兼容性探测（私有 URL 判断、远端分支检查、提交历史检查、免检清单比对）+ 第二部分 二进制文件扫描（扫描、架构判断、四级源码溯源、截断策略） |
 
 ### 构建系统专用合集（按需加载对应章节）
 
