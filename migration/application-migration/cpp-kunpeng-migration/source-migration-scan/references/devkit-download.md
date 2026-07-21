@@ -22,7 +22,7 @@
 agent **优先以脚本形式一次性调用** [devkit-download.sh](scripts/devkit-download.sh)，不要逐段执行下方说明中的 bash 片段。脚本已内建参数校验、重试、完整性校验与语义化退出码。
 
 ```bash
-WORK_DIR="<工作目录>" bash $SKILL_DIR/devkit-scan/scripts/devkit-download.sh
+WORK_DIR="<工作目录>" bash $SKILL_DIR/source-migration-scan/scripts/devkit-download.sh
 ```
 
 调用约定：

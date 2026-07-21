@@ -1,12 +1,12 @@
 ---
-name: devkit-scan
-description: C/C++ 鲲鹏迁移的DevKit扫描、源码适配子 Skill。作为 cpp-kunpeng-migration 阶段 4 被调用，或用户需要对 C/C++ 项目执行鲲鹏 DevKit 扫描、处理 x86 专属代码或适配 aarch64 构建配置时使用。负责先生成并分析 DevKit 扫描报告，再依据报告完成架构相关源码和构建系统改造。不负责通用环境准备、依赖兼容性分析和最终编译验证。
+name: source-migration-scan
+description: C/C++ 鲲鹏迁移的源码迁移扫描子 Skill。作为 cpp-kunpeng-migration 阶段 4 被调用，或用户需要对 C/C++ 项目执行鲲鹏 DevKit 扫描、处理 x86 专属代码或适配 aarch64 构建配置时使用。负责先生成并分析 DevKit 扫描报告，再依据报告完成架构相关源码和构建系统改造。不负责通用环境准备、依赖兼容性分析和最终编译验证。
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit
 ---
 
-# 阶段 4：DevKit 扫描与源码适配
+# 阶段 4：源码迁移扫描与适配
 
 本文档描述如何运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描，以及如何根据扫描报告对源码进行架构适配修改。
 

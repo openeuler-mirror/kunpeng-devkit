@@ -21,7 +21,7 @@ metadata:
 
 ## 整体流程
 
-> **阶段 1（环境检测与准备，子 agent）** → **阶段 2（依赖分析，子 agent）** → **阶段 3（汇总子 agent 待确认项，等待用户回复）** → **阶段 4（DevKit 扫描 → 源码 & 构建适配，严格串行）** → **阶段 5（编译验证循环）** → **阶段 6（迁移总结报告）**
+> **阶段 1（环境检测与准备，子 agent）** → **阶段 2（依赖分析，子 agent）** → **阶段 3（汇总子 agent 待确认项，等待用户回复）** → **阶段 4（源码迁移扫描与适配，严格串行）** → **阶段 5（编译验证循环）** → **阶段 6（迁移总结报告）**
 
 > **关键约束**：
 > - 阶段 2 完成后，进入阶段 3 暂停等待用户回复，**未获得用户明确确认前不进入阶段 4**
@@ -199,9 +199,9 @@ options:
 
 ---
 
-## 阶段 4：DevKit 扫描 → 构建配置 + 源码适配（严格串行）
+## 阶段 4：源码迁移扫描与适配（严格串行）
 
-> **必须立即读取文件 `devkit-scan/SKILL.md` 获取完整执行步骤。**
+> **必须立即读取文件 `source-migration-scan/SKILL.md` 获取完整执行步骤。**
 
 **本阶段目标**：先运行 DevKit 扫描发现源码 x86 专属问题，**扫描结束后**再根据报告结果完成构建系统配置适配与源码修改。
 
@@ -214,9 +214,9 @@ options:
 >
 > **不可并行的原因**：DevKit 扫描结果对后续修改有**直接指导作用**——它会定位需要修改的源文件、指出问题类型（内联汇编 / intrinsics / 头文件 / 类型大小等）、给出修改建议。如果先修改再扫描，可能遗漏问题或做重复/冲突修改。因此**必须先等扫描结束、拿到报告，再开始源码和构建适配**。
 >
-> `which devkit` 返回空时不允许跳过扫描，必须向用户提问让其决策：手动提供安装路径 / 由 Skill 自动下载安装 / 中止（详见 devkit-scan/SKILL.md 4.1.1）。
+> `which devkit` 返回空时不允许跳过扫描，必须向用户提问让其决策：手动提供安装路径 / 由 Skill 自动下载安装 / 中止（详见 source-migration-scan/SKILL.md 4.1.1）。
 >
-> 阶段 4 只做 DevKit 扫描与源码/构建适配——依赖分支切换已在阶段 3 末尾完成，此处不再切换。
+> 阶段 4 只做源码迁移扫描与适配——依赖分支切换已在阶段 3 末尾完成，此处不再切换。
 >
 > **DevKit 扫描报告是阶段 5 错误修复的最高优先级参考依据，路径 `$WORK_DIR/reports/devkit-*/`。**
 
@@ -264,7 +264,7 @@ options:
 |----------|----------|------|
 | `environment-prepare` | [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 1 子 Skill：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
 | `dependency-analysis` | [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
-| `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 4 子 Skill：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
+| `source-migration-scan` | [source-migration-scan/SKILL.md](source-migration-scan/SKILL.md) | 阶段 4 子 Skill：源码迁移扫描与适配（含输入/输出契约、DevKit 下载与扫描流程） |
 | `sourcecode-build-verify` | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 5 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库） |
 | `migration-summary` | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 6 子 Skill：迁移总结报告生成与 patch 导出（含各阶段时长统计、修改文件清单、重要提示、patch 生成排除二进制） |
 

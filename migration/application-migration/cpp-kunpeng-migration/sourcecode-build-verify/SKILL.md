@@ -1,6 +1,6 @@
 ---
 name: sourcecode-build-verify
-description: C/C++ 鲲鹏迁移的编译验证子 Skill。作为 cpp-kunpeng-migration 阶段 5 被调用，或用户需要在鲲鹏（aarch64）环境编译 C/C++ 项目、排查编译错误或查询鲲鹏迁移案例时使用。负责执行编译、提取关键错误，并依次查询 build-error-quickfix 速查表和 migration-cases 案例库完成修复与重试，直至编译成功。不负责前置环境准备、依赖分析和 DevKit 扫描适配。
+description: C/C++ 鲲鹏迁移的编译验证子 Skill。作为 cpp-kunpeng-migration 阶段 5 被调用，或用户需要在鲲鹏（aarch64）环境编译 C/C++ 项目、排查编译错误或查询鲲鹏迁移案例时使用。负责执行编译、提取关键错误，并依次查询 build-error-quickfix 速查表和 migration-cases 案例库完成修复与重试，直至编译成功。不负责前置环境准备、依赖分析和源码迁移扫描与适配。
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit
