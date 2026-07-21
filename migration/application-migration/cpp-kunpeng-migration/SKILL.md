@@ -262,11 +262,13 @@ options:
 
 | 子模块 | 入口文件 | 用途 |
 |----------|----------|------|
-| `environment-prepare` | [SKILL.md](environment-prepare/SKILL.md) | 阶段 1 子 Skill：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
-| `dependency-analysis` | [SKILL.md](dependency-analysis/SKILL.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+| `environment-prepare` | [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 1 子 Skill：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
+| `dependency-analysis` | [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
 | `devkit-scan` | [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 4 子 Skill：DevKit 扫描与源码/构建适配（含输入/输出契约、DevKit 下载与扫描流程） |
 | `sourcecode-build-verify` | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 5 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库） |
 | `migration-summary` | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 6 子 Skill：迁移总结报告生成与 patch 导出（含各阶段时长统计、修改文件清单、重要提示、patch 生成排除二进制） |
+
+> 各子 Skill 目录下的引用文档（references / scripts / assets）由子 Skill 自行管理，详见对应 SKILL.md，主 Skill 不再逐一列举。
 
 ---
 
@@ -290,17 +292,3 @@ options:
 
 > 本 Skill 正文及 agent 模板中一律用「读取文件 / 写入文件 / 执行 shell 命令 / 向用户提问」等语义动词表述，运行时请按下表映射到你所用助手的对应工具。其中「向用户提问」是唯一可能被纯文本输出"假装"完成的动作——**必须落到上表工具，不得用回复正文代替**。
 
----
-
-## 附加资源
-
-> 各子 Skill 目录下的引用文档由子 Skill 自行管理，详见对应 SKILL.md。
-
-| 文档 | 用途 |
-|------|------|
-| [SKILL.md](environment-prepare/SKILL.md) | 阶段 1 子 Skill：环境检测与编译环境准备（含方法、输入/输出契约、待确认项格式、构建工具下载链接 references/build-tools-reference.md） |
-| [SKILL.md](dependency-analysis/SKILL.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含方法、输入/输出契约、待确认项/待切换清单格式、kunpeng_confirmed.md 免检清单） |
-| [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 5 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库、bazel-dual-arch-pattern 模式参考） |
-| [dependency-analysis/references/kunpeng-confirmed-write.md](dependency-analysis/references/kunpeng-confirmed-write.md) | 阶段 3.4：写入 ARM 确认清单 + 执行真实切换 |
-| [devkit-scan/SKILL.md](devkit-scan/SKILL.md) | 阶段 4 子 Skill：DevKit 扫描与源码/构建适配（完整扫描+适配流程见 devkit-scan/SKILL.md，含 devkit-download.md 下载说明） |
-| [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 6：迁移总结报告生成子 Skill |
