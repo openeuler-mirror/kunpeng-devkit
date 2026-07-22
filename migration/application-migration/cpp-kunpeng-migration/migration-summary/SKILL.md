@@ -3,7 +3,7 @@ name: migration-summary
 description: C/C++ 鲲鹏迁移的迁移总结报告生成子 Skill。作为 cpp-kunpeng-migration 阶段 6 被调用，或用户需要生成 C/C++ 鲲鹏迁移总结报告、统计阶段耗时、梳理修改清单或归档迁移成果时使用。负责汇总各阶段执行结果、耗时、修改文件及修改内容，并输出风险、遗留问题和后续建议。不负责环境检测、源码适配和编译修复。
 license: MulanPSL-2.0
 metadata:
-  author: Kunpeng Devkit
+  author: Kunpeng DevKit
 ---
 
 # 迁移报告总结功能描述
@@ -14,10 +14,16 @@ metadata:
 
 **前置条件**：阶段 5 编译成功（编译成功后收尾 流程执行完成），或阶段 5 触发人工介入（人工介入报告 流程执行完成）。
 
-**参数定义**：
-- PROJECT_ROOT = <项目绝对路径>（主编排传入）
-- WORK_DIR = <工作目录绝对路径>（主编排传入）
-- SKILL_DIR = <skill目录绝对路径>（主编排传入）
+**输入参数**：
+
+本子 Skill 接收以下三个路径变量作为输入：
+
+- `<项目绝对路径>` -> `PROJECT_ROOT`
+- `<工作目录绝对路径>` -> `WORK_DIR`
+- `<skill目录绝对路径>` -> `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
+
+- `SKILL_DIR`：本 skill 自知（cpp-kunpeng-migration 目录 = 本子 skill 目录的上一层）。
+- `PROJECT_ROOT`、`WORK_DIR`：主编排调用时由主编排传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
 
 ---
 # 使用流程

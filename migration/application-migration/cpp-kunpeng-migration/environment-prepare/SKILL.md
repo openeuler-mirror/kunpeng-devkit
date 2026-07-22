@@ -16,11 +16,16 @@ metadata:
 **子 agent 边界**：
 - 子 agent **不向用户提问**，检测到的版本不一致项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_1_pending_items.md`，由主编排在阶段 3 统一提问。
 
-**参数定义**：
+**输入参数**：
 
-- PROJECT_ROOT = <项目绝对路径>（主编排传入）
-- WORK_DIR = <工作目录绝对路径>（主编排传入）
-- SKILL_DIR = <skill目录绝对路径>（主编排传入）
+本子 Skill 接收以下三个路径变量作为输入：
+
+- `<项目绝对路径>` -> `PROJECT_ROOT`
+- `<工作目录绝对路径>` -> `WORK_DIR`
+- `<skill目录绝对路径>` -> `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
+
+- `SKILL_DIR`：本 skill 自知（cpp-kunpeng-migration 目录 = 本子 skill 目录的上一层）。
+- `PROJECT_ROOT`、`WORK_DIR`：主编排调用时由主编排传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
 
 # 使用流程
 

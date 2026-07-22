@@ -13,11 +13,16 @@ metadata:
 
 **前置条件**：阶段 4 完成，DevKit 扫描问题已处理，构建配置已适配。
 
-**参数定义**：
+**输入参数**：
 
-- PROJECT_ROOT = <项目绝对路径>（主编排传入）
-- WORK_DIR = <工作目录绝对路径>（主编排传入）
-- SKILL_DIR = <skill目录绝对路径>（主编排传入）
+本子 Skill 接收以下三个路径变量作为输入：
+
+- `<项目绝对路径>` -> `PROJECT_ROOT`
+- `<工作目录绝对路径>` -> `WORK_DIR`
+- `<skill目录绝对路径>` -> `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
+
+- `SKILL_DIR`：本 skill 自知（cpp-kunpeng-migration 目录 = 本子 skill 目录的上一层）。
+- `PROJECT_ROOT`、`WORK_DIR`：主编排调用时由主编排传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
 
 ---
 

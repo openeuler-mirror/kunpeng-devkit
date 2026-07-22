@@ -14,17 +14,14 @@ metadata:
 
 ### 输入参数
 
-主编排读取本文件全文，将下列占位符替换为实际值后作为子 agent 提示词传入：
+本子 Skill 接收以下三个路径变量作为输入：
 
-- `<项目绝对路径>` → `PROJECT_ROOT`
-- `<工作目录绝对路径>` → `WORK_DIR`
-- `<skill目录绝对路径>` → `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
+- `<项目绝对路径>` -> `PROJECT_ROOT`
+- `<工作目录绝对路径>` -> `WORK_DIR`
+- `<skill目录绝对路径>` -> `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
 
-参数定义：
-
-- PROJECT_ROOT = <项目绝对路径>（主编排传入）
-- WORK_DIR = <工作目录绝对路径>（主编排传入）
-- SKILL_DIR = <cpp-kunpeng-migration skill 目录绝对路径>（主编排传入）
+- `SKILL_DIR`：本 skill 自知（cpp-kunpeng-migration 目录 = 本子 skill 目录的上一层）。
+- `PROJECT_ROOT`、`WORK_DIR`：主编排调用时由主编排传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
 
 支持以下 C++ 构建系统的依赖分析：
 
