@@ -9,19 +9,19 @@
 
 ## 一、重要提示与建议
 
-<6.3 的提示内容>
+<第4节 重要提示与建议>
 
 ---
 
 ## 二、各阶段执行时长
 
-<6.1 的时长表格>
+<第1节 各阶段执行时长表格>
 
 ---
 
 ## 三、修改文件清单
 
-<6.2 的修改文件表格>
+<第2节 修改文件清单>
 
 ### 修改统计
 - 修改文件总数：<N>
@@ -64,3 +64,4 @@
 | 编译日志 | $WORK_DIR/logs/build_<N>.log |
 | 迁移 patch | $WORK_DIR/reports/migration.patch |
 | 二进制改动清单 | $WORK_DIR/reports/binary_changes.txt |
+| ARM 适配确认清单 | $WORK_DIR/kunpeng_confirmed.md |

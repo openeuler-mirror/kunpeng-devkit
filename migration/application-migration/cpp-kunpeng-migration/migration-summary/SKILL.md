@@ -3,7 +3,7 @@ name: migration-summary
 description: C/C++ 鲲鹏迁移的迁移总结报告生成子 Skill。作为 cpp-kunpeng-migration 阶段 6 被调用，或用户需要生成 C/C++ 鲲鹏迁移总结报告、统计阶段耗时、梳理修改清单或归档迁移成果时使用。负责汇总各阶段执行结果、耗时、修改文件及修改内容，并输出风险、遗留问题和后续建议。不负责环境检测、源码适配和编译修复。
 license: MulanPSL-2.0
 metadata:
-  author: Kunpeng DevKit
+  author: Kunpeng Devkit
 ---
 
 # 迁移报告总结功能描述
@@ -60,20 +60,22 @@ PHASE_2_START|2024-01-01 10:16:00
 
 输出到报告的"修改文件清单"表格：
 
-| 序号 | 文件路径 | 修改阶段 | 修改类型 | 修改点描述 |
-|------|---------|---------|---------|-----------|
-| 1 | src/util/simd.cpp | 4/5 | 源码适配 | 用 #if defined(__x86_64__) 包裹 AVX intrinsics，ARM 路径提供 NEON 替代 |
-| 2 | BUILD | 4 | 构建配置 | 添加 select() 分支，ARM 配置段增加 aarch64 编译标志 |
-| 3 | .bazelrc | 1/4 | 构建配置 | 新增 --config=linux_aarch64 配置段 |
-| ... | | | | |
+| 序号 | 文件路径 | 修改点描述（怎么改的） | 修改原因（x86->arm 为何要改） |
+|------|---------|------|------|
+| 1 | src/util/simd.cpp | 用 #if defined(__x86_64__) 包裹 AVX intrinsics，ARM 路径提供 NEON 替代 | 使用 x86 AVX intrinsics，鲲鹏不支持 AVX 指令集 |
+| 2 | BUILD | 添加 select() 分支，ARM 配置段增加 aarch64 编译标志 | 需为 aarch64 单独配置编译标志与依赖分支 |
+| 3 | .bazelrc | 新增 --config=linux_aarch64 配置段 | 需独立 aarch64 构建配置段 |
+| ... | | | |
 
-**修改类型枚举**：源码适配 / 构建配置 / 环境安装 / 依赖切换
+**合并去重**：修改文件清单需合并阶段 2（依赖切换）、阶段 4（DevKit 源码适配）、阶段 5（fix_history 修复）三个来源，按文件路径去重--同一文件在多阶段改动合并为一行。各列填充：
+- `修改点描述`（怎么改的）：取自来源的修复操作--fix_history「修复操作」、DevKit 报告建议的修改方法、依赖分析报告的切换操作
+- `修改原因`（x86->arm 为何要改）：取自来源的根因/问题描述--fix_history「错误根因」、DevKit 报告的问题描述（如「使用 x86 AVX intrinsics，鲲鹏不支持」）、依赖分析报告的冲突原因
 
 ---
 
 ## 3. 生成 patch 文件
 
-将源码与构建配置的改动导出为 patch 文件，供归档与跨环境应用。二进制文件（如 `.so`/`.a`/`.o`/`.dll`/`.dylib`/`.exe`/`.bin` 及图片/压缩包等）不纳入 patch，改为在报告中说明（见 6.4）。
+将源码与构建配置的改动导出为 patch 文件，供归档与跨环境应用。二进制文件（如 `.so`/`.a`/`.o`/`.dll`/`.dylib`/`.exe`/`.bin` 及图片/压缩包等）不纳入 patch，改为在报告中说明（见报告模板「三、修改文件清单 -> 未包含在 patch 中的二进制文件改动」）。
 
 ### 3.1. 识别二进制文件改动
 
@@ -140,19 +142,80 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 
 ---
 
-## 5. 生成总结报告
+## 5. 收集迁移过程摘要指标
 
-将 1 ~ 4 的内容整合为一份完整的 Markdown 报告，保存到：
+供报告「四、迁移过程摘要」表填充。逐阶段从对应报告抽取关键结果，**无需重新执行检测**：
+
+| 阶段 | 关键结果 | 数据来源 |
+|------|---------|---------|
+| 1 环境检测 | 识别的构建系统、安装/升级的工具及版本 | `$WORK_DIR/reports/environment_check_report.md` |
+| 2 依赖分析 | 依赖总数、命中免检清单数、待确认数 | `$WORK_DIR/reports/dependency_analysis_<项目名>.md` + `stage_2_pending_items.md` + `stage_2_switch_list.md` |
+| 3 用户确认 | 确认项数、切换依赖数 | `$WORK_DIR/reports/user_decisions.txt` + `stage_2_switch_list.md` |
+| 4 源码迁移扫描 | 扫描问题数、已修复数、按类型分布 | `$WORK_DIR/reports/devkit_summary.json`（`categories` 字段）+ `source_changes.txt` |
+| 5 编译验证 | 编译尝试次数、修复错误数、最终结果 | `$WORK_DIR/reports/fix_history.txt`（尝试次数=条目数）+ `build_summary.txt`（最终结果） |
+
+> 若某来源文件缺失，可同时基于本次迁移上下文（各阶段已读报告与对话记录）补充，但不得编造数据；上下文也无法确认时再标注"未执行"。
+
+---
+
+## 6. 生成总结报告
+
+将 1 ~ 5 的内容整合为一份完整的 Markdown 报告，保存到：
 
 ```
 $WORK_DIR/reports/migration_summary_report.md
 ```
 
-**报告完整结构模板**见 [assets/migration_summary_report_template.md](assets/migration_summary_report_template.md)。生成报告时按该模板填充 1 ~ 4 的内容。
+**报告完整结构模板**见 [assets/migration_summary_report_template.md](assets/migration_summary_report_template.md)。生成报告时按该模板填充 1 ~ 5 的内容。
 
 ---
 
-## 6. 快速检查清单
+## 7. 输出要求（硬性约束）
+
+报告生成后，必须按以下结构向用户输出最终回复。这是用户看到的迁移收尾信息，**不得省略关键段、不得自由发挥**；完整明细落报告文件，终端只给摘要 + 可执行要点 + 路径。
+
+```
+================ 鲲鹏迁移完成 ================
+状态：<编译成功 / 人工介入>   总耗时：<XX分XX秒>（6 个阶段）
+
+【各阶段时长】
+- 1 环境检测与准备：<XX分XX秒>
+- 2 依赖分析与兼容性探测：<XX分XX秒>
+- 3 用户确认与切换：<XX分XX秒>
+- 4 源码迁移扫描与适配：<XX分XX秒>
+- 5 编译验证循环：<XX分XX秒>
+
+【产物】
+- 总结报告：$WORK_DIR/reports/migration_summary_report.md
+- 迁移 patch：$WORK_DIR/reports/migration.patch（源码+构建配置，排除二进制）
+
+【修改统计】
+- 修改文件 <N> 个：源码文件 <N> / 构建配置文件 <N> / 其他 <N>
+- 编译尝试 <N> 次，修复错误 <N> 处
+
+【必须执行】
+- [ ] x86 双架构兼容性验证：在 x86 环境编译，确认迁移未破坏原有 x86 构建
+- [ ] <其他必须用户手动执行的步骤，无则省略>
+
+【建议关注】
+- <依赖名> ARM 兼容性未完全验证，部署前建议完整功能测试
+- <文件:函数> 标量退化替代 SIMD，性能可能下降，建议后续 NEON 优化
+- 无则省略本段
+
+【本次迁移产出】
+- kunpeng_confirmed.md 新增登记：<依赖1>、<依赖2>（供后续项目复用，无则省略）
+================================================
+```
+
+**填充说明**：
+- 各段数据来源：各阶段时长←第1节；修改统计←第2节；必须执行/建议关注/本次迁移产出←第4节；产物路径←各节产出。
+- 某阶段因人工介入未正常结束（`PHASE_X_ABORT`），【各阶段时长】对应行标注"未完成"。
+- 「必须执行」第一条永远是 x86 双架构兼容性验证（build-verify 第7节已提，收尾再强化--这是迁移后最易漏、代价最高的动作）。
+- 各段无内容则省略该段，不留空壳；「必须执行」段即使只有 x86 验证一条也要保留。
+
+---
+
+## 8. 快速检查清单
 
 阶段 6 完成后，确认以下所有项均已完成：
 
@@ -160,7 +223,8 @@ $WORK_DIR/reports/migration_summary_report.md
 - [ ] git diff 已执行，修改文件完整列表已获取
 - [ ] fix_history.txt 已读取，修改点描述已汇总
 - [ ] 重要提示与建议已从各阶段报告中提取
+- [ ] 迁移过程摘要指标已从各阶段报告抽取（构建系统/依赖数/扫描问题数/编译次数等）
 - [ ] patch 文件已生成（排除二进制文件），保存到 `$WORK_DIR/reports/migration.patch`
 - [ ] 二进制文件改动清单已记录到 `$WORK_DIR/reports/binary_changes.txt`
 - [ ] 总结报告已生成并保存到 `$WORK_DIR/reports/migration_summary_report.md`
-- [ ] 报告中的"必须执行"项已向用户醒目提示
+- [ ] 已按「输出要求」（第7节）向用户输出最终回复：状态 / 各阶段时长 / 产物 / 修改统计 / 必须执行 / 建议关注 / 本次迁移产出
