@@ -67,7 +67,7 @@ grep -rn "yum install\|apt-get install\|apt install" "$REPO_PATH"/*.sh "$REPO_PA
 加载 [compat-and-binary-detect.md](compat-and-binary-detect.md) 第一部分，对 Step 2 收集的每个依赖执行：
 
 1. 与 `kunpeng_confirmed.md` 免检清单比对（命中则跳过后续探测）
-2. 私有 URL 判断（公开平台直接豁免）
+2. 私有 URL 判断（公开平台免查分支名：跳过 1.2，仍查 1.3）
 3. 远端分支检查（`git ls-remote --heads`）
 4. 本地提交历史检查（`git log --grep -iE "arm|aarch64|kunpeng|鲲鹏"`）
 
