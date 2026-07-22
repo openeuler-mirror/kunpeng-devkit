@@ -145,7 +145,7 @@ cat "$WORK_DIR/kunpeng_confirmed.md" 2>/dev/null
 
 - **子仓库优先适配策略**：存在私有仓库依赖时，明确提示用户优先推动这些子仓库完成 ARM 适配；子仓库适配完成后，主仓库只需修改构建配置中的版本号，可显著降低整体移植成本
 - **子仓库协调优先级**：基础通信/IO 库（P0）> 核心基础设施客户端库（P1）> 业务模块专用 SDK（P2）> 通用工具类库（P3）
-- **开源免查分支名**：`github.com`/`gitlab.com` 等公开平台的依赖默认跳过 [compat-and-binary-detect.md](references/compat-and-binary-detect.md) 第一部分 1.2 分支名分析（开源项目通常在主分支支持 ARM，无独立 ARM 分支），但**仍执行 1.3 提交历史检查**
+- **开源免查分支名**：`github.com`/`gitlab.com` 等公开平台的依赖默认跳过 分支名分析（开源项目通常在主分支支持 ARM，无独立 ARM 分支），但仍执行提交历史检查
 - **私有对象存储地址**（如组织内部 S3/OSS）：需要在私有网络环境中访问，报告中需注明
 - **输出方式**：报告以 Markdown 格式写入 `$WORK_DIR/reports/dependency_analysis_<项目名>.md`，同时输出到客户端对话界面
 
