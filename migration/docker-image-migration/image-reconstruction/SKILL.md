@@ -436,7 +436,10 @@ docker build --platform linux/arm64 \
   <build_context>
 ```
 
-**失败处理**：按主 Skill 全局执行红线执行修复循环；下表只列本场景特有的诊断入口。
+**失败处理**：
+1. 出现失败或准备判定 `FAILED(...)` 前，必须先按 `failure_reason` 检索 `../references/build_knowledge_reference.md` 对应章节，并记录命中章节号。
+2. 仅当“检索无可用方案”或“已按方案尝试仍失败”时，才允许写 `FAILED(...)` 结论。
+3. 每次失败结论必须在报告中最少记录：失败命令与退出码、关键日志、检索章节、已尝试修复动作。
 
 **本场景特有错误**：
 
