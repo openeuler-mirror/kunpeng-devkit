@@ -3,7 +3,7 @@
 > 项目：<PROJECT_ROOT>
 > 构建系统：<Bazel/CMake/Make/Blade/SCons>
 > 迁移日期：<开始日期 ~ 结束日期>
-> 最终状态：编译成功 / 人工介入
+> 最终状态：编译成功
 
 ---
 
