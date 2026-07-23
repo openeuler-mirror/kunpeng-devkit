@@ -103,6 +103,7 @@ metadata:
 |---|---|
 | `200` 或 `401` | 可达（`401` 表示需要认证） |
 | `301/302` | 继续验证跳转目标 |
+| `manifest unknown` / `not found` / `name unknown` | 镜像不存在：必须暂停并交互提示用户确认镜像名和 tag，或提供替代镜像；未确认前不得继续迁移 |
 | 超时 / 连接失败 / 持续 `5xx` | 不可达 |
 
 探测对象：Docker Hub、`INTERNAL_REGISTRIES` 以及配置中的备用镜像站。

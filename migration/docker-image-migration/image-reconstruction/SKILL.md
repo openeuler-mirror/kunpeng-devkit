@@ -83,9 +83,13 @@ COLLECTED_DATA:
     history.json         ← 构建层历史（每层 RUN/COPY 命令）
     layer.json           ← 容器内环境成分（pip 包/apt 包/系统信息等）
 
-`manifest.json` 和 `history.json` 均存在、非空且可解析 → 跳过对应采集，进入 1.5。
-仅缺少 `layer.json` → 不重复采集；记录 `LAYER_NOT_COLLECTED`，继续 1.5。
-manifest 或 history 缺失/不可解析 → 进入 1.2，重新运行采集以补齐核心项；不把 layer 设为继续执行的硬性前提。
+`manifest.json` 和 `history.json` 均存在、非空且可解析：
+  - 若 `layer.json` 同时存在 → 跳过对应采集，进入 1.5。
+  - 若仅缺少 `layer.json` → 必须先交互式提示用户：
+    "无法采集 layer 层信息，是否继续迁移？继续后构建镜像可能不完整。建议先在 x86_64 机器手动采集 layer 并上传后再迁移。"
+    用户确认继续（yes）→ 记录 `LAYER_NOT_COLLECTED` 后进入 1.5；
+    用户不继续（no）→ 停止迁移，等待用户上传手动采集产物（layer.json 或完整采集包）后再执行。
+manifest 或 history 缺失/不可解析 → 进入 1.2，重新运行采集以补齐核心项。
 ```
 
 ### 1.2 检查 Registry 访问
@@ -99,8 +103,14 @@ manifest 或 history 缺失/不可解析 → 进入 1.2，重新运行采集以�
     → 交互式提示用户：
       "无法访问 <registry>，请执行 docker login 后回车继续，或输入 skip 跳过该镜像。"
     → 用户 login 后重新检查，仍失败则标记该镜像为 FAILED(REGISTRY_UNAUTHORIZED)
+  ✗ 返回 "manifest unknown" / "not found" / "name unknown"
+    → 必须暂停并交互式提示用户：
+      "未找到镜像 <image>。请确认镜像名和 tag 是否正确，或提供可替代镜像；
+       未确认前我不会继续执行迁移。"
+    → 用户确认新镜像后重新执行 1.2；若用户选择 skip 则跳过该镜像并记录原因
   ✗ 返回 "connection refused" / "timeout"
     → 报告中标 WARNING，继续尝试采集（可能是临时故障）
+    → 多次访问失败，必须暂停并交互式提示用户，确认镜像源在执行环境是否可达
   ✓ 正常返回 → 进入 1.3。
 ```
 
@@ -119,12 +129,19 @@ manifest 或 history 缺失/不可解析 → 进入 1.2，重新运行采集以�
   ls /proc/sys/fs/binfmt_misc/qemu-x86_64 2>/dev/null
   或 find / -name "qemu-x86_64-static" 2>/dev/null | head -1
 
-  有 QEMU → 环境 B：ARM64 + QEMU。当前 `collect.sh` 仍会在 ARM64 主机上跳过 layer；若任务必须获得 layer，请使用远程 x86_64 采集机，或在用户明确授权后使用经验证的独立采集方式。
+  有 QEMU → 环境 B：ARM64 + QEMU。当前 `collect.sh` 仍会在 ARM64 主机上跳过 layer。
+            若未提供远程 x86_64 采集机，必须先交互式提示用户：
+            "无法采集 layer 层信息，是否继续迁移？继续后构建镜像可能不完整。建议先在 x86_64 机器手动采集 layer 并上传后再迁移。"
+            用户确认继续（yes）→ 记录 `LAYER_NOT_COLLECTED`，仅采集 manifest/history 后继续；
+            用户不继续（no）→ 停止迁移并等待用户上传手动采集产物。
 
   无 QEMU → 环境 C：ARM64 无 QEMU，无法本地采集 layer，需要远程 x86_64 机器。
-            → 若 layer 是本次验收必需证据，在启动门禁完成后、任务分配前请求可 SSH 的 x86_64 采集机；
+            → 在启动门禁完成后、任务分配前优先请求可 SSH 的 x86_64 采集机；
               远程机必须已安装 Docker 且可访问目标 Registry。
-            → 若 layer 不是硬性要求，记录 `LAYER_NOT_COLLECTED`，仅采集 manifest/history 后继续。
+            → 若未提供远程采集机，必须先交互式提示用户：
+              "无法采集 layer 层信息，是否继续迁移？继续后构建镜像可能不完整。建议先在 x86_64 机器手动采集 layer 并上传后再迁移。"
+              用户确认继续（yes）→ 记录 `LAYER_NOT_COLLECTED`，仅采集 manifest/history 后继续；
+              用户不继续（no）→ 停止迁移并等待用户上传手动采集产物。
 
             已获得远程信息时：
               1. 上传 `scripts/image_collector_cli/` 到远程 x86_64 机器；
@@ -166,11 +183,15 @@ manifest 或 history 缺失/不可解析 → 进入 1.2，重新运行采集以�
     -C arm_builds_<date>/analysis/<project>/
 
 环境 C（ARM64 无 QEMU，未提供远程采集机）：
+  # 执行前必须先完成用户确认：
+  # "无法采集 layer 层信息，是否继续迁移？继续后构建镜像可能不完整。建议先在 x86_64 机器手动采集 layer 并上传后再迁移。"
+  # 仅当用户明确选择继续（yes）时，才允许执行以下命令。
   bash scripts/image_collector_cli/collect.sh \
     --mode base \
     --image <SOURCE_IMAGE> \
     --output arm_builds_<date>/analysis/<project>
-  # collect.sh 在 ARM 上自动跳过 layer 采集，只获取 manifest + history
+  # collect.sh 在 ARM 上自动跳过 layer 采集，只获取 manifest + history；
+  # 必须在报告中记录 LAYER_NOT_COLLECTED，并提示用户手动采集 layer 后上传。
 ```
 
 ### 1.5 确认采集产物
