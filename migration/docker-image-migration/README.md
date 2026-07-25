@@ -61,15 +61,15 @@
 
 ## 环境要求
 
-| 依赖项 | 要求 |
-|--------|------|
-| 目标架构 | ARM（aarch64 / 鲲鹏）服务器，具备编译条件 |
-| Docker | CLI 与 daemon 可用，具备构建权限，建议启用 BuildKit |
-| Docker Buildx | 建议安装，优先用于获取 manifest 与 history |
+| 依赖项 | 要求                                            |
+|--------|-----------------------------------------------|
+| 目标架构 | ARM（aarch64 / 鲲鹏）服务器，具备编译条件                   |
+| Docker | CLI 与 daemon 可用，具备构建权限，建议启用 BuildKit          |
+| Docker Buildx | 建议安装，优先用于获取 manifest 与 history                |
 | DevKit | 鲲鹏 DevKit 已安装（native 库扫描所需，`which devkit` 可查） |
-| Bash | 4.0 或更高版本（采集脚本依赖） |
-| Python | Python 3（采集脚本依赖） |
-| CatPaw IDE | 版本 ≥ 3.3.21（如使用 CatPaw IDE 运行 Skill） |
+| Bash | 4.0 或更高版本（采集脚本依赖）                             |
+| Python | Python 3.7+（采集脚本依赖）                           |
+| CatPaw IDE | 版本 ≥ 3.3.21（如使用 CatPaw IDE 运行 Skill）          |
 
 ---
 

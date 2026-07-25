@@ -78,15 +78,15 @@ B. 公开镜像（Docker Hub / 官方）
 
 | 识别模式 | 动作 | 标记 |
 |----------|------|------|
-| `apt-get update/install` | 保持目标发行版的 ARM64 正确仓库；仅当 3.4 证据要求时替换源 | `[FIX-APT-SOURCE]` |
+| `apt-get update/install` | 保持目标发行版的 ARM64 正确仓库；仅当主 Skill 启动门禁第 4 项（软件包源）证据要求时替换源 | `[FIX-APT-SOURCE]` |
 | 包名含 `:amd64` / `:x86_64` | 删除架构后缀 | `[FIX-APT-ARCH]` |
 | `pip install` + CUDA 版 torch | 仅默认 CPU 场景按 `TORCH_VERSION_MAP` 替换；GPU 场景按目标栈验证 | `[FIX-TORCH]` |
 | `pip install` + `nvidia-*` / `triton` / `cudnn` | 仅命中 `CUDA_PACKAGES_SKIP` 且目标为 CPU 场景时删除 | `[DELETE-CUDA-PKG]` |
-| `pip install` + 外网 pip 源 | `AIRGAP_MODE=true` 或 3.4 判定不可达时，替换为已验证的 `PIP_INDEX_URL` | `[FIX-PIP-SOURCE]` |
+| `pip install` + 外网 pip 源 | `AIRGAP_MODE=true` 或主 Skill 启动门禁第 4 项（软件包源）判定不可达时，替换为已验证的 `PIP_INDEX_URL` | `[FIX-PIP-SOURCE]` |
 | `pip install` + `INTERNAL_PYPI_HOSTS` 内网源 | 保留；依赖是否可选必须由项目证据决定，禁止默认追加 `|| echo` 掩盖失败 | `[KEEP-PIP-INTERNAL]` |
-| `git clone` + `GIT_HOSTS` 域名 | 经 3.4/配置确认可达后保留 | `[KEEP-GIT-INTERNAL]` |
-| `git clone` + 外网 | `AIRGAP_MODE=true` 时禁止；否则经 3.4 确认可达后保留 | `[KEEP-GIT-PUBLIC]` |
-| `npm install/ci` + 默认源不可达 | 使用 3.4 已验证且在配置中声明的 `NPM_REGISTRY` | `[FIX-NPM-SOURCE]` |
+| `git clone` + `GIT_HOSTS` 域名 | 经主 Skill 启动门禁第 4 项（软件包源）/配置确认可达后保留 | `[KEEP-GIT-INTERNAL]` |
+| `git clone` + 外网 | `AIRGAP_MODE=true` 时禁止；否则经主 Skill 启动门禁第 4 项（软件包源）确认可达后保留 | `[KEEP-GIT-PUBLIC]` |
+| `npm install/ci` + 默认源不可达 | 使用主 Skill 启动门禁第 4 项（软件包源）已验证且在配置中声明的 `NPM_REGISTRY` | `[FIX-NPM-SOURCE]` |
 | `wget/curl` + `archive.apache.org` | 替换为 APACHE_MIRROR | `[FIX-APACHE-MIRROR]` |
 | `x86_64` / `amd64` / `i386` 关键词（非 pkg 后缀） | 仅在目标值唯一且可验证时替换架构关键词；否则保留 WARN | `[WARN-ARCH-KEYWORD]` |
 | `--platform=linux/amd64` | 改为 `linux/arm64` | `[FIX-PLATFORM]` |

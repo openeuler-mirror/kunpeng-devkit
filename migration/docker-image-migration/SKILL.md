@@ -162,7 +162,7 @@ TASK_CTX:
 2. 每个阶段完成后写阶段记录文件，并输出统一日志：`[{worker_id}] 阶段 {阶段} DONE target={target} elapsed={seconds}s`
 3. 调度模式：
    - `WORKER_COUNT = 1`：主 Agent 按阶段顺序执行
-   - `WORKER_COUNT >= 2`：按 `SKILL.md` 第 4 节分配任务和恢复会话
+   - `WORKER_COUNT >= 2`：按`SKILL.md`的全局执行红线的阶段记录与恢复与并发写入边界分配任务和恢复会话
    - 当前平台不支持子 Agent 时，退化为单会话顺序执行，不改变阶段顺序和阶段记录格式
 4. 告警处理、重试、超时、失败判定和会话恢复统一遵守 `SKILL.md`
 5. 失败判定遵循“有证据才判定”（见核心原则）；`NO_ARM64_SUPPORT` 需提供 manifest 或同等平台证明
