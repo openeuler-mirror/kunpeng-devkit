@@ -78,21 +78,18 @@
 ```
 docker-image-migration/
 ├── SKILL.md                                          # 主控入口（场景路由 + 启动门禁 + 全局执行红线）
-├── dockerfile-migration/                             # 子场景 A：有 Dockerfile 直接迁移
-│   ├── SKILL.md                                      # 五阶段流程（解析 → 决策表 → 生成 → 构建 → 测试）
-│   └── templates/
-│       └── report_template.md                        # 单项目报告 + 总览报告 JSON 模板
-├── image-reconstruction/                             # 子场景 B：无 Dockerfile 逆向重构
-│   ├── SKILL.md                                      # 六阶段流程（采集 → 决策矩阵 → 提取 → 重建 → 构建 → 测试）
-│   ├── asserts/
-│   │   └── decision_matrix.md                        # 逆向分析决策矩阵模板
-│   └── templates/
-│       └── report_template.md                        # 单项目报告 + 总览报告 JSON 模板
+├── templates/
+│   ├── dockerfile_migration_report_template.md       # 单项目报告 + 总览报告 JSON 模板（dockerfile-migration 场景）
+│   └── image_reconstruction_report_template.md       # 单项目报告 + 总览报告 JSON 模板（image-reconstruction 场景）
+├── asserts/
+│   └── decision_matrix.md                        # 逆向分析决策矩阵模板
 ├── references/
 │   ├── build_knowledge_reference.md                  # 构建错误知识库
 │   ├── config_reference.md                           # 配置参数说明与默认值（用户可自定义配置参数）
 │   ├── devkit_pkg_mig_reference.md                   # DevKit pkg-mig 工具可用性检查与扫描规范
-│   └── image_collector_reference.md                  # 镜像采集 CLI 使用说明
+│   ├── image_collector_reference.md                  # 镜像采集 CLI 使用说明
+│   ├── dockerfile_migration.md                       # 子场景 A：有 Dockerfile 直接迁移流程说明
+│   └── image_reconstruction.md                       # 子场景 B：无 Dockerfile 逆向重构流程说明
 └── scripts/
     └── image_collector_cli/                          # 镜像元数据采集工具集
         ├── collect.sh                                # 采集入口（manifest/history/layer）

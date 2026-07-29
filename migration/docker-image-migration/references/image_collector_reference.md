@@ -101,7 +101,7 @@ Agent 使用采集结果时按以下顺序判断：
 1. `_status.json` 可解析；
 2. `got_manifest`、`got_history`、`got_layer` 与实际文件一致；
 3. 所需信息缺失时在决策矩阵和报告中记录，不把部分采集写成完整成功；
-4. `image-reconstruction/SKILL.md 1.6` 只读取实际存在且可解析的产物。
+4. `image_reconstruction.md 1.6` 只读取实际存在且可解析的产物。
 
 ## 6. Registry 读取优先级
 

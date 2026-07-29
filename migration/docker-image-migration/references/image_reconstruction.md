@@ -1,12 +1,3 @@
----
-name: image-reconstruction
-description: >-
-  无 Dockerfile、仅有可访问镜像时的逆向重构场景文件。核心能力：通过 manifest、docker history 和容器布局采集重建 ARM64 Dockerfile，再执行构建验证与运行测试，共六个阶段；全局调度、告警、重试和报告规则由主 Skill 全局执行红线统一定义。触发条件：没有可访问的 Dockerfile，但源镜像或用户提供的采集产物可访问并被路由到本场景。适用范围：无 Dockerfile、仅有可访问镜像的 x86_64 到 ARM64 逆向重构。
-license: MulanPSL-2.0
-metadata:
-  author: Kunpeng DevKit
----
-
 ## 无 Dockerfile 场景镜像迁移执行规范
 
 本文件定义无 Dockerfile 场景的端到端执行规范：覆盖采集分析、决策矩阵、离线提取、Dockerfile 重建、构建验证和运行测试。用于指导 Agent 在信息不完整情况下保持“证据优先、最小变更、可追溯报告”的稳定流程，不负责全局调度与重试策略（由主 Skill 全局执行红线统一约束）。
@@ -294,7 +285,7 @@ docker manifest inspect <BASE_IMAGE>
 
 完成 阶段 1 后，按模板逐项填写决策矩阵，**所有条目必须填写完毕再进入 阶段 3**：
 
-- 模板位置：[`asserts/decision_matrix.md`](./asserts/decision_matrix.md)
+- 模板位置：[`asserts/decision_matrix.md`](../asserts/decision_matrix.md)
 
 ---
 
@@ -470,10 +461,10 @@ docker stop test-<project>
 
 ### 6.2 运行失败与增量 patch
 
-按 [dockerfile-migration/SKILL.md](../dockerfile-migration/SKILL.md) 第 5.2 节和主 Skill 的失败处理规则执行；涉及基础镜像、系统包或构建参数时回到 阶段 4/5。
+按 [dockerfile_migration.md](./dockerfile_migration.md) 第 5.2 节和主 Skill 的失败处理规则执行；涉及基础镜像、系统包或构建参数时回到 阶段 4/5。
 
 ### 6.3 写报告
 
-> 报告 JSON 格式见 [templates/report_template.md](templates/report_template.md)。本场景 `migration_mode = "IMAGE_RECONSTRUCTION"`，额外含 `source_image` 和 `reconstruction_info` 字段（见模板 场景 2）。
+> 报告 JSON 格式见 [templates/image_reconstruction_report_template.md](../templates/image_reconstruction_report_template.md)。本场景 `migration_mode = "IMAGE_RECONSTRUCTION"`，额外含 `source_image` 和 `reconstruction_info` 字段（见模板 场景 2）。
 
-`_summary.json` 格式同 [templates/report_template.md](templates/report_template.md) 的“总览报告”部分，`migration_mode` 改为 `IMAGE_RECONSTRUCTION`。
+`_summary.json` 格式同 [templates/image_reconstruction_report_template.md](../templates/image_reconstruction_report_template.md) 的“总览报告”部分，`migration_mode` 改为 `IMAGE_RECONSTRUCTION`。

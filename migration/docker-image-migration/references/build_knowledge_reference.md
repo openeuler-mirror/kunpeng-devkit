@@ -1621,7 +1621,7 @@ RUN apt-get install -y firefox-esr
 | `EXTERNAL_SERVICE` | 依赖外部服务（MySQL/Redis 等）或外网，容器内无法连接 |
 | `FLOAT_PRECISION` | ARM64 浮点精度导致测试不通过且修复代价过高 |
 | `TIMEOUT` | 构建或测试超时（超大项目或网络慢） |
-| `EXCEEDED_ATTEMPTS` | 超过 MAX_RETRY 次尝试（[references/config_reference.md](references/config_reference.md) 默认 5） |
+| `EXCEEDED_ATTEMPTS` | 超过 MAX_RETRY 次尝试（[config_reference.md](config_reference.md) 默认 5） |
 | `STALLED` | 超过 `WORKER_STALL_TIMEOUT_MIN` 仍无进展 |
 | `PROPRIETARY_X86_SO` | 自研 x86 native 库无 aarch64 版本，无法自动处理 |
 | `INSUFFICIENT_DISK_SPACE` | 磁盘空间不足且清理后仍不足 MIN_DISK_SPACE_GB |

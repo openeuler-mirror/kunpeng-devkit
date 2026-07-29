@@ -1,12 +1,3 @@
----
-name: dockerfile-migration
-description: >-
-  有 Dockerfile 且源码可访问时的 ARM64 镜像迁移场景文件。核心能力：按解析、决策表、生成 ARM64 Dockerfile、构建验证和运行测试五个阶段执行；全局调度、告警、重试和报告规则由主 Skill 全局执行红线统一定义。触发条件：存在可访问的 Dockerfile 和源码/构建上下文并被路由到本场景。适用范围：有 Dockerfile 且源码可访问的 x86_64 到 ARM64 镜像迁移。
-license: MulanPSL-2.0
-metadata:
-  author: Kunpeng DevKit
----
-
 ## 有 Dockerfile 场景镜像迁移执行规范
 
 本文件定义有 Dockerfile 场景的标准迁移流程：先解析与归类 x86 Dockerfile 指令，再形成迁移决策表并生成 ARM64 Dockerfile，最后完成构建与运行验证。用于约束每一步的输入输出、变更标记和失败处理路径，确保迁移结果可复现、可审计；全局调度与重试规则由主 Skill 全局执行红线统一提供。
@@ -292,7 +283,7 @@ docker build --platform linux/arm64 \
 ```
 
 **失败处理**：
-1. 出现失败或准备判定 `FAILED(...)` 前，必须先按 `failure_reason` 检索 `../references/build_knowledge_reference.md` 对应章节，并记录命中章节号。
+1. 出现失败或准备判定 `FAILED(...)` 前，必须先按 `failure_reason` 检索 `/references/build_knowledge_reference.md` 对应章节，并记录命中章节号。
 2. 仅当“检索无可用方案”或“已按方案尝试仍失败”时，才允许写 `FAILED(...)` 结论。
 3. 每次失败结论必须在报告中最少记录：失败命令与退出码、关键日志、检索章节、已尝试修复动作。
 
@@ -340,8 +331,8 @@ docker build --platform linux/arm64 -t <IMAGE>-patched:latest -f Dockerfile.patc
 
 ### 5.3 写报告
 
-> 报告 JSON 格式见 [templates/report_template.md](templates/report_template.md)。本场景 `migration_mode = "IMAGE_MIG_SKILLSET"`，无 mode 特有字段。
+> 报告 JSON 格式见 [templates/dockerfile_migration_report_template.md](../templates/dockerfile_migration_report_template.md)。本场景 `migration_mode = "IMAGE_MIG_SKILLSET"`，无 mode 特有字段。
 
 ### 5.4 主 Agent 总览报告（`_summary.json`）
 
-> 格式见 [templates/report_template.md](templates/report_template.md) 总览报告。
+> 格式见 [templates/dockerfile_migration_report_template.md](../templates/dockerfile_migration_report_template.md) 总览报告。
