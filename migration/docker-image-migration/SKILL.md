@@ -57,10 +57,10 @@ metadata:
 
 **信息充分时**：
 
-- 存在可访问的 Dockerfile 和源码 → 读取 `dockerfile-migration/SKILL.md`，执行 阶段 1–5
-- 无 Dockerfile，且已提供采集产物或可访问源镜像（用于自动采集）→ 读取 `image-reconstruction/SKILL.md`，执行 阶段 1–6
+- 存在可访问的 Dockerfile 和源码 → 读取 `references/dockerfile_migration.md`，执行 阶段 1–5
+- 无 Dockerfile，且已提供采集产物或可访问源镜像（用于自动采集）→ 读取 `references/image_reconstruction.md`，执行 阶段 1–6
 
-场景选择优先级：若同时提供 Dockerfile/源码与采集产物，默认优先走 `dockerfile-migration/SKILL.md`；仅在 Dockerfile 不可访问或无法形成可用构建上下文时，转入 `image-reconstruction/SKILL.md`。
+场景选择优先级：若同时提供 Dockerfile/源码与采集产物，默认优先走 `references/dockerfile_migration.md`；仅在 Dockerfile 不可访问或无法形成可用构建上下文时，转入 `references/image_reconstruction.md`。
 
 ---
 
@@ -185,4 +185,4 @@ TASK_CTX:
   - 仅对已成功且具备复用价值的 `NOVEL` 修复进入知识沉淀流程
   - 未经用户确认，不直接改写知识库
 
-> 报告字段结构以场景模板为准：`dockerfile-migration/templates/report_template.md` 与 `image-reconstruction/templates/report_template.md`。
+> 报告字段结构以场景模板为准：`templates/dockerfile_migration_report_template.md` 与 `templates/image_reconstruction_report_template.md`。

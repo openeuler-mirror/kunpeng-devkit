@@ -25,7 +25,7 @@
 【架构相关】
 [ ] CUDA/GPU 包（nvidia-*/triton/cu12）：有 / 无 → 按目标是否为 CPU 场景和 `CUDA_PACKAGES_SKIP` 决定
 [ ] native 文件候选（文件名或路径含 x86_64/amd64）：有 / 无
-    → 有：先取得 ELF/DevKit 证据，再按 [dockerfile-migration/SKILL.md](../../dockerfile-migration/SKILL.md) 处理
+    → 有：先取得 ELF/DevKit 证据，再按 [dockerfile_migration.md](../dockerfile_migration.md) 处理
 [ ] JAR 内 native 库：有 / 无 → 有则检查 ELF 架构
 
 【环境变量】
