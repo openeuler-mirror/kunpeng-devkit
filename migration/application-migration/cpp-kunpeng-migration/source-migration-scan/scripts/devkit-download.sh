@@ -2,7 +2,7 @@
 # DevKit CLI 自动下载安装脚本
 #
 # 用法：
-#   WORK_DIR=<工作目录> bash devkit-download.sh
+#   WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/devkit-download.sh
 #
 # 输出：
 #   成功时 stdout 打印 `DEVKIT=<绝对路径>`，并将同一行写入
