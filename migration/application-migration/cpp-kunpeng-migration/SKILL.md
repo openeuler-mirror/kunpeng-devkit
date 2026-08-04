@@ -32,12 +32,11 @@ metadata:
 
 ## 工作目录约定
 
-**在开始任何操作前，先确定并创建统一工作目录**。工作目录放在 **workspace 根目录的同级**（不是项目子目录），不污染源码树。
+**在开始任何操作前，先确定并创建统一工作目录**。工作目录放在 **project 根目录的同级**（不是项目子目录），不污染源码树。
 
 ```bash
 PROJECT_ROOT=<项目绝对路径>
-WORKSPACE_ROOT=<IDE工作区根目录绝对路径>
-WORK_DIR="$(dirname $WORKSPACE_ROOT)/$(basename $WORKSPACE_ROOT)-arm-migration"
+WORK_DIR="$(dirname $PROJECT_ROOT)/$(basename $PROJECT_ROOT)-arm-migration"
 mkdir -p $WORK_DIR/{reports,downloads,build,logs,devkit}
 ```
 
@@ -280,12 +279,6 @@ options:
 主编排读取对应子 Skill 的 SKILL.md，把已知的三个路径变量（`PROJECT_ROOT` / `WORK_DIR` / `SKILL_DIR`）传入后，**作为提示词拉起一个独立上下文的子 agent 执行**。子 agent 在自己的上下文里完成检测/分析，把报告与待确认项写入中间文件，最终向主编排返回摘要。
 
 **子 agent 边界（重要）**：子 agent **不向用户提问**--所有需用户决策的项一律按「子 agent 待确认项输出契约」写入中间文件，由主编排在阶段 3 统一提问。这条边界是阶段 1、2 的核心约束：避免子 agent 在独立上下文里打断用户、也避免主编排漏收待确认项。正文各阶段不再重复此约束，统一以本节为准。
-
-### 无子 agent 能力时的降级
-
-若运行环境的编程助手**不支持子 agent**（无 Agent / task 等独立上下文调起工具），阶段 1、2 不阻塞，**降级为主编排在自己上下文内直接执行**：读取对应子 Skill 的 SKILL.md（environment-prepare / dependency-analysis），把 `PROJECT_ROOT` / `WORK_DIR` / `SKILL_DIR` 三个变量**替换为实际值**后，依其步骤在主上下文顺序执行，报告与待确认项照样写入中间文件。
-
-**子 agent 边界在降级下同样生效**：即便在主上下文内联执行，阶段 1、2 期间**仍不向用户提问**，待确认项照常写入中间文件、留待阶段 3 统一提问。降级只改「在哪运行」，不改「何时提问」。
 
 ### 各助手映射（示例，可扩展）
 

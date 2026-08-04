@@ -6,7 +6,7 @@
 #       NEON 的映射兼容层）。
 #
 # 用法：
-#   WORK_DIR=<工作目录> bash ksl-install.sh
+#   WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/ksl-install.sh
 #
 # 输出：
 #   成功时 stdout 打印 `KSL_INCLUDE=<路径>` 与 `KSL_LIB=<路径>`，并将同一行

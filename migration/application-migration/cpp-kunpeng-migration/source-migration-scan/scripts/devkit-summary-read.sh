@@ -7,7 +7,7 @@
 #       任何环境下均可读取生成的 JSON 摘要，避免上下文加载整份 DevKit 报告。
 #
 # 用法：
-#   WORK_DIR=<工作目录> bash devkit-summary-read.sh <field>
+#   WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
 #
 # 字段：
 #   rule_categories    — 输出 Rule 级问题类别，每行一个（供触发条件判定）

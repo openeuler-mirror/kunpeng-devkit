@@ -51,18 +51,20 @@ options:
 
 #### 4.1.1.1 自动下载安装 DevKit
 
-用户选择 `download` 时，agent **必须读取文件** `devkit-download.md` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 4.1.2 使用。失败时回到 4.1.1 提问。
+用户选择 `download` 时，agent **必须读取文件** `$SKILL_DIR/source-migration-scan/references/devkit-download.md` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 4.1.2 使用。失败时回到 4.1.1 提问。
 
 ### 4.1.2 确认扫描参数
 
-根据阶段 1 `environment-prepare/SKILL.md` 的构建系统检测结果，确定 `-b` 参数：
+根据阶段 1 `environment-prepare/SKILL.md` 的构建系统检测结果，确定 `-b` 与 `-c` 参数：
 
-| 构建系统           | `-b` 参数值 |
-| -------------- | -------- |
-| Bazel          | `bazel`  |
-| CMake          | `cmake`  |
-| Make/Makefile  | `make`   |
-| Blade/SCons/其他 | `other`  |
+| 构建系统 | `-b` 参数值 | `-c` 参数值 |
+| --- | --- | --- |
+| Bazel | `bazel` | 不传 |
+| CMake | `cmake` | `cmake` |
+| Make/Makefile | `make` | `make` |
+| Automake（先 configure 再 make） | `make` | `make` |
+| Blade | `blade` | 不传 |
+| SCons/其他 | `other` | 不传 |
 
 ### 4.1.3 执行扫描
 
@@ -72,22 +74,27 @@ mkdir -p $DEVKIT_REPORT_DIR
 
 $DEVKIT porting src-mig \
   -i $PROJECT_ROOT \
-  -b <bazel|cmake|make|other> \
+  -b <bazel|cmake|make|blade|other> \
+  -c <make|cmake> \
   -r all \
   -o $DEVKIT_REPORT_DIR \
   2>&1 | tee $WORK_DIR/reports/devkit-scan.log
 ```
 
-> `-r all` 表示扫描所有问题类型，包括内联汇编、intrinsics、头文件、类型大小、内存对齐、编译标志等。
+> `-r all` 表示输出全部报告格式（json / html / csv）。
+
+> `-c` 指定项目编译命令，**对扫描结果影响较大**，需精准识别项目实际编译命令后传入。仅 make / cmake 项目支持（`-c make` / `-c cmake`，对应上表）；bazel / blade / other 等构建系统**不传 `-c`**（命令中删去该行）。
+
+> **扫描命令调不起来时**：若 `$DEVKIT porting src-mig` 无法启动（命令找不到、二进制报错、段错误、缺动态库等），视为已定位的 DevKit 包损坏或架构不符，不要反复重试扫描--回到 4.1.1.1 重跑 `source-migration-scan/scripts/devkit-download.sh` 重新下载安装后再回本步重试；重下仍失败则回 4.1.1 向用户提问。
 
 ### 4.1.4 读取并汇总扫描报告
 
-> **重要约束**：本节使用专用脚本 `scripts/devkit-report-summary.sh` 流式处理报告，输出压缩型摘要文件。
+> **重要约束**：本节使用专用脚本 `source-migration-scan/scripts/devkit-report-summary.sh` 流式处理报告，输出压缩型摘要文件。
 
 使用脚本流式读取并汇总扫描报告：
 
 ```bash
-bash scripts/devkit-report-summary.sh
+bash $SKILL_DIR/source-migration-scan/scripts/devkit-report-summary.sh
 ```
 
 > **脚本前置条件**：环境变量 `DEVKIT_REPORT_DIR` 已设置（由 4.1.3 阶段确定）。脚本自动探测 CSV 表头列索引（兼容 DevKit 不同版本列顺序差异）。
@@ -122,10 +129,10 @@ bash scripts/devkit-report-summary.sh
 
 ```bash
 # 后续阶段统一通过专用脚本读取摘要，三级工具（jq / python3 / awk）兜底已封装在脚本内
-bash scripts/devkit-summary-read.sh <field>
+bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
 ```
 
-> **脚本**：`scripts/devkit-summary-read.sh`，封装 jq → python3 → python2 → awk 降级路径，**任何环境下均可读取生成的 JSON 摘要**，无需 agent 自行判断工具可用性。
+> **脚本**：`source-migration-scan/scripts/devkit-summary-read.sh`，封装 jq → python3 → python2 → awk 降级路径，**任何环境下均可读取生成的 JSON 摘要**，无需 agent 自行判断工具可用性。
 >
 > **支持的字段**：
 >
@@ -135,8 +142,8 @@ bash scripts/devkit-summary-read.sh <field>
 > | `categories` | 按 Category 统计的总数 | 输出 `category<TAB>total<TAB>rule` 三列 |
 > | `rule_detail_sample` | Rule 明细示例 | 输出 `[CATEGORY] LOCATION: SUGGESTION` |
 > | `all` | 依次输出以上三段（空行分隔） | 调试/全量预览 |
-> | `has_rule` | 判定 Rule 类别是否非空 | `if bash devkit-summary-read.sh has_rule >/dev/null; then ...` |
-> | `has <CATEGORY>` | 判定指定类别是否在 Rule 列表中 | `bash devkit-summary-read.sh has INTRINSICS` |
+> | `has_rule` | 判定 Rule 类别是否非空 | `if bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh has_rule >/dev/null; then ...` |
+> | `has <CATEGORY>` | 判定指定类别是否在 Rule 列表中 | `bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh has INTRINSICS` |
 >
 > **脚本退出码**：
 >
@@ -148,7 +155,7 @@ bash scripts/devkit-summary-read.sh <field>
 > | 11 | `has_rule` 检查：Rule 类别列表为空 |
 > | 12 | `has <CATEGORY>` 检查：未找到该类别 |
 >
-> **后续阶段读取约定**：4.2.0-prelude、4.2.0、4.2.5 等章节统一通过 `bash scripts/devkit-summary-read.sh <field>` 读取摘要，**不得**直接 `cat` 报告 CSV 文件或内联 `jq`/`python3`/`awk` 代码，避免上下文膨胀与工具可用性判断逻辑散落。
+> **后续阶段读取约定**：4.2.0-prelude、4.2.0、4.2.5 等章节统一通过 `bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>` 读取摘要，**不得**直接 `cat` 报告 CSV 文件或内联 `jq`/`python3`/`awk` 代码，避免上下文膨胀与工具可用性判断逻辑散落。
 
 **理解报告中的问题修改级别：**
 
@@ -224,10 +231,10 @@ cat $WORK_DIR/reports/user_decisions.txt
 
 #### 4.2.0.1 下载并安装 BoostKit KSL 包
 
-使用专用脚本 `scripts/ksl-install.sh` 完成下载、解压、安装 RPM 及验证，脚本封装了重试、完整性校验、RPM 工具自动选择（dnf > yum > rpm）和路径持久化逻辑：
+使用专用脚本 `source-migration-scan/scripts/ksl-install.sh` 完成下载、解压、安装 RPM 及验证，脚本封装了重试、完整性校验、RPM 工具自动选择（dnf > yum > rpm）和路径持久化逻辑：
 
 ```bash
-bash scripts/ksl-install.sh
+bash $SKILL_DIR/source-migration-scan/scripts/ksl-install.sh
 ```
 
 > **脚本前置条件**：环境变量 `WORK_DIR` 已设置（由阶段 1 确定）。
@@ -524,7 +531,7 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
 **Rule 级别（必须完成）：**
 
 - [ ] **4.2.0-prelude** 已读取 `user_decisions.txt` 并确定 `AVX_STRATEGY`（ksl/neon/disable）与 `MKL_STRATEGY`（kml/openblas/disable）
-- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目且 `AVX_STRATEGY=ksl`：`scripts/ksl-install.sh` 执行成功（exit 0），`$WORK_DIR/reports/ksl_path.txt` 已生成且 `avx2ki.h`/`libavx2ki.so` 可访问；若 `AVX_STRATEGY=neon` 则走 4.2.0-alt 确认 NEON 工具链可用；否则跳过
+- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目且 `AVX_STRATEGY=ksl`：`source-migration-scan/scripts/ksl-install.sh` 执行成功（exit 0），`$WORK_DIR/reports/ksl_path.txt` 已生成且 `avx2ki.h`/`libavx2ki.so` 可访问；若 `AVX_STRATEGY=neon` 则走 4.2.0-alt 确认 NEON 工具链可用；否则跳过
 - [ ] **4.2.1（avx2ki）** 若 4.2.0 已执行（`AVX_STRATEGY=ksl`）：aarch64 编译选项中已添加 `-lavx2ki` 链接选项；若 `AVX_STRATEGY=neon` 则不添加 avx2ki 链接（NEON 无需额外库）；否则跳过
 - [ ] **4.2.1** `-mavx`/`-mavx2` 等不支持选项已从 aarch64 构建中移除（Rule 必须）
 - [ ] **4.2.2** 所有 `ATTRIBUTE` 类型问题（x86 专属头文件）已用架构宏保护，鲲鹏侧按 `AVX_STRATEGY` 引入 `avx2ki.h`（ksl）或 `arm_neon.h`（neon）

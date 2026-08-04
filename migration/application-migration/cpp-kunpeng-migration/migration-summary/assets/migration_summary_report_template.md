@@ -62,6 +62,17 @@
 | 用户决策记录 | $WORK_DIR/reports/user_decisions.txt |
 | 时间线日志 | $WORK_DIR/reports/timeline.log |
 | 编译日志 | $WORK_DIR/logs/build_<N>.log |
-| 迁移 patch | $WORK_DIR/reports/migration.patch |
+| 迁移 patch | $WORK_DIR/reports/migration.patch（源码+构建配置，排除二进制） |
 | 二进制改动清单 | $WORK_DIR/reports/binary_changes.txt |
 | ARM 适配确认清单 | $WORK_DIR/kunpeng_confirmed.md |
+
+---
+
+## 六、编译产物与编译命令
+
+> 取编译成功那次为准。
+
+| 项目 | 内容 |
+|------|------|
+| 编译产物目录 | <产物目录路径> |
+| 编译命令与脚本 | <完整编译命令与脚本路径；优先从上下文获取，上下文无则从编译日志提取> |
