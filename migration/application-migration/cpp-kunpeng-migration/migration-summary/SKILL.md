@@ -112,7 +112,16 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 
 ---
 
-## 4. 收集重要提示与建议
+## 4. 收集编译产物与编译命令
+
+供【产物】段"编译产物"和"编译命令与脚本"填充。
+
+- **编译产物**：按构建系统取编译成功那次的产物目录
+- **编译命令与脚本**：优先从上下文获取，上下文无则从最后一次编译成功的日志 `$WORK_DIR/logs/build_<成功次序>.log`
+
+---
+
+## 5. 收集重要提示与建议
 
 从迁移过程中提取需要用户注意的重要信息：
 
@@ -148,7 +157,7 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 
 ---
 
-## 5. 收集迁移过程摘要指标
+## 6. 收集迁移过程摘要指标
 
 供报告「四、迁移过程摘要」表填充。逐阶段从对应报告抽取关键结果，**无需重新执行检测**：
 
@@ -164,7 +173,7 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 
 ---
 
-## 6. 生成总结报告
+## 7. 生成总结报告
 
 将 1 ~ 5 的内容整合为一份完整的 Markdown 报告，保存到：
 
@@ -172,11 +181,11 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 $WORK_DIR/reports/migration_summary_report.md
 ```
 
-**报告完整结构模板**见 [assets/migration_summary_report_template.md](assets/migration_summary_report_template.md)。生成报告时按该模板填充 1 ~ 5 的内容。
+**报告完整结构模板**见 [assets/migration_summary_report_template.md](assets/migration_summary_report_template.md)。生成报告时按该模板填充 1 ~ 6 的内容。
 
 ---
 
-## 7. 输出要求（硬性约束）
+## 8. 输出要求（硬性约束）
 
 报告生成后，必须按以下结构向用户输出最终回复。这是用户看到的迁移收尾信息，**不得省略关键段、不得自由发挥**；完整明细落报告文件，终端只给摘要 + 可执行要点 + 路径。
 
@@ -194,6 +203,8 @@ $WORK_DIR/reports/migration_summary_report.md
 【产物】
 - 总结报告：$WORK_DIR/reports/migration_summary_report.md
 - 迁移 patch：$WORK_DIR/reports/migration.patch（源码+构建配置，排除二进制）
+- 编译产物：编译成功那次的产物目录
+- 编译命令与脚本：编译命令/脚本优先从上下文获取，如果没有从编译日志（$WORK_DIR/logs/build_<成功次序>.log）中取
 
 【修改统计】
 - 修改文件 <N> 个：源码文件 <N> / 构建配置文件 <N> / 其他 <N>
@@ -214,14 +225,14 @@ $WORK_DIR/reports/migration_summary_report.md
 ```
 
 **填充说明**：
-- 各段数据来源：各阶段时长←第1节；修改统计←第2节；必须执行/建议关注/本次迁移产出←第4节；产物路径←各节产出。
+- 各段数据来源：各阶段时长←第1节；修改统计←第2节；必须执行/建议关注/本次迁移产出←第5节；产物路径←各节产出（编译产物与编译命令←第4节）。
 - 某阶段因人工介入未正常结束（`PHASE_X_ABORT`），【各阶段时长】对应行标注"未完成"。
 - 「必须执行」第一条永远是 x86 双架构兼容性验证（build-verify 第7节已提，收尾再强化--这是迁移后最易漏、代价最高的动作）。
 - 各段无内容则省略该段，不留空壳；「必须执行」段即使只有 x86 验证一条也要保留。
 
 ---
 
-## 8. 快速检查清单
+## 9. 快速检查清单
 
 阶段 6 完成后，确认以下所有项均已完成：
 
@@ -232,5 +243,6 @@ $WORK_DIR/reports/migration_summary_report.md
 - [ ] 迁移过程摘要指标已从各阶段报告抽取（构建系统/依赖数/扫描问题数/编译次数等）
 - [ ] patch 文件已生成（排除二进制文件），保存到 `$WORK_DIR/reports/migration.patch`
 - [ ] 二进制文件改动清单已记录到 `$WORK_DIR/reports/binary_changes.txt`
+- [ ] 编译产物路径与编译命令/脚本已收集（编译产物按构建系统取成功那次；编译命令/脚本优先从上下文取，上下文无则从编译日志取）
 - [ ] 总结报告已生成并保存到 `$WORK_DIR/reports/migration_summary_report.md`
-- [ ] 已按「输出要求」（第7节）向用户输出最终回复：状态 / 各阶段时长 / 产物 / 修改统计 / 必须执行 / 建议关注 / 本次迁移产出
+- [ ] 已按「输出要求」（第8节）向用户输出最终回复：状态 / 各阶段时长 / 产物 / 修改统计 / 必须执行 / 建议关注 / 本次迁移产出
