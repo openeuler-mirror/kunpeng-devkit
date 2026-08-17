@@ -28,6 +28,8 @@
 
 > `docker cp` 仅在 1.6 (2) 从 x86 镜像提取缺失资源时按需使用，不用于反推 Dockerfile。
 
+> **资源加载边界**：本场景阶段 2 的"迁移决策表"在本场景内生成，**不要读取 `asserts/decision_matrix.md`**——该模板仅供"无 Dockerfile（仅镜像迁移）场景"使用，避免过度读取。
+
 ---
 
 ## 阶段 1. 解析 x86 Dockerfile

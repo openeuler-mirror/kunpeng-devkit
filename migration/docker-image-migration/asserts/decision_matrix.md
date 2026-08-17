@@ -2,6 +2,10 @@
 
 > 用途：完成阶段 1 分析后，逐项填写本矩阵；所有条目必须填写完毕后才可进入阶段 3。
 
+> **适用场景边界（务必遵守）**：本模板仅适用于"无 Dockerfile（仅镜像迁移）场景"，即 `references/image_reconstruction.md` 阶段 2 引用的决策矩阵。
+> - 有 Dockerfile 场景（走 `references/dockerfile_migration.md`）：不读取本文件，阶段 2 使用该场景自有的"迁移决策表"，避免过度读取。
+> - 场景判断以主 `SKILL.md` 的"迁移场景选择"为准；信息不足时先补齐场景输入，不要预先加载本文件。
+
 ```text
 【基础信息】
 [ ] FROM 基础镜像：___________
@@ -25,14 +29,14 @@
 【架构相关】
 [ ] CUDA/GPU 包（nvidia-*/triton/cu12）：有 / 无 → 按目标是否为 CPU 场景和 `CUDA_PACKAGES_SKIP` 决定
 [ ] native 文件候选（文件名或路径含 x86_64/amd64）：有 / 无
-    → 有：先取得 ELF/DevKit 证据，再按 [dockerfile_migration.md](../dockerfile_migration.md) 处理
+    → 有：先取得 ELF/DevKit 证据，再按 (docker-image-migration/references/dockerfile_migration.md) 处理
 [ ] JAR 内 native 库：有 / 无 → 有则检查 ELF 架构
 
 【环境变量】
 [ ] 关键 ENV（来自 layout.environment）：___________
 
 【兼容性预检】
-[ ] pip_packages 中已知不兼容包（查 [build_knowledge_reference.md](../../references/build_knowledge_reference.md)）：___________
+[ ] pip_packages 中已知不兼容包（查 docker-image-migration/references/build_knowledge_reference.md)）：___________
 [ ] JAR/WAR/EAR 包 native 库：
     优先： `devkit porting pkg-mig -i <extracted_jars_dir> -t openeuler22.03 -r json`
     未安装 devkit → `unzip -l <jar> | grep "\.so\|linux"` 手动检查
