@@ -1,7 +1,6 @@
 #!/bin/bash
-# migrate_package.sh — 通用包迁移脚本
-# 适用：Nginx/Redis/Elasticsearch/RabbitMQ/Docker 等。
-# 职责：按 install_method（yum/apt/源码编译/auto）安装 → 恢复配置 → 注册 systemd 服务 → 验证。
+# migrate_package.sh — 通用包迁移（Nginx/Redis/ES/RabbitMQ/Docker 等）：
+# 按 install_method（yum/apt/源码编译/auto）安装 → 恢复配置 → 注册 systemd 服务 → 验证。
 set -e
 SKILL_DIR="${SKILL_DIR:-$(
     _s="${BASH_SOURCE[0]}"
@@ -93,7 +92,6 @@ install_system_repository() {
 }
 
 # 按 source_type 决定来源优先级（0=成功 30=全失败 100=未知/空，交由 install_method）
-# SYSTEM_REPOSITORY: yum/apt → url; OFFICIAL/MANUAL: local_path → url
 install_with_source_type() {
     local st="${SOURCE_TYPE:-}" method
     case "$st" in
@@ -301,7 +299,7 @@ _restore_config() {
     fi
 }
 
-# source_type 优先；无/未知时回退到 install_method 分发。必须用 if 上下文（set -e）
+# source_type 优先；无/未知时回退到 install_method 分发（set -e 下须用 if 上下文）
 if install_with_source_type; then
     :
 else
@@ -310,7 +308,6 @@ else
         # 安装来源全部失败：由 run_migration.sh 记为 FAILED
         exit 30
     fi
-    # source_type 未知/为空：按 install_method 分发
     case "$INSTALL_METHOD" in
         binary)
             install_binary

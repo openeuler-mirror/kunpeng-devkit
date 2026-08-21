@@ -1,7 +1,6 @@
 #!/bin/bash
-# migrate_javamiddleware.sh — 通用 Java 中间件迁移脚本
-# 适用：Tomcat/Resin/Nacos/RocketMQ 等基于 JDK 运行的中间件。
-# 职责：依赖 JDK → 安装中间件 → 恢复配置 → 注册 systemd 服务 → 健康验证。
+# migrate_javamiddleware.sh — 通用 Java 中间件迁移（Tomcat/Resin/Nacos/RocketMQ）：
+# 依赖 JDK → 安装中间件 → 恢复配置 → 注册 systemd 服务 → 健康验证。
 set -e
 
 _deploy_application() {
@@ -17,7 +16,7 @@ _deploy_application() {
         return 0
     fi
 
-    # 2. 从 plan 下载目标包（download_url 由 plan 提供，不再回退 registry）
+    # 2. 从 plan 下载目标包（download_url 由 plan 提供）
     package_url=$(resolve_download_url)
     package_name=$(resolve_package_file_name)
     if [ -n "$package_url" ]; then
@@ -26,13 +25,14 @@ _deploy_application() {
             _extract_package "$package_path" || return 1
             return 0
         fi
-        log_warn "下载失败，尝试其他方式"
+        log_warn "下载失败，回退到源端复制"
     fi
 
-    # 3. 同源架构迁移：从 source_dir 复制原应用
+    # 3. 同源架构迁移：从 source_dir 复制原应用到 $NEW_APP_DIR
     if [ "$LOCALIZATION" = "false" ] && [ -n "$SOURCE_DIR" ] && [ -d "$SOURCE_DIR" ]; then
         log_info "从 $SOURCE_DIR 复制应用到 $NEW_APP_DIR"
-        cp -r "$SOURCE_DIR" "$NEW_APP_DIR"
+        mkdir -p "$NEW_APP_DIR"
+        cp -r "$SOURCE_DIR"/. "$NEW_APP_DIR"/
         return 0
     fi
 

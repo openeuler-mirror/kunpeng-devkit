@@ -1,7 +1,6 @@
 #!/bin/bash
-# migrate_generic.sh — 兜底通用迁移脚本
-# 适用：未在 registry 登记的中间件产品。
-# 职责：尽力安装（解压/编译）→ 恢复配置 → 无法确定启动方式时保留产物并返回 SUCCEEDED_WITH_WARNINGS。
+# migrate_generic.sh — 兜底通用迁移（未在 registry 登记的中间件）：
+# 尽力安装（解压/编译）→ 恢复配置 → 无法确定启动方式时保留产物并返回 SUCCEEDED_WITH_WARNINGS。
 set -e
 
 SKILL_DIR="${SKILL_DIR:-$(

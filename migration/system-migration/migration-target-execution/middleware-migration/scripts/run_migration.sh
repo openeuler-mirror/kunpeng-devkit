@@ -1,9 +1,8 @@
 #!/bin/bash
-# run_migration.sh — 中间件批量迁移入口
-# 读取 migration-plan.json，解析 route.middleware，按 JDK 优先排序后逐项迁移。
-# 主要职责：解析 plan、部署目录推导、冲突预检（目录/服务）、依赖准备、调度产品迁移脚本、汇总输出。
-# 输入：$1 = migration-plan.json 路径（或 MIGRATION_PLAN_PATH 环境变量）
-# 输出：batch_migration_summary.json/.md + middleware-action-required.json（冲突时）
+# run_migration.sh — 中间件批量迁移入口：读取 migration-plan.json，按 JDK 优先排序后逐项迁移。
+# 职责：解析 plan、部署目录推导、冲突预检（目录/服务）、依赖准备、调度产品迁移脚本、汇总输出。
+# 输入：$1 = migration-plan.json 路径（或 MIGRATION_PLAN_PATH 环境变量，未指定时自动搜索）
+# 输出：batch_migration_summary.json/.md + middleware-action-required.json（冲突时）+ middleware-agent-handoff.json（接管时）
 set -e
 
 SKILL_DIR="${SKILL_DIR:-$(
@@ -30,14 +29,16 @@ SUMMARY_FILE="$REPORTS_DIR/batch_migration_summary.md"
 SUMMARY_JSON="$REPORTS_DIR/batch_migration_summary.json"
 SUMMARY_ITEMS="$REPORTS_DIR/.batch_migration_items.ndjson"
 ACTION_REQUIRED_JSON="$REPORTS_DIR/middleware-action-required.json"
+AGENT_HANDOFF_JSON="$REPORTS_DIR/middleware-agent-handoff.json"
+HANDOFF_ITEMS="$REPORTS_DIR/.middleware_agent_handoff.ndjson"
+handoff_count=0
 SUCCESS_COUNT=0
 WARNING_COUNT=0
 FAIL_COUNT=0
 SKIP_COUNT=0
 BLOCKED_COUNT=0
 
-# 计划内所有 Java 中间件的 JDK 需求：全部一致时统一使用该版本，避免按各自版本解析导致顾左失右；
-# 存在多版本（如 BES=8 与其余=11）时保持按各自需求解析安装，并在依赖解析处给出明确提示。
+# 计划内所有 Java 中间件的 JDK 需求一致时统一使用该版本，多版本时按各自需求分别解析。
 PLAN_JAVA_VERSIONS=$(plan_java_versions)
 UNIFIED_JDK_VERSION=""
 if [ -n "$PLAN_JAVA_VERSIONS" ]; then
@@ -138,7 +139,8 @@ preflight_conflicts() {
         rc=$?
         [ "$rc" -eq 0 ] || continue
         local has_conflict=false svc_name
-        if [ -n "$DEPLOY_DIR" ] && [ -d "$DEPLOY_DIR" ]; then
+        # 目录存在且非空才算冲突；存在但为空目录视为可直接安装
+        if [ -n "$DEPLOY_DIR" ] && [ -d "$DEPLOY_DIR" ] && [ -n "$(ls -A "$DEPLOY_DIR" 2>/dev/null)" ]; then
             has_conflict=true
         fi
         svc_name=$(resolve_arm_service "$MIDDLEWARE_TYPE")
@@ -191,6 +193,7 @@ PY
 
 init_summary() {
     : > "$SUMMARY_ITEMS"
+    : > "$HANDOFF_ITEMS"
     cat > "$SUMMARY_FILE" <<EOF
 # 中间件迁移汇总
 
@@ -274,6 +277,39 @@ with open(output_path, 'w', encoding='utf-8') as stream:
     stream.write('\n')
 PY
     rm -f "$SUMMARY_ITEMS"
+}
+
+# 汇总通用流程未能完整完成的项，生成 agent 接管清单。
+# 通用流程（未登记产品）安装失败或无法确定启动方式时，脚本不自行猜测，而是交由 agent 用自身能力补完。
+finalize_agent_handoff() {
+    if [ "$handoff_count" -eq 0 ]; then
+        rm -f "$HANDOFF_ITEMS" "$AGENT_HANDOFF_JSON"
+        return 0
+    fi
+    python3 - "$HANDOFF_ITEMS" "$AGENT_HANDOFF_JSON" <<'PY'
+import json, sys
+items = []
+with open(sys.argv[1], encoding='utf-8') as stream:
+    for line in stream:
+        if line.strip():
+            items.append(json.loads(line))
+with open(sys.argv[2], 'w', encoding='utf-8') as stream:
+    json.dump({
+        'status': 'AGENT_HANDOFF_REQUIRED',
+        'reason_code': 'MIDDLEWARE_GENERIC_INCOMPLETE',
+        'requires_agent_to_complete': True,
+        'message': '以下未登记中间件的通用迁移流程未能完整完成，需 agent 在不修改脚本与配置的前提下，用自身能力在目标环境补完迁移（安装/启动/验证）。',
+        'items': items,
+    }, stream, ensure_ascii=False, indent=2)
+    stream.write('\n')
+PY
+    rm -f "$HANDOFF_ITEMS"
+    cat >> "$SUMMARY_FILE" <<EOF
+
+## 需 Agent 接管
+
+通用迁移流程未完成 $handoff_count 项，详见: \`$AGENT_HANDOFF_JSON\`
+EOF
 }
 
 if preflight_conflicts; then
@@ -394,12 +430,43 @@ for ((idx=0; idx<MIDDLEWARE_COUNT; idx++)); do
             set_migration_state "$MIDDLEWARE_TYPE" failed
             append_summary FAIL "$MIDDLEWARE_TYPE" "$CURRENT_VERSION" "$TARGET_VERSION" "$MIGRATION_PATH" "迁移脚本执行失败 (exit=$rc)" "$MIDDLEWARE_ID" ;;
     esac
+
+    # 通用流程未完成（安装失败或无法启动验证）时记录到 agent 接管清单；License 阻塞(20)不属于接管范围
+    if [ "$MIGRATION_PATH" = "GENERIC" ] && [ "$rc" -ne 0 ] && [ "$rc" -ne 20 ]; then
+        handoff_count=$((handoff_count + 1))
+        python3 - "$HANDOFF_ITEMS" "$MIDDLEWARE_ID" "$MIDDLEWARE_TYPE" "$DEPLOY_DIR" "$SOURCE_DIR" "$TARGET_VERSION" "$CURRENT_VERSION" "$rc" <<'PY'
+import json, sys
+out, mid, mtype, deploy, src, tgt, cur, rc = sys.argv[1:]
+reason = "已完成安装与配置恢复，但无法确定启动方式或未通过服务验证" if rc == "10" else "通用流程安装失败"
+with open(out, 'a', encoding='utf-8') as stream:
+    stream.write(json.dumps({
+        'id': mid,
+        'type': mtype,
+        'deploy_dir': deploy,
+        'source_dir': src,
+        'target_version': tgt,
+        'current_version': cur,
+        'exit_code': int(rc),
+        'reason': reason,
+    }, ensure_ascii=False) + '\n')
+PY
+    fi
 done
 set -e
 
 finalize_summary
+finalize_agent_handoff
 cat "$SUMMARY_FILE"
 
+# handoff 优先于纯失败告知：有接管项时退出码 3，并打印强制后续指令，
+# 避免 agent 把生成 handoff.json 当终点而遗漏 run_handoff.sh 补完步骤。
+if [ "$handoff_count" -gt 0 ]; then
+    echo "[NEXT] 检测到 $handoff_count 项需 Agent 接管，必须执行:" >&2
+    echo "  bash \"$SKILL_DIR/scripts/run_handoff.sh\" \"$AGENT_HANDOFF_JSON\" <per_item_script>" >&2
+    echo "  先用 --dry-run 查看接管项: bash \"$SKILL_DIR/scripts/run_handoff.sh\" \"$AGENT_HANDOFF_JSON\" --dry-run" >&2
+    echo "  完成后读取结果: $(dirname "$AGENT_HANDOFF_JSON")/middleware-agent-handoff-result.json" >&2
+    exit 3
+fi
 if [ "$BLOCKED_COUNT" -gt 0 ]; then exit 2; fi
 if [ "$FAIL_COUNT" -gt 0 ]; then exit 1; fi
 exit 0

@@ -1,6 +1,6 @@
 #!/bin/bash
-# migrate_besappserver.sh — BES AppServer 迁移脚本
-# 职责：依赖 JDK（按 registry 声明版本解析）→ 安装 BES → 恢复配置 → 注册 systemd 服务 → 健康检查（HTTP 8080）。
+# migrate_besappserver.sh — BES AppServer 迁移：依赖 JDK → 安装 BES → 恢复配置 →
+# 注册 systemd 服务 → 健康检查（HTTP 8080）。
 set -e
 SKILL_DIR="${SKILL_DIR:-$(
     _s="${BASH_SOURCE[0]}"
@@ -24,7 +24,13 @@ SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
 BES_USER="${BES_USER:-bes}"
 BES_GROUP="${BES_GROUP:-bes}"
 BES_ADMIN_USER="${BES_ADMIN_USER:-admin}"
-BES_ADMIN_PASSWORD="${BES_ADMIN_PASSWORD:-B#2008_2108#es}"
+# 管理员密码不设默认值：未显式传入时随机生成，仅用于 configserver 初始化与 .passwordfile/envfile 引用，
+# 不落任何明文（unit 文件、脚本仓库均不含密码）
+BES_ADMIN_PASSWORD="${BES_ADMIN_PASSWORD:-}"
+if [ -z "$BES_ADMIN_PASSWORD" ]; then
+    BES_ADMIN_PASSWORD=$(head -c 24 /dev/urandom 2>/dev/null | base64 2>/dev/null | tr -d '/+=' | head -c 20)
+    [ -z "$BES_ADMIN_PASSWORD" ] && BES_ADMIN_PASSWORD=$(date +%s%N$$ | md5sum | head -c 20)
+fi
 BES_ADMIN_HOST="${BES_ADMIN_HOST:-localhost}"
 BES_ADMIN_PORT="${BES_ADMIN_PORT:-1900}"
 BES_USER_PORT="${BES_USER_PORT:-8080}"
@@ -49,10 +55,8 @@ if [ -L "$BES_HOME" ]; then
     exit 1
 fi
 
-# BES AppServer 9.5.x 依赖 JDK 8 内部 JAXB（com.sun.xml.internal.bind），JDK 11+ 已移除。
-# 所需 JDK 主版本取自 registry 的 dependencies[].target_version，不在脚本内写死；
-# 若计划内所有 Java 中间件 JDK 需求一致（UNIFIED_JDK_VERSION），则统一使用该版本避免顾左失右。
-# 也可用 BES_JAVA8_HOME 显式指定。
+# BES AppServer 9.5.x 依赖 JDK（JDK 主版本取自 registry 的 dependencies[].target_version，不在脚本内写死；
+# UNIFIED_JDK_VERSION 统一时使用该版本）。也可用 BES_JAVA8_HOME 显式指定。
 BES_JAVA_REQUIRED=$(registry_get '.strategies.besappserver.dependencies[0].target_version' "8")
 [ -n "${UNIFIED_JDK_VERSION:-}" ] && BES_JAVA_REQUIRED="$UNIFIED_JDK_VERSION"
 JAVA8_HOME="${BES_JAVA8_HOME:-}"
@@ -231,19 +235,24 @@ if [ ! -f "$CONFIG_INIT_MARKER" ]; then
     touch "$CONFIG_INIT_MARKER"
 fi
 
-# 停止脚本：BES 9.5.x 使用 iastool stop --server
-START_CMD="$BES_BIN/iastool --user $BES_ADMIN_USER --host $BES_ADMIN_HOST --port $BES_ADMIN_PORT"
-STOP_CMD="$BES_BIN/iastool --user $BES_ADMIN_USER --host $BES_ADMIN_HOST --port $BES_ADMIN_PORT"
+# iastool 启停命令（前缀一致，仅末尾 start/stop 不同）
+IASTOOL_BASE="$BES_BIN/iastool --user $BES_ADMIN_USER --host $BES_ADMIN_HOST --port $BES_ADMIN_PORT"
 PASSWORD_FILE="$BES_HOME/conf/.passwordfile"
+UNIT_ENVFILE_LINE=""
 if [ -f "$PASSWORD_FILE" ]; then
-    START_CMD="$START_CMD --passwordfile $PASSWORD_FILE"
-    STOP_CMD="$STOP_CMD --passwordfile $PASSWORD_FILE"
+    START_CMD="$IASTOOL_BASE --passwordfile $PASSWORD_FILE start --server"
+    STOP_CMD="$IASTOOL_BASE --passwordfile $PASSWORD_FILE stop --server"
 else
-    START_CMD="$START_CMD --password $BES_ADMIN_PASSWORD"
-    STOP_CMD="$STOP_CMD --password $BES_ADMIN_PASSWORD"
+    # 无 .passwordfile 时：密码写入仅属主可读的 EnvironmentFile，unit 内以环境变量引用（不落 unit 明文）
+    ADMIN_ENV_FILE="$BES_HOME/conf/.admin.env"
+    printf 'BES_ADMIN_PASSWORD=%s\n' "$BES_ADMIN_PASSWORD" > "$ADMIN_ENV_FILE"
+    chown "$BES_USER:$BES_GROUP" "$ADMIN_ENV_FILE" 2>/dev/null || true
+    chmod 600 "$ADMIN_ENV_FILE"
+    UNIT_ENVFILE_LINE="EnvironmentFile=$ADMIN_ENV_FILE"
+    # \$BES_ADMIN_PASSWORD 保持字面量写入 unit，由 sh 从 systemd 注入的环境展开
+    START_CMD="$IASTOOL_BASE --password \$BES_ADMIN_PASSWORD start --server"
+    STOP_CMD="$IASTOOL_BASE --password \$BES_ADMIN_PASSWORD stop --server"
 fi
-START_CMD="$START_CMD start --server"
-STOP_CMD="$STOP_CMD stop --server"
 
 # 创建 systemd 服务（iastool start 内部 fork 守护进程，Type=forking）
 mkdir -p "$SYSTEMD_DIR"
@@ -257,6 +266,7 @@ Type=forking
 User=$BES_USER
 Group=$BES_GROUP
 Environment=JAVA_HOME=$JAVA8_HOME
+$UNIT_ENVFILE_LINE
 WorkingDirectory=$BES_HOME
 ExecStart=/bin/sh -c 'cd $BES_HOME/bin && $START_CMD'
 ExecStop=/bin/sh -c 'cd $BES_HOME/bin && $STOP_CMD'

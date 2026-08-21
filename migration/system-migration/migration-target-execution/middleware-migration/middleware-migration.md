@@ -10,26 +10,47 @@ bash middleware-migration/scripts/run_migration.sh "$MIGRATION_PLAN_PATH"
 
 调用方只需传入 `migration-plan.json`，内部脚本完成解析、排序（JDK 优先）、安装、配置恢复、服务切换与验证、汇总。详细策略见 `config/middleware_registry.json`。
 
+## 执行时序（必须遵守）
+
+`run_migration.sh` 退出后，按退出码决定后续动作，**不得跳过任一步骤**：
+
+| 退出码 | 含义 | 必须执行的后续动作 |
+|---|---|---|
+| 0 | 全部成功 | 流程结束 |
+| 1 | 存在失败项且无 handoff | 读 `batch_migration_summary.json` 排查，按需重试 |
+| 2 | 冲突待确认或 License 阻塞 | 读 `middleware-action-required.json`，向用户确认后重跑 |
+| 3 | 有 Agent 接管项 | **必须**执行 `run_handoff.sh` 补完（见下方"未登记中间件与 Agent 接管"） |
+
+退出码 3 时 `run_migration.sh` 会在 stderr 打印 `[NEXT]` 指令与完整命令，直接照执行即可。生成 `middleware-agent-handoff.json` 不代表流程结束，只有 `run_handoff.sh` 产出的 `middleware-agent-handoff-result.json` 才标志闭环完成。
+
 ## 关键约束
 
 ### 部署目录
 
 部署目录不由 `migration-plan.json` 显式指定，而是自动推导：
 
-1. **产品策略**：`middleware_registry.json` 中每类中间件配置的 `deploy_dir_strategy` 决定推导方式——`source_parent`（默认，装到源目录的同级）、`install_dir`（按源安装目录推导）、`skip`（系统包安装，不推导）；
+1. **产品策略**：`middleware_registry.json` 中每类中间件配置的 `deploy_dir_strategy` 决定推导方式——`source_parent`（默认，装到源目录的同级）、`install_dir`（优先按 `source.location` 推导，缺失时回退 registry 的 `install_dir` 字段）、`skip`（系统包安装，不推导）；
 2. **源端信息**：`migration-plan.json` 中 `source.location`（源机安装路径），作为推导输入；
 3. **环境变量覆盖**：可通过 `DEPLOY_DIR_<TYPE>` 显式指定部署目录（设为 `skip` 表示跳过该中间件的目录推导）。
 
 ### 冲突检测
 
-迁移前检测两类冲突，检测到时**必须**通过运行环境的交互式提问工具向用户提问，阻塞等待真实答复后再继续。不得跳过提问、以纯文本代替提问，或自行决定覆盖/跳过。
+迁移前检测两类冲突，检测到时**必须**通过运行环境的交互式提问工具向用户提问、阻塞等待真实答复后再继续（不得跳过、以纯文本代替或自行决定覆盖/跳过）。
 
-- **目录冲突**：目标部署目录已存在。`overwrite` = 删除现有目录后覆盖安装，`skip` = 跳过该迁移项。
+- **目录冲突**：目标部署目录已存在**且非空**。`overwrite` = 删除现有目录后覆盖安装，`skip` = 跳过该迁移项。（目录存在但为空目录不算冲突，直接安装）
 - **服务冲突**：目标环境已存在同名 systemd 服务。`overwrite` = 备份旧 service 文件后覆盖服务注册（**不删除原服务目录和配置文件**），`skip` = 跳过该迁移项。
 
 ### 依赖
 
 Java 中间件优先复用已迁移的目标 Java 运行时；未就绪时按 registry 声明的依赖准备。计划内若所有 Java 中间件 JDK 需求版本一致，统一使用该版本避免冲突。
+
+### 未登记中间件与 Agent 接管
+
+未在 `config/middleware_registry.json` 登记的中间件走通用流程（`scripts/migrate_generic.sh`）：尽力安装（解压/编译）并恢复配置。通用流程未能完整完成（安装失败，或已安装但无法确定启动方式／未通过服务验证）时，脚本生成 `middleware-agent-handoff.json` 清单，交由 Agent 用自身能力在目标机补完迁移（安装/启动/验证）。
+
+Agent 接管**必须**遵守：不改动 `scripts/` 下脚本与 `config/` 下配置（通用流程不修改、Agent 接管亦不修改），仅在目标机操作产物目录、systemd 服务与配置文件。
+
+Agent **必须**调用 `scripts/run_handoff.sh <handoff.json> <单任务处理器脚本>` 逐项串行补完接管项并汇总结果（可先用 `--dry-run` 查看接管项摘要）。生成 `middleware-agent-handoff.json` 后，`run_migration.sh` 以退出码 3 退出并打印 `[NEXT]` 指令；agent 必须按指令执行 `run_handoff.sh`，不得将其视为可选步骤或自行手动处理接管项。
 
 ## 输出
 
@@ -38,12 +59,24 @@ middleware/reports/batch_migration_summary.json
 middleware/reports/batch_migration_summary.md   
 ```
 
-批次状态：`SUCCEEDED`（全部成功）/ `SUCCEEDED_WITH_WARNINGS`（存在警告或跳过）/ `FAILED`（至少一项失败）/ `BLOCKED`（存在 License 等前置条件）。
+批次状态：`SUCCEEDED`（全部成功）/ `SUCCEEDED_WITH_WARNINGS`（存在警告或跳过）/ `FAILED`（至少一项失败）/ `BLOCKED`（License 未就绪，或目录/服务冲突待用户确认）。
 
 冲突待确认时输出：
 
 ```text
 middleware/reports/middleware-action-required.json
+```
+
+通用流程未完成、需 Agent 接管时输出：
+
+```text
+middleware/reports/middleware-agent-handoff.json
+```
+
+Agent 执行 `run_handoff.sh` 补完后输出（标志闭环完成）：
+
+```text
+middleware/reports/middleware-agent-handoff-result.json
 ```
 
 单项失败不阻止其他可执行项，批次最终状态和退出码反映整体结果。
@@ -60,9 +93,9 @@ scripts/
 ├── migrate_besappserver.sh   # BES AppServer 迁移：专用安装、依赖 JDK、健康检查
 ├── migrate_package.sh        # 通用包迁移(Nginx/Redis/ES 等)：yum/apt/源码编译、配置恢复、systemd 注册
 ├── migrate_generic.sh        # 兜底通用迁移：未登记产品走此脚本，尽力安装与配置恢复
+├── run_handoff.sh            # Agent 接管清单调度器：逐项串行调用单任务处理器并汇总结果
 └── lib/
     ├── common.sh             # 公共函数：部署目录推导、依赖管理、服务启停、冲突处理、日志等
     ├── transform_plan.py     # 将 migration-plan.json 转换为内部统一格式，含产品名标准化
-    ├── json_query.py         # JSON 查询工具(替代 jq)
-    └── registry_query.py     # registry 查询工具(替代 yq)，解析 middleware_registry.json  # 
+    └── registry_query.py     # registry 查询工具，解析 middleware_registry.json
 ```

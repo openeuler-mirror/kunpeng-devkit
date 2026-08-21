@@ -1,7 +1,6 @@
 #!/bin/bash
-# common.sh — 中间件迁移公共库（被各 migrate_*.sh 与 run_migration.sh source）
-# 提供：部署目录推导、依赖管理（JDK 版本统一策略）、冲突处理（目录/服务）、
-#       服务启停与注册、状态幂等、日志、JSON/registry 查询等通用函数。
+# common.sh — 中间件迁移公共库（被 init_context.sh、各 migrate_*.sh 与 run_migration.sh source）
+# 提供部署目录推导、依赖管理、冲突处理、服务启停、状态幂等、日志、registry 查询等通用函数。
 
 # ==================== 环境初始化 ====================
 load_env() {
@@ -35,12 +34,8 @@ require_env() {
     return 0
 }
 
-# ==================== JSON 查询（基于 python3，替代 jq）====================
-# 表达式中用 d 代表根数据
-json_query() { python3 "$SKILL_DIR/scripts/lib/json_query.py" "$@"; }
-
-# ==================== Registry 读取（基于 python3，替代 yq）====================
-# 用法: registry_get '<yq_path>' [default]; 支持 .a.b.c / .a."b".c / .a[0].b / .a.b | length
+# ==================== Registry 读取 ====================
+# 用法: registry_get '<path>' [default]; 支持 .a.b.c / .a."b".c / .a[0].b / .a.b | length
 registry_get() {
     [ ! -f "$REGISTRY_FILE" ] && { echo "${2:-}"; return 0; }
     local value
@@ -123,7 +118,6 @@ resolve_artifact_file() {
 }
 
 # ==================== 目标部署目录推导 ====================
-# plan 无 target.deploy_dir 字段，部署目录由产品策略(registry deploy_dir_strategy：source_parent 默认 / install_dir / skip)和源端信息(source.location)推导
 # 优先级：DEPLOY_DIR_<TYPE>(env 显式指定, "skip"=跳过) > 产品策略+源端信息推导 > /opt/<type>-<version> 默认目录
 # 返回码：0=成功 1=硬失败 4=用户跳过；失败设置 DERIVE_ERROR
 DERIVE_ERROR=""
@@ -145,7 +139,6 @@ derive_deploy_dir() {
     if registry_has ".strategies.\"$mtype\""; then
         strategy=$(registry_get ".strategies.\"$mtype\".deploy_dir_strategy" "source_parent")
     else
-        # 未登记产品优先沿用源目录；源目录缺失时使用确定性的 /opt 默认目录。
         if [ -z "$source_dir" ]; then
             [ -z "$target_version" ] && { DERIVE_ERROR="$mtype: target_version 为空"; log_error "$DERIVE_ERROR"; return 1; }
             echo "/opt/${mtype}-${target_version}"
@@ -156,12 +149,10 @@ derive_deploy_dir() {
     case "$strategy" in
         skip) echo ""; return 0 ;;
         install_dir)
-            # 优先使用 source.location 推导部署目录；source.location 缺失时才回退 registry 的 install_dir
             if [ -n "$source_dir" ]; then
                 [ -z "$target_version" ] && { DERIVE_ERROR="$mtype: target_version 为空"; log_error "$DERIVE_ERROR"; return 1; }
                 local root="${source_dir%/}"
                 case "$root" in */conf|*/config) root="$(dirname "$root")" ;; esac
-                # 防御 root 为空或为 /，避免生成 //xxx 或 ./xxx 等异常路径
                 case "$root" in
                     ""|"/") DERIVE_ERROR="$mtype: 无法从 source.location 推导部署目录: $source_dir"; log_error "$DERIVE_ERROR"; return 1 ;;
                 esac
@@ -205,11 +196,13 @@ resolve_conflict_action() {
 
 # 部署目录已存在时的交互处理
 # 返回码：0=继续(目录不存在或已删除) 1=跳过 2=非交互且未设置 CONFLICT_ACTION
-# auto 模式自动跳过；非 tty 按 ID > 类型 > 全局的 CONFLICT_ACTION 决策
 prompt_deploy_dir_conflict() {
     local deploy_dir="$1" mtype="${2:-}" mid="${3:-}"
 
-    [ ! -d "$deploy_dir" ] && return 0
+    # 目录不存在或为空目录视为无冲突
+    if [ ! -d "$deploy_dir" ] || [ -z "$(ls -A "$deploy_dir" 2>/dev/null)" ]; then
+        return 0
+    fi
 
     [ "${PERMISSION_MODE:-strict}" = "auto" ] && {
         log_warn "目标部署目录已存在(auto 模式自动跳过): $deploy_dir"; return 1
@@ -278,7 +271,6 @@ _backup_service_file() {
 
 # 目标环境已存在同名 systemd 服务时的处理
 # 返回码：0=继续(无冲突或用户选择继续) 1=跳过 2=非交互待确认
-# 不删除原来的服务目录和配置文件，仅备份 service 文件后覆盖注册
 prompt_service_conflict() {
     local arm_svc="$1" mtype="${2:-}" mid="${3:-}"
 
@@ -350,7 +342,7 @@ set_migration_state() {
     key=$(_migration_state_key "$requested")
     echo "$state" > "$STATE_DIR/${key}.status"
 
-    # 主迁移项按 route id 保存，同时保留 type 状态供依赖判断复用，避免 JDK 等依赖重复安装。
+    # 主迁移项按 route id 保存，同时保留 type 状态供依赖判断复用。
     if [ -n "${MIDDLEWARE_STATE_KEY:-}" ] && [ "$requested" = "${MIDDLEWARE_TYPE:-}" ]; then
         type_key=$(printf '%s' "$MIDDLEWARE_TYPE" | tr -c 'A-Za-z0-9._-' '_')
         [ "$type_key" = "$key" ] || echo "$state" > "$STATE_DIR/${type_key}.status"
@@ -358,8 +350,7 @@ set_migration_state() {
 }
 
 # ==================== JAVA_HOME 解析 ====================
-# Java 中间件脚本统一使用该函数解析 JAVA_HOME，避免各脚本逻辑重复。
-# 解析顺序：1) 环境变量 JAVA_HOME（bin/java 可执行时） 2) 标准运行时入口 /usr/lib/jvm/java-arm（migrate_jdk.sh 创建）
+# 解析顺序：1) JAVA_HOME（bin/java 可执行时） 2) /usr/lib/jvm/java-arm（migrate_jdk.sh 创建）
 #          3) /opt 下 JDK 目录兜底。全部不可用返回 1（脚本据此报"请先完成 JDK 迁移"）。
 resolve_java_home() {
     local java_home="${JAVA_HOME:-}"
@@ -394,7 +385,7 @@ java_version_ok() {
 }
 
 # 统计 plan 中所有 Java 中间件（含依赖）所需的 JDK 主版本，输出空格分隔的去重列表，如 "8 11"。
-# 用于判定"计划内所有中间件兼容的统一 JDK 版本"：全部一致时由调用方统一使用，避免顾左失右。
+# 全部一致时由调用方统一使用（UNIFIED_JDK_VERSION），避免顾左失右。
 plan_java_versions() {
     [ -n "${MIDDLEWARE_LIST:-}" ] || return 0
     printf '%s' "$MIDDLEWARE_LIST" | REGISTRY_FILE="$REGISTRY_FILE" python3 -c "
@@ -427,7 +418,7 @@ print(' '.join(sorted(set(out), key=lambda x: int(x))))
 " 2>/dev/null
 }
 
-# 按依赖声明的目标版本解析对应 JDK（支持 8/11/1.8.0 等写法），替代各脚本硬编码版本查找。
+# 按依赖声明的目标版本解析对应 JDK（支持 8/11/1.8.0 等写法）。
 # 搜索顺序：JAVA_HOME -> /usr/lib/jvm/java-arm -> /usr/lib/jvm/java-<major>* -> /opt 下迁移安装的 JDK
 resolve_java_home_for_version() {
     local want="$1"
@@ -479,7 +470,6 @@ ensure_dependencies() {
         [ -z "$dep_type" ] && continue
         dep_type=$(normalize_middleware_type "$dep_type")
         dep_target=$(registry_get ".strategies.\"$mtype\".dependencies[$i].target_version")
-        # 计划内所有 Java 中间件的 JDK 需求一致时统一使用该版本，避免按各自版本解析导致顾左失右。
         [ -n "${UNIFIED_JDK_VERSION:-}" ] && dep_target="$UNIFIED_JDK_VERSION"
 
         case "$(get_migration_state "$dep_type")" in
@@ -535,13 +525,11 @@ ensure_dependencies() {
             export MIDDLEWARE_TYPE="$dep_type" CURRENT_VERSION="$dep_current" TARGET_VERSION="$dep_target"
             export SOURCE_DIR="" INSTALL_METHOD="$dep_install_method" MIGRATION_PATH="REGISTERED"
             unset MIDDLEWARE_STATE_KEY
-            # 依赖来自 registry 而非 plan，无独立的 source_type；
-            # 显式清空，避免父中间件（run_migration.sh 已 export）的 SOURCE_TYPE 泄漏影响依赖安装
+            # 依赖来自 registry 而非 plan，显式清空 SOURCE_TYPE，避免父中间件已 export 的值泄漏
             export SOURCE_TYPE=""
             case "$dep_type" in
                 openjdk|ibmjdk|oraclejdk)
                     # 从 plan 的 middleware 项中按依赖目标版本选择对应 JDK 包，
-                    # 避免存在多个 JDK 项时固定取第一个（如取到 8 却要装 11）。
                     # 无匹配版本时输出 JDK_MISMATCH 交给 bash 侧提示，不静默取错版本。
                     if [ -n "${MIDDLEWARE_LIST:-}" ]; then
                         local jdk_pick
@@ -643,16 +631,49 @@ download_package() {
 }
 
 # ==================== 服务管理 ====================
+# 应用 registry 中声明的内核参数（如 ES 的 vm.max_map_count），写入 sysctl.d 并立即生效
+apply_service_sysctl() {
+    local mtype="$1" sysctl_json
+    sysctl_json=$(registry_get ".strategies.\"$mtype\".sysctl" "")
+    [ -z "$sysctl_json" ] && return 0
+    python3 - "$mtype" "$sysctl_json" <<'PY'
+import json, sys, subprocess
+mtype, sysctl_json = sys.argv[1], sys.argv[2]
+try:
+    data = json.loads(sysctl_json)
+except Exception:
+    sys.exit(0)
+if not isinstance(data, dict):
+    sys.exit(0)
+conf = '/etc/sysctl.d/99-{}.conf'.format(mtype)
+with open(conf, 'w') as stream:
+    for k, v in data.items():
+        entry = '{} = {}'.format(k, v)
+        stream.write(entry + '\n')
+        subprocess.run(['sysctl', '-w', '{}={}'.format(k, v)], capture_output=True)
+PY
+}
+
 install_systemd_service() {
     local mtype="$1" arm_svc="$2" exec_start="$3" exec_stop="${4:-}" env_vars="${5:-}" service_type="${6:-simple}"
     local service_file="/etc/systemd/system/${arm_svc}.service"
+    local service_user deploy_dir
 
-    [ -f "/usr/lib/systemd/system/$(resolve_service_name "$mtype").service" ] && \
-        cp "/usr/lib/systemd/system/$(resolve_service_name "$mtype").service" "$service_file"
+    # 内核参数
+    apply_service_sysctl "$mtype"
+
+    # 非 root 运行用户（如 elasticsearch）：不存在则创建并授权部署目录
+    service_user=$(registry_get ".strategies.\"$mtype\".service_user" "")
+    if [ -n "$service_user" ]; then
+        id "$service_user" >/dev/null 2>&1 || useradd -r -M -s /sbin/nologin "$service_user" 2>/dev/null || log_warn "创建运行用户失败: $service_user"
+        deploy_dir="${DEPLOY_DIR:-}"
+        [ -n "$deploy_dir" ] && [ -d "$deploy_dir" ] && chown -R "$service_user:$service_user" "$deploy_dir" 2>/dev/null || true
+    fi
 
     {
         echo "[Unit]"; echo "Description=${mtype} ARM Migration Service"; echo "After=network.target"; echo
         echo "[Service]"; echo "Type=$service_type"
+        [ -n "$service_user" ] && { echo "User=$service_user"; echo "Group=$service_user"; }
         [ -n "$env_vars" ] && echo "Environment=$env_vars"
         echo "ExecStart=$exec_start"
         [ -n "$exec_stop" ] && echo "ExecStop=$exec_stop"
@@ -664,13 +685,53 @@ install_systemd_service() {
     systemctl enable "$arm_svc" 2>/dev/null || true
 }
 
-start_service() {
-    local arm_svc="$1"
-    log_step "启动服务: $arm_svc"
-    systemctl start "$arm_svc" 2>/dev/null && { sleep 2; return 0; }
-    log_error "服务启动失败: $arm_svc"
-    systemctl status "$arm_svc" --no-pager 2>/dev/null || true
+# bash /dev/tcp 优先，nc/ss 兜底
+check_port_ready() {
+    local port="$1" host="${2:-127.0.0.1}"
+    [ -z "$port" ] && return 0
+    (exec 3<>"/dev/tcp/$host/$port") 2>/dev/null && return 0
+    command -v nc >/dev/null 2>&1 && nc -z -w 2 "$host" "$port" >/dev/null 2>&1 && return 0
+    command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$" && return 0
     return 1
+}
+
+# 轮询 is-active 且（若配置 service_port）端口监听，最多 max_wait 秒
+wait_service_ready() {
+    local arm_svc="$1" port="${2:-}" elapsed=0
+    local max_wait=120 interval=3 st
+    while [ "$elapsed" -lt "$max_wait" ]; do
+        st=$(systemctl is-active "$arm_svc" 2>/dev/null)
+        case "$st" in
+            active) ;;
+            activating|deactivating)
+                sleep "$interval"; elapsed=$((elapsed + interval)); continue ;;
+            *)
+                log_error "服务未正常运行 ($st): $arm_svc"
+                systemctl status "$arm_svc" --no-pager 2>/dev/null || true
+                return 1 ;;
+        esac
+        if [ -n "$port" ] && ! check_port_ready "$port"; then
+            sleep "$interval"
+            elapsed=$((elapsed + interval))
+            continue
+        fi
+        log_info "服务就绪: $arm_svc${port:+ (端口 $port)}，耗时 ${elapsed}s"
+        return 0
+    done
+    log_error "等待服务就绪超时 (${max_wait}s): $arm_svc${port:+ (端口 $port)}"
+    return 1
+}
+
+start_service() {
+    local arm_svc="$1" port
+    log_step "启动服务: $arm_svc"
+    if ! systemctl start "$arm_svc" >/dev/null 2>&1; then
+        log_error "服务启动失败: $arm_svc"
+        systemctl status "$arm_svc" --no-pager 2>/dev/null || true
+        return 1
+    fi
+    port=$(registry_get ".strategies.\"${MIDDLEWARE_TYPE:-}\".service_port" "")
+    wait_service_ready "$arm_svc" "$port"
 }
 
 stop_service() {
@@ -746,7 +807,10 @@ generic_install_artifact() {
         log_info "使用本地安装包: $local_path"
         cp "$local_path" "$DOWNLOADS_DIR/$pkg_file" || { log_error "本地包复制失败"; return 1; }
     elif [ -n "$DOWNLOAD_URL" ]; then
-        download_package "$DOWNLOAD_URL" "$pkg_file" >/dev/null || { log_error "下载失败: $DOWNLOAD_URL"; return 1; }
+        # 先替换 URL 中的 ${TARGET_VERSION} 占位符（与其他迁移脚本保持一致）
+        local resolved_url
+        resolved_url=$(resolve_download_url)
+        download_package "$resolved_url" "$pkg_file" >/dev/null || { log_error "下载失败: $resolved_url"; return 1; }
     else
         log_error "无可用包源（local_path/download_url 均缺失）"; return 1
     fi
@@ -785,7 +849,7 @@ generic_restore_config() {
 }
 
 # ==================== auto 安装辅助函数 ====================
-# 检测解压后目录的包类型：binary/source/unknown
+# 检测包类型：binary/source/unknown
 detect_package_type() {
     local dir="$1" mtype="${2:-}"
     [ -d "$dir" ] || { echo "unknown"; return 0; }
@@ -809,7 +873,7 @@ detect_package_type() {
     echo "unknown"
 }
 
-# 智能解压包（支持 tar.gz/tgz/tar.xz/tar.bz2/zip/rpm）
+# 解压包（支持 tar.gz/tgz/tar.xz/tar.bz2/zip/rpm）
 install_binary_package() {
     local package_path="$1" deploy_dir="$2"
     [ -f "$package_path" ] || { log_error "包文件不存在: $package_path"; return 1; }

@@ -1,11 +1,7 @@
 {
   "product_aliases": {
-    "Tomcat": "tomcat",
-    "Resin": "resin",
-    "金蝶AAS": "kingdeaas",
     "东方通TongWeb": "tongweb",
     "BES AppServer Standard": "besappserver",
-    "JDK": "jdk",
     "JRE": "bisenjre",
     "毕昇JDK": "openjdk",
     "毕昇JRE": "bisenjre"
@@ -13,43 +9,15 @@
   "strategies": {
     "openjdk": {
       "script": "scripts/migrate_jdk.sh",
-      "install_method": "jdk",
-      "service_name_suffix": false,
-      "validation": {}
+      "install_method": "jdk"
     },
     "ibmjdk": {
       "script": "scripts/migrate_jdk.sh",
-      "install_method": "jdk",
-      "service_name_suffix": false,
-      "validation": {
-        "service": [
-          {
-            "command": "java -version"
-          }
-        ],
-        "functional": [
-          {
-            "command": "java -version"
-          }
-        ]
-      }
+      "install_method": "jdk"
     },
     "oraclejdk": {
       "script": "scripts/migrate_jdk.sh",
-      "install_method": "jdk",
-      "service_name_suffix": false,
-      "validation": {
-        "service": [
-          {
-            "command": "java -version"
-          }
-        ],
-        "functional": [
-          {
-            "command": "java -version"
-          }
-        ]
-      }
+      "install_method": "jdk"
     },
     "nginx": {
       "script": "scripts/migrate_package.sh",
@@ -58,7 +26,6 @@
       "deploy_dir_strategy": "install_dir",
       "config_dir": "/etc/nginx",
       "service_name": "nginx",
-      "service_name_suffix": false,
       "package_name": "nginx",
       "bin_path": "sbin/nginx",
       "service_prefix": true,
@@ -99,7 +66,6 @@
       ],
       "config_dir": "/opt/tomcat/conf",
       "service_name": "tomcat",
-      "service_name_suffix": false,
       "exec_start": "${INSTALL_DIR}/bin/catalina.sh run",
       "validation": {
         "config": [
@@ -130,7 +96,6 @@
       ],
       "config_dir": "/opt/resin/conf",
       "service_name": "resin",
-      "service_name_suffix": false,
       "exec_start": "${INSTALL_DIR}/bin/resin.sh console",
       "validation": {
         "config": [
@@ -160,7 +125,6 @@
         }
       ],
       "service_name": "tongweb",
-      "service_name_suffix": false,
       "health_url": "http://127.0.0.1:9088",
       "validation": {
         "service": [
@@ -185,7 +149,6 @@
         }
       ],
       "service_name": "besappserver",
-      "service_name_suffix": false,
       "health_url": "http://127.0.0.1:8080",
       "validation": {
         "service": [
@@ -207,7 +170,6 @@
       "deploy_dir_strategy": "install_dir",
       "config_dir": "/etc/redis",
       "service_name": "redis",
-      "service_name_suffix": false,
       "package_name": "redis",
       "bin_path": "bin/redis-server",
       "make_options": "BUILD_TLS=no",
@@ -247,9 +209,13 @@
       "deploy_dir_strategy": "install_dir",
       "config_dir": "/etc/elasticsearch",
       "service_name": "elasticsearch",
-      "service_name_suffix": false,
       "package_name": "elasticsearch",
       "bin_path": "bin/elasticsearch",
+      "service_user": "elasticsearch",
+      "sysctl": {
+        "vm.max_map_count": 262144
+      },
+      "service_port": 9200,
       "validation": {
         "config": [
           {
@@ -275,7 +241,6 @@
       "deploy_dir_strategy": "skip",
       "config_dir": "/etc/rabbitmq",
       "service_name": "rabbitmq-server",
-      "service_name_suffix": false,
       "package_name": "rabbitmq-server",
       "validation": {
         "service": [
@@ -297,7 +262,6 @@
       "deploy_dir_strategy": "skip",
       "config_dir": "/etc/docker",
       "service_name": "docker",
-      "service_name_suffix": false,
       "package_name": "docker",
       "validation": {
         "service": [
@@ -323,7 +287,6 @@
       ],
       "config_dir": "/opt/nacos/conf",
       "service_name": "nacos",
-      "service_name_suffix": false,
       "exec_start": "${INSTALL_DIR}/bin/startup-foreground.sh",
       "validation": {
         "service": [
@@ -349,7 +312,6 @@
       ],
       "config_dir": "/opt/rocketmq/conf",
       "service_name": "rocketmq",
-      "service_name_suffix": false,
       "exec_start": "${INSTALL_DIR}/bin/mqnamesrv",
       "validation": {
         "service": [
@@ -364,59 +326,13 @@
         ]
       }
     },
-    "javamiddleware": {
-      "script": "scripts/migrate_javamiddleware.sh",
-      "install_method": "javamiddleware",
-      "dependencies": [
-        {
-          "type": "openjdk",
-          "target_version": "11"
-        }
-      ],
-      "config_dir": "/opt/javamiddleware/conf",
-      "service_name": "javamiddleware",
-      "service_name_suffix": false,
-      "validation": {
-        "functional": [
-          {
-            "command": "echo \"application health check\""
-          }
-        ]
-      }
-    },
     "bisenjre": {
       "script": "scripts/migrate_jdk.sh",
-      "install_method": "jdk",
-      "service_name_suffix": false,
-      "validation": {
-        "service": [
-          {
-            "command": "java -version"
-          }
-        ],
-        "functional": [
-          {
-            "command": "java -version"
-          }
-        ]
-      }
+      "install_method": "jdk"
     },
     "jdk": {
       "script": "scripts/migrate_jdk.sh",
-      "install_method": "jdk",
-      "service_name_suffix": false,
-      "validation": {
-        "service": [
-          {
-            "command": "java -version"
-          }
-        ],
-        "functional": [
-          {
-            "command": "java -version"
-          }
-        ]
-      }
+      "install_method": "jdk"
     }
   }
 }

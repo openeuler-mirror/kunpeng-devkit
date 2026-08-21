@@ -1,6 +1,6 @@
 #!/bin/bash
-# migrate_tongweb.sh — TongWeb 应用服务器迁移脚本
-# 职责：依赖 JDK → 安装 TongWeb → 恢复配置 → 注册 systemd 服务 → 健康检查（HTTP 9088）。
+# migrate_tongweb.sh — TongWeb 应用服务器迁移：依赖 JDK → 安装 TongWeb → 恢复配置 →
+# 注册 systemd 服务 → 健康检查（HTTP 9088）。
 set -e
 SKILL_DIR="${SKILL_DIR:-$(
     _s="${BASH_SOURCE[0]}"
@@ -194,9 +194,9 @@ After=network.target
 [Service]
 Type=$SERVICE_TYPE
 Environment="JAVA_HOME=$JAVA_HOME"
-WorkingDirectory="$TONGWEB_HOME"
-ExecStart="$START_SCRIPT"
-ExecStop="$STOP_SCRIPT"
+WorkingDirectory=$TONGWEB_HOME
+ExecStart=$START_SCRIPT
+ExecStop=$STOP_SCRIPT
 Restart=on-failure
 
 [Install]
@@ -206,9 +206,9 @@ EOF
 "$SYSTEMCTL_BIN" daemon-reload
 "$SYSTEMCTL_BIN" enable "$ARM_SVC" >/dev/null
 if ! start_service "$ARM_SVC"; then
-    defer_if_license_error
-    RC=$?
-    [ $RC -eq 20 ] && exit 20
+    if defer_if_license_error; then
+        exit 20
+    fi
     set_migration_state "$MIDDLEWARE_TYPE" "failed"
     exit 1
 fi
@@ -227,9 +227,9 @@ if [ -n "$TONGWEB_HEALTH_URL" ]; then
         sleep 3
     done
     if [ "$HEALTH_STATUS" = "NOT_CHECKED" ]; then
-        defer_if_license_error
-        RC=$?
-        [ $RC -eq 20 ] && exit 20
+        if defer_if_license_error; then
+            exit 20
+        fi
         log_error "TongWeb HTTP 健康检查失败"
         set_migration_state "$MIDDLEWARE_TYPE" "failed"
         exit 1

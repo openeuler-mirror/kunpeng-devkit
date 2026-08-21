@@ -2,10 +2,8 @@
 """
 transform_plan.py — 将 migration-plan.json 转换为内部统一格式
 
-职责：解析 plan，提取中间件源/目标信息、安装包、配置产物路径，
-      标准化产品名（product_aliases + 去空白兜底），输出 JSON 供 run_migration.sh 逐项消费。
 用法: python3 transform_plan.py <plan_file> <plan_base_dir>
-输出: 紧凑 JSON 数组，保留路由 id，并包含标准化 type、源/目标版本、部署目录、配置产物和安装包信息。
+输出: 紧凑 JSON 数组，保留路由 id，含标准化 type、源/目标版本、部署目录、配置产物和安装包信息。
 """
 import json
 import re
@@ -58,7 +56,6 @@ def normalize_type(orig):
     mapping.update(PRODUCT_ALIASES)
     if orig in mapping:
         return mapping[orig]
-    # 采集端产品名为固定拼写；兼容手工/历史数据中的空格差异（如 "东方通 TongWeb"）
     compact = re.sub(r'\s+', '', orig)
     if compact != orig:
         for key, value in mapping.items():
@@ -80,7 +77,7 @@ def main():
     with open(plan_file, 'r', encoding='utf-8-sig') as f:
         plan = json.load(f)
 
-    # route.middleware 已包含所有中间件项（含 JDK，java_runtime 已合并到 middleware 中）
+    # route.middleware 已包含所有中间件项（含 JDK）
     middlewares = plan.get('route', {}).get('middleware', [])
     migration_base = Path(str(plan.get('target_environment', {}).get('migration_work_dir') or ''))
     migration_id = str(plan.get('migration_id') or '')
@@ -115,7 +112,7 @@ def main():
         }
         result.append(item)
 
-    # Java runtime first so Java middleware can reuse the migrated runtime directly.
+    # JDK 优先排序，Java 中间件可直接复用已迁移的运行时
     jdk_types = {'openjdk', 'ibmjdk', 'oraclejdk', 'bisenjre', 'jdk'}
     result.sort(key=lambda item: 0 if item.get('type') in jdk_types else 1)
 

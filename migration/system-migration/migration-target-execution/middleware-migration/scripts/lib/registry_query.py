@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """
-Registry 查询工具 - 基于 python3 标准库 json，替代 yq 解析 config/middleware_registry.json
+Registry 查询工具 - 基于 python3 标准库 json 解析 config/middleware_registry.json
 
 用法:
   python3 registry_query.py [-e] '<path>' [file]
 
-路径语法（兼容原 yq 风格）:
+路径语法:
   .strategies.openjdk.install_dir              # 点分
   .strategies."openjdk".install_dir            # 带引号（数字键或特殊字符）
   .strategies."openjdk".dependencies[0].type   # 数组索引
   .strategies."openjdk".dependencies | length  # 取长度
 
 选项:
-  -e   存在性检查（值为 None 时返回退出码 1，其余返回 0）
-
-说明:
-  - 仅 None 视为不存在；False / 0 / 空字符串 / 空集合均视为存在
-  - 不支持 yq 的 select/管道过滤等复杂表达式（这类逻辑请在调用方用内联 python 实现）
+  -e   存在性检查（值为 None 时返回退出码 1，其余返回 0；False/0/空串/空集合均视为存在）
+  不支持 select/管道过滤等复杂表达式（这类逻辑请在调用方用内联 python 实现）
 """
 import json
 import sys
@@ -24,7 +21,7 @@ import re
 
 
 def parse_path(key):
-    """把 yq 风格路径解析为 (token 列表, 是否取长度)"""
+    """把路径解析为 (token 列表, 是否取长度)"""
     key = key.strip()
     take_length = False
     if key.endswith('| length'):

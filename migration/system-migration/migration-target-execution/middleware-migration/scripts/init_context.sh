@@ -1,6 +1,5 @@
 #!/bin/bash
-# init_context.sh — 运行环境初始化
-# 职责：解析 SKILL_DIR/RUN_ID/WORK_DIR/REPORTS_DIR 等路径，加载 .env，为迁移脚本提供运行上下文。
+# init_context.sh — 运行环境初始化：解析 SKILL_DIR/RUN_ID/WORK_DIR 等路径，加载 .env。
 set -e
 
 # SKILL_DIR：优先用父进程传入值，fallback 用 BASH_SOURCE[0] 解析
@@ -14,12 +13,11 @@ export SKILL_DIR
 
 # RUN_ID 仅用于报告标识
 RUN_ID="$(date +%Y%m%d-%H%M%S)-$$"
-export RUN_ID="$RUN_ID"
+export RUN_ID
 export REFERENCE_DIR="$SKILL_DIR/reference"
 export REGISTRY_FILE="$SKILL_DIR/config/middleware_registry.json"
 
 # 参数文件优先级：MIGRATION_PLAN_PATH > migration-plan.json > 自动搜索
-# MIGRATION_PLAN_PATH 可由系统迁移导出，也可由 run_migration.sh 命令行参数 $1 设置
 if [ -n "${MIGRATION_PLAN_PATH:-}" ] && [ -f "$MIGRATION_PLAN_PATH" ]; then
     echo "[INIT] 使用系统迁移传入的参数文件: $MIGRATION_PLAN_PATH"
 elif [ -f "migration-plan.json" ]; then
@@ -119,8 +117,11 @@ for item in json.load(sys.stdin):
         break
 " 2>/dev/null)"
 export JAVA_RUNTIME_URL JAVA_RUNTIME_LOCAL_PATH JAVA_RUNTIME_FILE_NAME JAVA_RUNTIME_VERSION
-[ -n "$JAVA_RUNTIME_URL" ] && echo "[INIT] 检测到 JDK 项 (middleware)，JDK 依赖将优先使用: $JAVA_RUNTIME_URL"
-[ -n "$JAVA_RUNTIME_LOCAL_PATH" ] && echo "[INIT] 检测到 JDK 本地包，JDK 依赖将优先使用: $JAVA_RUNTIME_LOCAL_PATH"
+if [ -n "$JAVA_RUNTIME_URL" ]; then
+    echo "[INIT] JDK 依赖优先使用: $JAVA_RUNTIME_URL"
+elif [ -n "$JAVA_RUNTIME_LOCAL_PATH" ]; then
+    echo "[INIT] JDK 依赖优先使用本地包: $JAVA_RUNTIME_LOCAL_PATH"
+fi
 
 MIDDLEWARE_COUNT=$(printf '%s' "$MIDDLEWARE_LIST" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
 

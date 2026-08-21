@@ -1,8 +1,5 @@
 #!/bin/bash
-# migrate_jdk.sh — JDK/JRE 迁移脚本
-# 职责：安装目标 Java 运行时（BiSheng JDK/Oracle/IBM 等），设置 JAVA_HOME，
-#       配置环境变量，执行 java -version 验证。
-# 依赖：无（JDK 是最底层依赖，优先迁移）
+# migrate_jdk.sh — JDK/JRE 迁移：安装目标 Java 运行时，设置 JAVA_HOME 并验证。
 set -e
 SKILL_DIR="${SKILL_DIR:-$(
     _s="${BASH_SOURCE[0]}"
@@ -41,25 +38,64 @@ if [ -z "$package_path" ]; then
     fi
 fi
 
-tar -xzf "$package_path" -C /opt/ 2>/dev/null || {
-    log_error "JDK 解压失败"
+# 解压前快照 /opt 目录，用于解压后通过差集精确定位新增目录（避免与已有 JDK 混淆）
+_opt_before=$(ls -1 /opt 2>/dev/null | sort)
+
+extract_jdk_archive() {
+    case "$package_path" in
+        *.tar.gz|*.tgz)  tar -xzf "$package_path" -C /opt/ ;;
+        *.tar.xz)        tar -xJf "$package_path" -C /opt/ ;;
+        *.tar.bz2)       tar -xjf "$package_path" -C /opt/ ;;
+        *.tar)           tar -xf "$package_path" -C /opt/ ;;
+        *.zip)
+            command -v unzip >/dev/null 2>&1 || yum install -y unzip >/dev/null 2>&1 || return 1
+            unzip -q -o "$package_path" -d /opt/
+            ;;
+        *)
+            # 按实际文件类型兜底识别
+            local ft; ft=$(file -b "$package_path" 2>/dev/null)
+            case "$ft" in
+                *gzip*)  tar -xzf "$package_path" -C /opt/ ;;
+                *XZ*)    tar -xJf "$package_path" -C /opt/ ;;
+                *bzip2*) tar -xjf "$package_path" -C /opt/ ;;
+                *Zip*)
+                    command -v unzip >/dev/null 2>&1 || yum install -y unzip >/dev/null 2>&1 || return 1
+                    unzip -q -o "$package_path" -d /opt/
+                    ;;
+                *) log_error "不支持的 JDK 包格式: $package_path ($ft)"; return 1 ;;
+            esac
+            ;;
+    esac
+}
+
+extract_jdk_archive || {
+    log_error "JDK 解压失败: $package_path"
+    set_migration_state "$MIDDLEWARE_TYPE" "failed"
     exit 1
 }
 
 # 定位新 JDK 目录
 # 解压后 JDK 目录命名多样：jdk-11.0.26、ibm-semeru-open-jdk-11.0.26、bisheng-jdk-11.0.26、zulu11-* 等
-# 优先按版本号匹配（版本号是解压后新加入的目录最显著特征），找不到则退回最新修改的 jdk 相关目录
 NEW_JAVA_HOME=""
-# 1. 精确匹配：包含目标版本号的 JDK 目录
-for candidate in /opt/jdk-* /opt/ibm-semeru-open-jdk* /opt/zulu*jdk* /opt/bisheng-jdk* /opt/*jdk*; do
-    [ -d "$candidate" ] || continue
-    if echo "$candidate" | grep -q "$TARGET_VERSION"; then
-        NEW_JAVA_HOME="$candidate"
-        break
-    fi
+# 1. 优先：本次解压新增的目录（与解压前快照差集，重装/升级场景不会误选已有旧目录）
+for _d in $(comm -13 <(printf '%s\n' "$_opt_before") <(ls -1 /opt 2>/dev/null | sort)); do
+    case "$_d" in
+        *jdk*|*java*|*jre*) NEW_JAVA_HOME="/opt/$_d"; break ;;
+    esac
 done
 
-# 2. 兜底：取 /opt 下最近修改的、名称含 jdk 的目录
+# 2. 版本号边界匹配：目标版本号两侧为 - . _ = 或结尾（避免目标 8 误配 jdk-18、u 版本如 8u372 可命中）
+if [ -z "$NEW_JAVA_HOME" ]; then
+    for candidate in /opt/jdk-* /opt/ibm-semeru-open-jdk* /opt/zulu*jdk* /opt/bisheng-jdk* /opt/*jdk*; do
+        [ -d "$candidate" ] || continue
+        case "$(basename "$candidate")" in
+            *[-._=]"${TARGET_VERSION}"|*[-._=]"${TARGET_VERSION}"[-._=]*|*[-._=]"${TARGET_VERSION}"u[0-9]*)
+                NEW_JAVA_HOME="$candidate"; break ;;
+        esac
+    done
+fi
+
+# 3. 兜底：取 /opt 下最近修改的、名称含 jdk 的目录
 if [ -z "$NEW_JAVA_HOME" ]; then
     NEW_JAVA_HOME=$(ls -dt /opt/*jdk* /opt/jdk-* 2>/dev/null | head -1)
 fi
@@ -115,9 +151,7 @@ fi
 export JAVA_HOME="$NEW_JAVA_HOME"
 export PATH="$JAVA_HOME/bin:$PATH"
 
-# 配置恢复与 JAVA_HOME 路径替换
-# JDK 迁移时若 plan 提供了 artifact_paths（CONFIG_PATHS），对配置文件中的 JAVA_HOME 路径进行替换
-# 产物输出到 WORK_DIR/jdk_configs/ 下，避免污染当前工作目录
+# 配置恢复：对配置文件中的 JAVA_HOME 路径进行替换，产物输出到 WORK_DIR/jdk_configs/
 if [ -n "$SOURCE_DIR" ] && [ -n "${CONFIG_PATHS:-}" ] && [ "${CONFIG_PATHS:-}" != "null" ]; then
     JDK_CONFIG_OUT="${WORK_DIR}/jdk_configs"
     mkdir -p "$JDK_CONFIG_OUT"
