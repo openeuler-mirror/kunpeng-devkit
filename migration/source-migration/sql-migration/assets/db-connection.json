@@ -1,0 +1,18 @@
+{
+    "source_db_conn": {
+        "flag": false,
+        "jdbc_url": "",
+        "user": "",
+        "password": "",
+        "driver_jar_path": "",
+        "driver_class_name": ""
+    },
+    "target_db_conn": {
+        "flag": false,
+        "jdbc_url": "",
+        "user": "",
+        "password": "",
+        "driver_jar_path": "",
+        "driver_class_name": ""
+    }
+}

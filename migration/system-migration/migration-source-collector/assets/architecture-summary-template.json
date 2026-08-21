@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "collection_id": "{{collection_id}}",
+  "summary": "{{deployment_architecture_summary}}",
+  "components": [
+    {
+      "id": "{{component_id}}",
+      "product": "{{component_product}}",
+      "version": null,
+      "source_location": "{{component_source_location}}",
+      "process_refs": [],
+      "port_refs": [],
+      "service_refs": [],
+      "config_refs": [],
+      "application_refs": []
+    }
+  ],
+  "relations": [
+    {
+      "from": "{{relation_from_component_id}}",
+      "to": "{{relation_to_component_id}}",
+      "type": "{{relation_type}}",
+      "confidence": "{{relation_confidence}}",
+      "collection_refs": []
+    }
+  ],
+  "supporting_refs": [
+    "scan-results/process-details.tsv",
+    "scan-results/process-args.tsv",
+    "scan-results/component-versions.tsv",
+    "scan-results/ports.txt",
+    "scan-results/services.txt",
+    "scan-results/collected-artifacts.tsv"
+  ]
+}

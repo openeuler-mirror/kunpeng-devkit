@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system-migration/migration-approval.schema.json",
+  "title": "Migration operation approval",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "decision",
+    "decided_at",
+    "migration_plan",
+    "migration_plan_digest",
+    "operation_plan",
+    "operation_plan_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "decision": {"enum": ["approve", "reject"]},
+    "decided_at": {"type": "string", "format": "date-time"},
+    "migration_plan": {"type": "string", "minLength": 1},
+    "migration_plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "operation_plan": {"type": "string", "minLength": 1},
+    "operation_plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}
