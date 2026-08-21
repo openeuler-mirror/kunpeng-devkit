@@ -3,6 +3,7 @@ set -u
 umask 077
 
 MIRROR_URL_DEFAULT='https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/'
+MIN_FREE_SPACE_BYTES=10737418240
 
 usage() {
   echo "Usage: sh migration-precheck/scripts/check-target.sh --plan <migration-plan.json> --work-dir <migration-work-dir> [--mirror-url <https-url>]"
@@ -114,6 +115,9 @@ if has_cmd df; then
   FREE_KB=$(df -Pk "$SPACE_PATH" 2>/dev/null | awk 'NR==2 {print $4}' || echo 0)
   case "$FREE_KB" in ''|*[!0-9]*) FREE_KB=0 ;; esac
   FREE_BYTES=$((FREE_KB * 1024))
+fi
+if [ "$FREE_BYTES" -le "$MIN_FREE_SPACE_BYTES" ]; then
+  die "Target free space must be greater than 10 GiB; available bytes: $FREE_BYTES" 7
 fi
 
 JAVA_INSTALLED=false

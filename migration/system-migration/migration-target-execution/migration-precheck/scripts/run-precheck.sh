@@ -39,6 +39,16 @@ done
 PLAN=$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$PLAN")
 [ -r "$PLAN" ] || die "migration-plan.json is not readable: $PLAN" 2
 
+TARGET_ARCH=$(uname -m 2>/dev/null || echo unknown)
+case "$TARGET_ARCH" in
+  aarch64|arm64) ;;
+  *) die "Target architecture must be aarch64/arm64; current architecture is $TARGET_ARCH. Precheck terminated." 4 ;;
+esac
+if [ "$(id -u 2>/dev/null || echo 1)" != 0 ] &&
+  { ! command -v sudo >/dev/null 2>&1 || ! sudo -n true >/dev/null 2>&1; }; then
+  printf 'WARNING: Target execution user is not root and has no passwordless sudo permission\n' >&2
+fi
+
 MIGRATION_WORK_DIR=$(python3 "$PLAN_TOOL" work-dir --plan "$PLAN")
 WORK="$MIGRATION_WORK_DIR/precheck"
 mkdir -p "$WORK" "$MIGRATION_WORK_DIR/packages" "$MIGRATION_WORK_DIR/tools" \
@@ -49,11 +59,17 @@ TMP="$TMPDIR"
 TEMP="$TMPDIR"
 export TMPDIR TMP TEMP
 
-sh "$SCRIPT_DIR/check-target.sh" \
+if sh "$SCRIPT_DIR/check-target.sh" \
   --plan "$PLAN" \
   --work-dir "$MIGRATION_WORK_DIR" \
   > "$WORK/target-facts.tsv" \
-  2> "$WORK/target-facts.err"
+  2> "$WORK/target-facts.err"; then
+  :
+else
+  check_rc=$?
+  cat "$WORK/target-facts.err" >&2
+  exit "$check_rc"
+fi
 
 python3 "$PLAN_TOOL" merge-target \
   --plan "$PLAN" \

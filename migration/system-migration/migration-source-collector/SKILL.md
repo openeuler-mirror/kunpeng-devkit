@@ -82,7 +82,7 @@ python3 scripts/migration_plan.py init \
 
 ### 阶段 2：源端系统成分采集
 
-- 执行 `scripts/collect.sh` 或 `scripts/remote-collect.sh`。SSH 远程采集必须通过 `--local-output /opt/kunpeng-migration/collection/runs` 指定 Agent 端目录，不得使用当前工作目录推导输出位置。密码凭据预检无需 TTY；凭据缺失时，Agent 必须调用运行环境的交互式提问工具发起单项问题，让用户通过自定义答案（Other/Type something）输入密码，不得以普通文本要求用户回复密码并结束当前执行。取得输入后通过标准输入传给 `credential-set --password-stdin`，加密保存成功后自动继续采集。`--credential` 必须与主机配置中的 `credential_id` 一致；不得复述密码或将其写入配置、报告、环境变量、命令参数及临时明文文件。
+- 执行 `scripts/collect.sh` 或 `scripts/remote-collect.sh`，默认要求采集文件系统保留 10 GiB 可用空间。SSH 远程采集必须通过 `--local-output /opt/kunpeng-migration/collection/runs` 指定 Agent 端目录，不得使用当前工作目录推导输出位置；远端用户非 root 且无免密 sudo 权限时给出警告并终止，结果回传后必须通过 SHA-256 一致性校验。密码凭据预检无需 TTY；凭据缺失时，Agent 必须调用运行环境的交互式提问工具发起单项问题，让用户通过自定义答案（Other/Type something）输入密码，不得以普通文本要求用户回复密码并结束当前执行。取得输入后通过标准输入传给 `credential-set --password-stdin`，加密保存成功后自动继续采集。`--credential` 必须与主机配置中的 `credential_id` 一致；不得复述密码或将其写入配置、报告、环境变量、命令参数及临时明文文件。
 
 ### 阶段 3：补充采集
 

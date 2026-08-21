@@ -137,13 +137,13 @@ LIST_SEQUENCE=0
 mkdir -p "$ARTIFACTS/applications/primary" "$ARTIFACTS/applications/primary_exploded" \
   "$ARTIFACTS/applications/candidate" "$ARTIFACTS/configs" || die "Cannot create artifact directories" 3
 
-MIN_FREE=$(config_get MIN_FREE_SPACE_BYTES "$CONFIG" 2147483648)
+MIN_FREE=$(config_get MIN_FREE_SPACE_BYTES "$CONFIG" 10737418240)
 MAX_TOTAL=$(config_get MAX_TOTAL_PACKAGE_BYTES "$CONFIG" 32212254720)
 MAX_SINGLE=$(config_get MAX_SINGLE_FILE_BYTES "$CONFIG" 2147483648)
 MAX_CANDIDATES=$(config_get MAX_CANDIDATE_APPLICATION_PACKAGES "$CONFIG" 500)
 MAX_CONFIGS=$(config_get MAX_MIDDLEWARE_CONFIG_FILES "$CONFIG" 1000)
 
-case "$MIN_FREE" in ''|*[!0-9]*) MIN_FREE=2147483648 ;; esac
+case "$MIN_FREE" in ''|*[!0-9]*) MIN_FREE=10737418240 ;; esac
 case "$MAX_TOTAL" in ''|*[!0-9]*) MAX_TOTAL=32212254720 ;; esac
 case "$MAX_SINGLE" in ''|*[!0-9]*) MAX_SINGLE=2147483648 ;; esac
 case "$MAX_CANDIDATES" in ''|*[!0-9]*) MAX_CANDIDATES=500 ;; esac

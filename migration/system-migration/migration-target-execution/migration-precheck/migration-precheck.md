@@ -25,6 +25,8 @@ sh migration-precheck/scripts/run-precheck.sh \
 
 ## 处理规则
 
+预检开始时目标架构必须为 `aarch64` 或 `arm64`，否则提示当前架构并立即终止。目标包目录所在文件系统的可用空间必须大于 10 GiB；目标执行用户非 root 且无免密 sudo 权限时必须给出警告。
+
 目标组件包按 `packages[].source_type` 准备：
 
 - `SYSTEM_REPOSITORY`：无需准备文件；

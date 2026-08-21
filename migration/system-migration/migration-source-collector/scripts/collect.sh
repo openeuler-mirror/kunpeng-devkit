@@ -159,7 +159,7 @@ case "$CONFIG" in
 esac
 OUTPUT_DIR=$(config_get OUTPUT_DIR "$CONFIG" '')
 [ "$OUTPUT_DIR" = "$WORK_DIR/runs" ] || die "OUTPUT_DIR must be WORK_DIR/runs" 2
-MIN_FREE=$(config_get MIN_FREE_SPACE_BYTES "$CONFIG" 2147483648)
+MIN_FREE=$(config_get MIN_FREE_SPACE_BYTES "$CONFIG" 10737418240)
 MAX_INDEX=$(config_get MAX_INDEX_FILES "$CONFIG" 2000000)
 mkdir -p "$WORK_DIR/logs" "$OUTPUT_DIR" || die "Cannot create work directories" 6
 [ -w "$OUTPUT_DIR" ] || die "Output directory is not writable: $OUTPUT_DIR" 6

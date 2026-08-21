@@ -22,8 +22,25 @@ die() {
   exit "${2:-1}"
 }
 
+warn() {
+  printf 'WARNING: %s\n' "$1" >&2
+}
+
 has_cmd() {
   command -v "$1" >/dev/null 2>&1
+}
+
+hash_file() {
+  hash_target=$1
+  if has_cmd sha256sum; then
+    sha256sum "$hash_target" | awk '{print $1}'
+  elif has_cmd openssl; then
+    openssl dgst -sha256 "$hash_target" | awk '{print $NF}'
+  elif has_cmd shasum; then
+    shasum -a 256 "$hash_target" | awk '{print $1}'
+  else
+    printf ''
+  fi
 }
 
 interactive_terminal_available() {
@@ -709,6 +726,10 @@ preflight_remote() {
   REMOTE_SOURCE_ARCHITECTURE=$(printf '%s\n' "$preflight" | awk -F= '$1=="arch" {print $2; exit}')
   remote_uid=$(printf '%s\n' "$preflight" | awk -F= '$1=="uid" {print $2; exit}')
   [ "$remote_os" = Linux ] || die "Remote source host must be Linux" 4
+  if [ "$remote_uid" != 0 ] && ! run_ssh 'command -v sudo >/dev/null 2>&1 && sudo -n true' >/dev/null; then
+    warn "Remote collection user $REMOTE_USER is not root and has no passwordless sudo permission"
+    die "Remote collection requires root or passwordless sudo permission" 4
+  fi
   if [ "$REMOTE_PRIVILEGE" = direct ]; then
     [ "$remote_uid" = 0 ] || die "Direct collection requires remote root; configure privilege=sudo for a non-root user" 4
   else
@@ -762,15 +783,28 @@ sync_remote_run() {
   sync_local_run="$sync_local_output/$sync_run_name"
   sync_temp_root="$sync_local_output/.${sync_run_name}.sync.$$"
   sync_temp_run="$sync_temp_root/$sync_run_name"
+  sync_archive="$sync_temp_root/$sync_run_name.tar.gz"
   sync_backup="$sync_local_output/.${sync_run_name}.previous.$$"
   [ ! -e "$sync_temp_root" ] || remove_local_managed_path "$sync_temp_root" "$sync_local_output"
   mkdir -p "$sync_temp_root" || die "Cannot create temporary sync directory" 5
   prefix=$(privilege_prefix)
   sync_parent=${sync_remote_run%/*}
-  if ! run_ssh "${prefix}tar -czf - -C $sync_parent $sync_run_name" |
-    tar -xzf - -C "$sync_temp_root"; then
+  remote_sha256=$(run_ssh "${prefix}tar -czf - -C $sync_parent $sync_run_name | if command -v sha256sum >/dev/null 2>&1; then sha256sum | awk '{print \$1}'; elif command -v openssl >/dev/null 2>&1; then openssl dgst -sha256 | awk '{print \$NF}'; elif command -v shasum >/dev/null 2>&1; then shasum -a 256 | awk '{print \$1}'; else exit 127; fi") || {
+    remove_local_managed_path "$sync_temp_root" "$sync_local_output"
+    die "Cannot calculate remote result SHA-256" 5
+  }
+  if ! run_ssh "${prefix}tar -czf - -C $sync_parent $sync_run_name" > "$sync_archive"; then
     remove_local_managed_path "$sync_temp_root" "$sync_local_output"
     die "Remote result transfer failed" 5
+  fi
+  local_sha256=$(hash_file "$sync_archive")
+  if [ -z "$local_sha256" ] || [ "$remote_sha256" != "$local_sha256" ]; then
+    remove_local_managed_path "$sync_temp_root" "$sync_local_output"
+    die "Remote result SHA-256 verification failed" 5
+  fi
+  if ! tar -xzf "$sync_archive" -C "$sync_temp_root"; then
+    remove_local_managed_path "$sync_temp_root" "$sync_local_output"
+    die "Transferred result extraction failed" 5
   fi
   if [ ! -s "$sync_temp_run/details/internal/scan-results/summary.txt" ]; then
     remove_local_managed_path "$sync_temp_root" "$sync_local_output"
