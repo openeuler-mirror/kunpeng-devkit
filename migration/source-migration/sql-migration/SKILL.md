@@ -1,6 +1,6 @@
 ---
 name: "sql-migration"
-description: "sql-migration Skill 主调度文件。用于将项目源码中嵌入的 SQL（Mapper XML、Java 持久层代码等）从源数据库迁移到目标数据库，覆盖 DevKit 完整支持、DevKit 仅提取、MySQL → Vastbase 三类迁移路线。负责环境自动准备、DevKit 分析转换、残余 SQL AI 处理、目标库验证与规则沉淀、Patch 与报告生成及断点恢复。不适用范围：数据库数据迁移（数据本身的搬迁）、非 SQL 的源码改造。"
+description: "sql-migration Skill 主调度文件。用于将项目源码中嵌入的 SQL（Mapper XML、Java、C# 持久层代码等）从源数据库迁移到目标数据库，覆盖 DevKit 完整支持、DevKit 仅提取、MySQL → Vastbase 三类迁移路线。负责环境自动准备、DevKit 分析转换、残余 SQL AI 处理、目标库验证与规则沉淀、Patch 与报告生成及断点恢复。不适用范围：数据库数据迁移（数据本身的搬迁）、非 SQL 的源码改造。"
 license: MulanPSL-2.0
 metadata:
   author: Kunpeng DevKit
@@ -33,7 +33,7 @@ SQL Skill 对外只接收以下参数：
 | `TARGET_DB` | 目标数据库类型（必须由用户提供，禁止推断，见核心原则） | 是 |
 | `WORK_DIR` | SQL迁移工作目录；省略时使用 `$PROJECT_PATH/.devkit-sql-migration/` | 否 |
 
-数据库连接配置固定读取 `assets/db-connection.json`。SQL Analysis、Java 和内部工具不作为调用参数。
+**动态验证（可选能力）**：数据库连接配置读取 `assets/db-connection.json`，`source_db_conn.flag`/`target_db_conn.flag` 设 `true` 启用对应库的 EXPLAIN 动态验证，未启用则静态分析。**迁移启动前，Agent 必须询问用户动态验证启用方式，提供三个选项：「已启用，直接开始」（用户已配 `flag=true`，一键跳过配置）、「启用，需配置」（引导用户编辑 `assets/db-connection.json` 设对应 `flag=true`，Agent 不代编辑敏感连接信息，由用户自行填写，配好后开始迁移）、「静态分析」（不启用，直接开始）**（配置方式见该文件内 `_comment`）。迁移结果含 `source_validation_enabled`/`target_validation_enabled` 字段，Agent 展示结果时必须告知用户实际验证模式（源库/目标库 已启用/未启用），若与用户选择不符需明确提示。SQL Analysis、Java 和内部工具不作为调用参数。
 
 ## 统一入口
 
@@ -115,9 +115,9 @@ $WORK_DIR/reports/sql-migration-result.json
 - **`finalize_ai_stage.py` 接力调用**（带 `--internal-resume`）：直接返回最终迁移结果，**不返回询问 payload**——询问交互留给后续用户主动发起的入口调用。`finalize_ai_stage.py` 内部调用 `sql_migration.py` 时自动附加 `--internal-resume`，Agent 无需关心。
 - **`--reset` 重跑**（带 `--reset`，state 中 `reset_run=True`）：用户刚明确选择重复迁移，跑完直接返回最终结果，不询问。
 
-Agent 收到 `WAITING_FOR_USER_DECISION`（仅用户主动发起的首次入口调用会返回此 payload）后**必须**向用户提问，提供两个选项：
+Agent 收到 `WAITING_FOR_USER_DECISION`（仅用户主动发起的首次入口调用会返回此 payload）后**必须立即向用户提问**，提供两个选项，**不预展示 `previous_result`，不主动读取工作目录下的历史产物文件**（reports 等）：
 
-- **查看已有结果**：Agent 直接展示 `previous_result`，不执行 `reset_command`；
+- **查看已有结果**：用户选择后，Agent 从 payload 的 `previous_result` 展示（不读产物文件），并明确告知实际验证模式（`source_validation_enabled`/`target_validation_enabled`），不执行 `reset_command`；
 - **重复迁移**：Agent 执行 `reset_command`（带 `--reset` 直接调用 `sql_migration.py`），清理工作目录（保留 `downloads/`、`sql-analysis/`、`devkit-sql-migration-cache/` 及 `reports/devkit_path.txt`、`reports/jdk_path.txt` 环境缓存）并从阶段 1 重跑。环境缓存保留使得重跑无需重新定位/下载 DevKit/JDK。
 
 **约束**：

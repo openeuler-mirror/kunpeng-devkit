@@ -16,7 +16,7 @@ $WORK_DIR/reports/ai-workset.json
 - `source_sql` / `target_sql`：原始 SQL 与 DevKit 建议；
 - `path` / `relative_path` / `start_line` / `end_line`：唯一源码位置与允许修改范围；
 - `source_fragment`：需要判断/修改的精确源码片段；
-- `context_before` / `context_after`：精确片段前后的有限上下文，避免再次读取整个 XML/Java 文件；
+- `context_before` / `context_after`：精确片段前后的有限上下文，避免再次读取整个 XML/Java/cs 文件；
 - `context_truncated`：有限上下文是否因长度上限被截断；
 - `fallback_read`：仅当嵌入上下文确实不足时允许读取的同一文件、限定行范围；
 - `suggestions_cn` / `explain_exec_result_before`：DevKit分析信息；
@@ -38,7 +38,7 @@ AI_TRANSFORMATION 阶段必须按以下顺序处理信息：
 AI 严禁：
 
 - 扫描整个源码树或 Glob/Find 查找文件；
-- 读取完整 Mapper/XML/Java 文件；
+- 读取完整 Mapper/XML/Java/cs 文件；
 - 重复读取 `assets/db-connection.json`；
 - 通过外部 Web 补充数据库方言规则；
 - 手工修改分类 JSON、创建 `.ai-completed`、生成 Patch；

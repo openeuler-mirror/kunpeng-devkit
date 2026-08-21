@@ -156,6 +156,8 @@ def result_payload(state: dict[str, Any], **extra: Any) -> dict[str, Any]:
         "source_db": state.get("source_db"),
         "target_db": state.get("target_db"),
         "route": state.get("route"),
+        "source_validation_enabled": state.get("source_validation_enabled"),
+        "target_validation_enabled": state.get("target_validation_enabled"),
     }
     value.update(extra)
     return value

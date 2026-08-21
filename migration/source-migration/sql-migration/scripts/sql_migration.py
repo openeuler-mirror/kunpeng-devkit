@@ -201,6 +201,8 @@ def run(args: argparse.Namespace) -> tuple[dict[str, Any], int]:
                 "route_info": context["route_info"],
                 "source_db": context["source_db"],
                 "target_db": context["target_db"],
+                "source_validation_enabled": bool((context["db_config"].get("source_db_conn") or {}).get("flag")),
+                "target_validation_enabled": bool((context["db_config"].get("target_db_conn") or {}).get("flag")),
                 "sql_analysis": {
                     "java_path": str(context["java_path"]),
                     "jar_path": str(context["jar_path"]),

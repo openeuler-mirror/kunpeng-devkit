@@ -53,7 +53,7 @@
 ## 适用场景
 
 - 项目源码中的 SQL 需要从一种数据库迁移到另一种数据库（如 Oracle → DM、MySQL → Vastbase 等）
-- 源码文件类型为 `.xml`（MyBatis Mapper）、`.java` 源码或 `.sql` 脚本
+- 源码文件类型为 `.xml`（MyBatis Mapper）、`.java` 源码、`.cs` 源码或 `.sql` 脚本
 - 希望自动化完成 SQL 方言转换，减少人工逐条修改的工作量
 - 需要可验证、可追溯的迁移过程，确保转换后 SQL 在目标库可执行
 
@@ -342,7 +342,7 @@ Skill 使用专用工作目录存放中间产物，默认 `<项目路径>/.devki
 
 ### Q: 支持哪些文件类型中的 SQL 迁移？
 
-支持 `.xml`（MyBatis Mapper）、`.java` 源码文件以及 `.sql` 脚本文件。其他格式文件中的 SQL 不在迁移范围内。
+支持 `.xml`（MyBatis Mapper）、`.java` 源码文件、`.cs` 源码文件以及 `.sql` 脚本文件。其他格式文件中的 SQL 不在迁移范围内。
 
 ### Q: AI 转换会修改源码的业务逻辑吗？
 
