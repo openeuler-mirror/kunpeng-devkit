@@ -64,7 +64,7 @@ A. 含 INTERNAL_REGISTRIES 域名（内网镜像）
 B. 公开镜像（Docker Hub / 官方）
    → 先验证目标 tag 存在 `linux/arm64` manifest
    → 验证通过：加 `--platform=linux/arm64`，标记 [KEEP-FROM-PUBLIC]
-   → 验证失败：检索 `../references/build_knowledge_reference.md` 的替代或升级方案；无方案时按主 Skill 全局执行红线失败
+   → 验证失败：检索 `references/build_knowledge_reference.md` 的替代或升级方案；无方案时按主 Skill 全局执行红线失败
 ```
 
 ### 1.3 RUN 指令分类
@@ -83,26 +83,44 @@ B. 公开镜像（Docker Hub / 官方）
 | `wget/curl` + `archive.apache.org` | 替换为 APACHE_MIRROR | `[FIX-APACHE-MIRROR]` |
 | `x86_64` / `amd64` / `i386` 关键词（非 pkg 后缀） | 仅在目标值唯一且可验证时替换架构关键词；否则保留 WARN | `[WARN-ARCH-KEYWORD]` |
 | `--platform=linux/amd64` | 改为 `linux/arm64` | `[FIX-PLATFORM]` |
-| COPY/ADD/wget 引入 `.so` / `.a` / ELF | 按 1.4 三类策略处理 | `[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]` |
+| COPY/ADD/wget 引入 `.so` / `.a` / ELF | 按 1.4 处理顺序与 1.7 三类策略处理 | `[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]` |
 
 ### 1.4 native 文件候选识别与处理
 
-下列模式只表示“需要检查”，不能仅凭文件名或命令文本直接判定为 x86_64：
+下列模式只表示“需要检查”。**文件名、命令文本、归档内路径或目录名中的架构关键词（x86_64 / amd64 / i686 / x86 等）只能用于筛选候选，不得单独作为兼容性判定依据**：
 
 ```text
 A. COPY/ADD 的 src 文件名匹配 *.so* / *.a / *.o / *.dylib
 B. RUN wget/curl 下载 URL 含 x86_64/amd64/i686，且产物可能包含 native 文件
 C. RUN 含 ldconfig、链接或安装 native 库的命令
 D. 构建或运行日志出现 ELF x86-64、illegal instruction、SIGILL、UnsatisfiedLinkError
+E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文件名或内部路径是否含架构关键词）
 ```
 
 处理顺序：
 
-1. 对构建上下文中的文件执行 `file`，对归档/JAR 执行 [references/devkit_pkg_mig_reference.md](../references/devkit_pkg_mig_reference.md)。
-2. 只有证据确认 x86_64 后，才进入 1.7 的功能影响分类。
-3. 功能无关且有证据时可注释原命令，并记录 `[WARN-X86-NATIVE-SO]`。
-4. 功能相关时优先替换 ARM64 版本或源码重编译；无法处理时使用 `FAILED(PROPRIETARY_X86_SO)`。
-5. 架构或功能影响不确定时保留原行到决策表，不得先删除再验证。
+1. **松散文件**（未打包的 `.so` / `.a` / `.o` / ELF 二进制）：执行 `file`，其输出即为判定证据。
+2. **归档/JAR/RPM**：**必须**按 [references/devkit_pkg_mig_reference.md](../references/devkit_pkg_mig_reference.md) 第 1 节留档工具可用性结论后，执行第 2 节 `devkit porting pkg-mig ... -r json` 结构化扫描并保存 JSON；工具不可用时按第 3 节 fallback 执行（先解压、再对 ELF 逐个 `file`）并留档证据。
+3. **未取得合法判定证据（pkg-mig JSON 或解压后 ELF 的 `file` 输出）前，不得对归档内文件给出兼容/不兼容结论，不得写 `[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]` 标记，也不得进入 1.7 分类。**
+4. 证据确认 x86_64 后，进入 1.7 的功能影响分类。
+5. 功能无关且有证据时可注释原命令，并记录 `[WARN-X86-NATIVE-SO]`。
+6. 功能相关时优先替换 ARM64 版本或源码重编译；无法处理时使用 `FAILED(PROPRIETARY_X86_SO)`。
+7. 架构或功能影响不确定时保留原行到决策表，不得先删除再验证。
+
+**合法判定依据只有两种**，任一缺失即视为未判定：
+
+| 判定依据 | 说明 |
+|---|---|
+| pkg-mig JSON 的 `is_aarch64` / `path_ext` 字段 | 按 `references/devkit_pkg_mig_reference.md` 第 4 节解读 |
+| 对**解压后**的 `.so` / `.a` / ELF 逐个执行 `file` 的输出 | `x86-64` / `x86_64` / `80386` → 不兼容；`ARM aarch64` → 架构一致，仍需构建运行验证 |
+
+> 仅凭 `unzip -l` / `tar -t` 列表或路径关键词（如 `linux/amd64/`、`deb/lib64/x86/`）得出结论属于违规判定：fat JAR 可能同时打包多平台 native，关键词会误判；无架构关键词的 native（如 JAR 内捆绑的 `cal` / `pwd` 等系统命令二进制）会被漏判。
+
+本节完成前，必须将下列清单写入阶段记录（无 native 候选时记录“无候选”）：
+
+```text
+[ ] 候选=<文件>  类型=松散文件|归档/JAR|RPM  检查方式=pkg-mig|fallback-file  证据=<JSON路径或file输出>  结论=兼容|不兼容|待确认
+```
 
 功能无关且确认允许移除时，使用以下注释格式：
 
@@ -145,16 +163,16 @@ D. 构建或运行日志出现 ELF x86-64、illegal instruction、SIGILL、Unsat
 (3) 均失败 → [WARN-MISSING-COPY-SRC]，写失败报告并结束当前 target；主 Agent 在汇总中集中列出待补资源
 ```
 
-### 1.7 资源原生库兼容性检查（获取资源后必做）
+### 1.7 资源原生库兼容性检查（进入决策表前必做）
 
-> 使用 Kunpeng DevKit `pkg-mig` 工具进行结构化扫描。工具参考：`references/devkit_pkg_mig_reference.md`。
+> **适用范围**：凡 1.4 命中的 native 候选——无论文件来自构建上下文（COPY/ADD 的 src）还是 1.6 的外部资源获取——进入阶段 2 决策表前都必须完成本节检查。使用 Kunpeng DevKit `pkg-mig` 工具进行结构化扫描，工具参考：[references/devkit_pkg_mig_reference.md](../references/devkit_pkg_mig_reference.md)。
 
 **执行方式**：
 
-1. 按 `references/devkit_pkg_mig_reference.md` 检查工具；不要在本阶段主动安装。
-2. 工具可用时执行 2 的结构化扫描并保存 JSON。
-3. 工具不可用时执行 3 的 fallback，并在报告中注明“手动初筛”。
-4. 按 4 解读结果，再应用下方三类处理策略。
+1. 按该文档第 1 节完成工具可用性检查，并在阶段记录写入 `DEVKIT_BIN=<path>` 或 `DEVKIT_BIN=not_found + 原因（含主机架构）`；**未留档可用性结论前，不得进入 fallback**。不要在本阶段主动安装。
+2. 工具可用时：对每个归档/JAR/RPM 候选执行该文档第 2 节的结构化扫描，保存 JSON 并记录路径，回填到决策表与报告的 `evidence_source`。
+3. 工具不可用时：执行该文档第 3 节的 fallback（先解压，再对 ELF 逐个 `file`），报告中标注“手动初筛”，并注明“建议在 aarch64 主机补扫 pkg-mig”。
+4. 按该文档第 4 节解读结果，再应用下方三类处理策略。
 
 **判断**：出现 `x86-64` / `x86_64` / `80386` → 不兼容，按三类策略处理：
 
@@ -176,7 +194,7 @@ zip -j <path>.jar <aarch64_libxxx.so>
 
 ### 2.0 先做失败前检索
 
-在给出任何失败结论前，必须先查 `../references/build_knowledge_reference.md`，确认是否已有可复用修复方案。
+在给出任何失败结论前，必须先查 `references/build_knowledge_reference.md`，确认是否已有可复用修复方案。
 只有“已检索且无可用方案”时，才能进入失败判定。
 
 对应检索建议：
@@ -198,7 +216,7 @@ zip -j <path>.jar <aarch64_libxxx.so>
 | 单任务模式（`WORKER_COUNT = 1`） | 汇总所有 `[WARN-*]` 后暂停，等待用户确认，再进入阶段 3 |
 | `[WARN-ARCH-KEYWORD]` | 仅当替换值唯一且验证通过时自动替换；否则等待确认或失败 |
 | `[WARN-MISSING-COPY-SRC]` | 直接写失败报告，跳过本项目 |
-| `[WARN-X86-NATIVE-SO]` | 先判定功能影响；功能相关或影响不明确时，不允许仅靠注释继续 |
+| `[WARN-X86-NATIVE-SO]` | 先判定功能影响；功能相关或影响不明确时，不允许仅靠注释继续；标记必须附 1.4 的合法判定证据（`evidence_source`），仅有文件名/路径关键词时不得写入此标记 |
 
 ### 2.3 决策表输出格式
 
@@ -214,6 +232,7 @@ zip -j <path>.jar <aarch64_libxxx.so>
 
 - 出现 `[WARN-ARCH-KEYWORD]` 时，必须记录原值、候选值、验证依据
 - 出现 `[WARN-MISSING-COPY-SRC]` 时：并发模式写失败报告；单任务模式向用户请求资源或替代来源
+- native 相关行（`[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]`）必须注明证据来源（pkg-mig JSON 路径或解压后 `file` 输出）；无证据的行只能标“待确认”，不得写兼容结论
 
 ---
 
@@ -285,7 +304,7 @@ docker build --platform linux/arm64 \
 ```
 
 **失败处理**：
-1. 出现失败或准备判定 `FAILED(...)` 前，必须先按 `failure_reason` 检索 `/references/build_knowledge_reference.md` 对应章节，并记录命中章节号。
+1. 出现失败或准备判定 `FAILED(...)` 前，必须先按 `failure_reason` 检索 `references/build_knowledge_reference.md` 对应章节，并记录命中章节号。
 2. 仅当“检索无可用方案”或“已按方案尝试仍失败”时，才允许写 `FAILED(...)` 结论。
 3. 每次失败结论必须在报告中最少记录：失败命令与退出码、关键日志、检索章节、已尝试修复动作。
 
@@ -334,6 +353,8 @@ docker build --platform linux/arm64 -t <IMAGE>-patched:latest -f Dockerfile.patc
 ### 5.3 写报告
 
 > 报告 JSON 格式见 [templates/dockerfile_migration_report_template.md](../templates/dockerfile_migration_report_template.md)。本场景 `migration_mode = "IMAGE_MIG_SKILLSET"`，无 mode 特有字段。
+
+提交前自检：报告内所有 native 相关标记（`WARN-X86-NATIVE-SO` / `FIXED-SO-REPLACED-AARCH64`）的条目必须带非空 `evidence_source`；缺失任何一条即回到 1.4/1.7 补齐证据后重写，不得提交。
 
 ### 5.4 主 Agent 总览报告（`_summary.json`）
 
