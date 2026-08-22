@@ -15,6 +15,7 @@
 | 构建前失败 | `build_status=fail` 或在 `notes` 明确“未进入构建” |
 | `test_status=skip` | `notes` 说明未执行原因和剩余风险 |
 | 有 warning | `warnings` 保留证据、影响和后续动作，即使已缓解 |
+| native 标记 | 所有 `WARN-X86-NATIVE-SO` warning 与 `FIXED-SO-REPLACED-AARCH64` 变更条目均有非空 `evidence_source`；仅有文件名/路径关键词不构成证据 |
 
 ## 2. 单项目报告
 
@@ -38,7 +39,8 @@
       "action": "<实际执行的修复动作>",
       "target": "<Dockerfile 行、依赖或文件>",
       "fix_source": "BUILD_KNOWLEDGE|NOVEL|MANUAL",
-      "knowledge_section": "<仅 BUILD_KNOWLEDGE 来源时填写>"
+      "knowledge_section": "<仅 BUILD_KNOWLEDGE 来源时填写>",
+      "evidence_source": "<仅 native 库替换/移除类动作必填；pkg-mig JSON 路径或解压后 file 输出>"
     }
   ],
   "warnings": [
@@ -46,6 +48,7 @@
       "type": "WARN-X86-NATIVE-SO",
       "file": "libs/librender_x86_64.so",
       "original_cmd": "COPY libs/librender_x86_64.so /usr/lib/librender.so",
+      "evidence_source": "devkit-pkg-mig:/tmp/pkg_mig_reports/<name>.json 或 fallback-file:<file输出摘要>",
       "impact": "x86_64 native .so 未迁移，相关功能不可用",
       "action_required": "提供 aarch64 版本并更新 COPY 路径"
     }
@@ -58,6 +61,7 @@
 说明：
 
 - `warnings` 无内容时写 `[]`。`type` 使用不带方括号的稳定值（如 `WARN-X86-NATIVE-SO`）；Dockerfile 注释中才写 `[WARN-X86-NATIVE-SO]`。
+- native 相关 warning 与 `FIXED-SO-REPLACED-AARCH64` 变更必须填写 `evidence_source`（`devkit-pkg-mig:<JSON路径>` 或 `fallback-file:<file输出摘要>`）；仅有文件名/归档内路径关键词不得作为证据，缺 `evidence_source` 的报告不得提交。
 - `changes_applied` 无变更时写 `[]`。
 - `fix_source` 无法确定时使用 `MANUAL`，后续知识沉淀进入人工复核。
 
