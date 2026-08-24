@@ -71,11 +71,14 @@ $DEVKIT porting src-mig \
   -b <bazel|cmake|make|blade|other> \
   -c <make|cmake> \
   -r all \
+  -np $(( $(nproc) / 2 )) \
   -o $DEVKIT_REPORT_DIR \
   2>&1 | tee $WORK_DIR/reports/devkit-scan.log
 ```
 
 > `-r all` 表示输出全部报告格式（json / html / csv）。
+
+> `-np` 指定扫描线程数，取当前机器 CPU 数的一半，避免占满 CPU 影响其他任务。
 
 > `-c` 指定项目编译命令，**对扫描结果影响较大**，需精准识别项目实际编译命令后传入。仅 make / cmake 项目支持（`-c make` / `-c cmake`，对应上表）；bazel / blade / other 等构建系统**不传 `-c`**（命令中删去该行）。
 
