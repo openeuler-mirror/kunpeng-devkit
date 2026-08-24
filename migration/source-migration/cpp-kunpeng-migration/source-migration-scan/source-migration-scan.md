@@ -1,11 +1,3 @@
----
-name: source-migration-scan
-description: C/C++ 鲲鹏迁移的源码迁移扫描子 Skill。作为 cpp-kunpeng-migration 阶段 4 被调用，或用户需要对 C/C++ 项目执行鲲鹏 DevKit 扫描、处理 x86 专属代码或适配 aarch64 构建配置时使用。负责先生成并分析 DevKit 扫描报告，再依据报告完成架构相关源码和构建系统改造。不负责通用环境准备、依赖兼容性分析和最终编译验证。
-license: MulanPSL-2.0
-metadata:
-  author: Kunpeng DevKit
----
-
 # 阶段 4：源码迁移扫描与适配
 
 本文档描述如何运行华为鲲鹏 DevKit 对源码进行 x86 兼容性扫描，以及如何根据扫描报告对源码进行架构适配修改。
@@ -33,7 +25,7 @@ find /opt /usr/local -name "devkit" -maxdepth 8 -type f 2>/dev/null | head -3
 <devkit路径> --version
 ```
 
-若上述均未找到，**不得跳过扫描**，**必须**向用户提问让其决策如何处理（与 SKILL.md 阶段 4 硬性约束一致）：
+若上述均未找到，**不得跳过扫描**，**必须**向用户提问让其决策如何处理（与 source-migration-scan.md 阶段 4 硬性约束一致）：
 
 ```
 question: "未在系统中检测到 DevKit，如何继续阶段 4 扫描？"
@@ -55,7 +47,7 @@ options:
 
 ### 4.1.2 确认扫描参数
 
-根据阶段 1 `environment-prepare/SKILL.md` 的构建系统检测结果，确定 `-b` 与 `-c` 参数：
+根据阶段 1的构建系统检测结果，确定 `-b` 与 `-c` 参数：
 
 | 构建系统 | `-b` 参数值 | `-c` 参数值 |
 | --- | --- | --- |
@@ -65,6 +57,8 @@ options:
 | Automake（先 configure 再 make） | `make` | `make` |
 | Blade | `blade` | 不传 |
 | SCons/其他 | `other` | 不传 |
+
+> **Automake 前置要求**：Automake 项目在执行 DevKit 扫描前，**必须先运行 `./configure`** 生成 `Makefile`，否则 DevKit 会扫描不全， -b参数值为 make。
 
 ### 4.1.3 执行扫描
 

@@ -1,16 +1,8 @@
----
-name: dependency-analysis
-description: C/C++ 鲲鹏迁移的依赖分析子 Skill。作为 cpp-kunpeng-migration 阶段 2 被调用，或用户需要分析 C/C++ 项目依赖的鲲鹏（aarch64）兼容性以及查询 kunpeng_confirmed.md 免检清单时使用。负责识别 Bazel、CMake、Blade、SCons、Git Submodule 及自定义脚本中的外部依赖，检查预编译二进制架构，递归分析子模块，并识别私有库和免检清单kunpeng_confirmed.md依赖。不负责环境检测、源码兼容性改造和编译验证。
-license: MulanPSL-2.0
-metadata:
-  author: Kunpeng DevKit
----
+# 阶段 2：依赖分析
 
-## C++ 项目依赖分析功能描述
-
-> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 调用，由主编排以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独分析项目依赖的鲲鹏兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也可直接调用本 子Skill。
+> **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段 2 子 Skill 调用，由主 agent 以子 agent 模式拉起执行（调起方式见主 SKILL 文末「调起约定与跨助手适配」）。当用户需要单独分析项目依赖的鲲鹏兼容性、检查预编译二进制架构、排查私有库依赖、或查询 kunpeng_confirmed.md 免检清单时也可直接调用本 子Skill。
 >
-> **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_2_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖写入 `$WORK_DIR/reports/stage_2_switch_list.md` 待切换清单，由主编排在阶段 3 统一处理。
+> **子 agent 边界**：子 agent **不向用户提问**，检测到的依赖冲突项按「子 agent 待确认项输出契约」写入 `$WORK_DIR/reports/stage_2_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖写入 `$WORK_DIR/reports/stage_2_switch_list.md` 待切换清单，由主 agent 在阶段 3 统一处理。
 
 ### 输入参数
 
@@ -21,7 +13,7 @@ metadata:
 - `<skill目录绝对路径>` -> `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
 
 - `SKILL_DIR`：本 skill 自知（cpp-kunpeng-migration 目录 = 本子 skill 目录的上一层）。
-- `PROJECT_ROOT`、`WORK_DIR`：主编排调用时由主编排传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
+- `PROJECT_ROOT`、`WORK_DIR`：主 agent 调用时由主 agent 传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
 
 支持以下 C++ 构建系统的依赖分析：
 
@@ -154,7 +146,7 @@ cat "$WORK_DIR/kunpeng_confirmed.md" 2>/dev/null
 2. **必须**将待确认项写入文件 `$WORK_DIR/reports/stage_2_pending_items.md`（格式见下方）
 3. **必须**将待切换清单写入文件 `$WORK_DIR/reports/stage_2_switch_list.md`（格式见下方）
 4. 即使无待确认项，也必须写入空清单并标注"无待确认项"
-5. **严禁**向用户提问（你没有向用户提问的权限，需用户决策的项一律写入待确认项文件，由主编排在阶段 3 统一提问）
+5. **严禁**向用户提问（你没有向用户提问的权限，需用户决策的项一律写入待确认项文件，由主 agent 在阶段 3 统一提问）
 6. **严禁**修改项目源码或构建配置（你只做分析和报告）
 7. 完成后，在你的最终回复中输出：
    - 依赖分析结论摘要
@@ -217,7 +209,7 @@ cat "$WORK_DIR/kunpeng_confirmed.md" 2>/dev/null
 
 | 文件 | 职责 | 调用方 |
 |------|------|--------|
-| [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 写入 ARM 确认清单、执行真实分支切换、切换后校验 | **阶段 3 主编排**（本子 skill 仅产生供其消费的待切换清单，不执行其中步骤） |
+| [kunpeng-confirmed-write.md](references/kunpeng-confirmed-write.md) | 写入 ARM 确认清单、执行真实分支切换、切换后校验 | **阶段 3 主 agent**（本子 skill 仅产生供其消费的待切换清单，不执行其中步骤） |
 | [kunpeng_confirmed_template.md](assets/kunpeng_confirmed_template.md) | ARM 适配已确认依赖知识库**模板**（按依赖库名索引，跨项目复用）；首次使用复制到 `$WORK_DIR/kunpeng_confirmed.md` 作为可写实例 | 阶段 2 读取实例（免检）、阶段 3 写入实例 |
 
 ### 输出模板

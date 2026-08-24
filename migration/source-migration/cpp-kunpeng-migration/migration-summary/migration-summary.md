@@ -1,12 +1,4 @@
----
-name: migration-summary
-description: C/C++ 鲲鹏迁移的迁移总结报告生成子 Skill。作为 cpp-kunpeng-migration 阶段 6 被调用，或用户需要生成 C/C++ 鲲鹏迁移总结报告、统计阶段耗时、梳理修改清单或归档迁移成果时使用。负责汇总各阶段执行结果、耗时、修改文件及修改内容，并输出风险、遗留问题和后续建议。不负责环境检测、源码适配和编译修复。
-license: MulanPSL-2.0
-metadata:
-  author: Kunpeng DevKit
----
-
-# 迁移报告总结功能描述
+# 阶段 6：迁移报告总结
 
 本阶段在编译验证成功后汇总整个迁移过程的关键信息，生成结构化总结报告。
 
@@ -23,14 +15,14 @@ metadata:
 - `<skill目录绝对路径>` -> `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
 
 - `SKILL_DIR`：本 skill 自知（cpp-kunpeng-migration 目录 = 本子 skill 目录的上一层）。
-- `PROJECT_ROOT`、`WORK_DIR`：主编排调用时由主编排传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
+- `PROJECT_ROOT`、`WORK_DIR`：主 agent 调用时由主 agent 传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
 
 ---
 # 使用流程
 
 ## 1. 收集各阶段执行时长
 
-读取 `$WORK_DIR/reports/timeline.log`（由主编排在各阶段边界记录），计算各阶段时长。
+读取 `$WORK_DIR/reports/timeline.log`（由主 agent 在各阶段边界记录），计算各阶段时长。
 
 timeline.log 格式（每行一条）：
 ```
@@ -105,10 +97,10 @@ grep $'^-\t-' $WORK_DIR/reports/binary_changes.txt | cut -f3 > $WORK_DIR/reports
 git -C $PROJECT_ROOT diff HEAD \
   -- ':!*.so' ':!*.a' ':!*.o' ':!*.dll' ':!*.dylib' ':!*.exe' ':!*.bin' \
   -- ':!*.png' ':!*.jpg' ':!*.jpeg' ':!*.gif' ':!*.bmp' ':!*.zip' ':!*.tar' ':!*.gz' ':!*.tgz' \
-  > $WORK_DIR/reports/migration.patch
+  > $WORK_DIR/output/migration.patch
 ```
 
-patch 文件保存到：`$WORK_DIR/reports/migration.patch`
+patch 文件保存到：`$WORK_DIR/output/migration.patch`
 
 ---
 
@@ -178,7 +170,7 @@ patch 文件保存到：`$WORK_DIR/reports/migration.patch`
 将 1 ~ 5 的内容整合为一份完整的 Markdown 报告，保存到：
 
 ```
-$WORK_DIR/reports/migration_summary_report.md
+$WORK_DIR/output/migration_summary_report.md
 ```
 
 **报告完整结构模板**见 [assets/migration_summary_report_template.md](assets/migration_summary_report_template.md)。生成报告时按该模板填充 1 ~ 6 的内容。
@@ -201,8 +193,8 @@ $WORK_DIR/reports/migration_summary_report.md
 - 5 编译验证循环：<XX分XX秒>
 
 【产物】
-- 总结报告：$WORK_DIR/reports/migration_summary_report.md
-- 迁移 patch：$WORK_DIR/reports/migration.patch（源码+构建配置，排除二进制）
+- 总结报告：$WORK_DIR/output/migration_summary_report.md
+- 迁移 patch：$WORK_DIR/output/migration.patch（源码+构建配置，排除二进制）
 - 编译产物：编译成功那次的产物目录
 - 编译命令与脚本：编译命令/脚本优先从上下文获取，如果没有从编译日志（$WORK_DIR/logs/build_<成功次序>.log）中取
 
@@ -241,8 +233,8 @@ $WORK_DIR/reports/migration_summary_report.md
 - [ ] fix_history.txt 已读取，修改点描述已汇总
 - [ ] 重要提示与建议已从各阶段报告中提取
 - [ ] 迁移过程摘要指标已从各阶段报告抽取（构建系统/依赖数/扫描问题数/编译次数等）
-- [ ] patch 文件已生成（排除二进制文件），保存到 `$WORK_DIR/reports/migration.patch`
+- [ ] patch 文件已生成（排除二进制文件），保存到 `$WORK_DIR/output/migration.patch`
 - [ ] 二进制文件改动清单已记录到 `$WORK_DIR/reports/binary_changes.txt`
 - [ ] 编译产物路径与编译命令/脚本已收集（编译产物按构建系统取成功那次；编译命令/脚本优先从上下文取，上下文无则从编译日志取）
-- [ ] 总结报告已生成并保存到 `$WORK_DIR/reports/migration_summary_report.md`
+- [ ] 总结报告已生成并保存到 `$WORK_DIR/output/migration_summary_report.md`
 - [ ] 已按「输出要求」（第8节）向用户输出最终回复：状态 / 各阶段时长 / 产物 / 修改统计 / 必须执行 / 建议关注 / 本次迁移产出

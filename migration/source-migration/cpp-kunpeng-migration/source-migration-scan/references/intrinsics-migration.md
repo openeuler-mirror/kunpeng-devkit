@@ -171,7 +171,7 @@ void register_simd_optimizer() {
    - `neon` → 案例 2
    - 函数不在 avx2ki 覆盖范围 → 案例 3
 4. **如需完整策略选择** → 案例 4（A/B/C 三选一）
-5. **验证**：双架构编译通过（参考 SKILL.md 4.3 节）
+5. **验证**：双架构编译通过（参考 [source-migration-scan.md](source-migration-scan.md) 4.3 节）
 
 ## 失败处置
 

@@ -13,7 +13,7 @@ metadata:
 - **双架构兼容**：所有修改必须使项目**同时**支持 x86 和 鲲鹏架构 编译。通过 `#if defined(__aarch64__)` 宏或构建系统 `select()` 分支区隔，**不破坏原有 x86 能力**
 - **最小侵入**：优先修改构建配置而非源码；源码修改必须有架构宏保护
 - **非侵入式工作目录**：所有临时产物放到项目目录之外的专用工作目录，不污染源码树
-- **子 agent 边界**：阶段 1、2 以子 agent 模式执行，子 agent **不直接向用户提问**，所有需用户决策的项以结构化"待确认项"写入中间文件，由主编排在阶段 3 统一提问
+- **子 agent 边界**：阶段 1、2 以子 agent 模式执行，子 agent **不直接向用户提问**，所有需用户决策的项以结构化"待确认项"写入中间文件，由主 agent 在阶段 3 统一提问
 - **一次性信息收集**：所有需要用户提供的信息**在阶段 3 一次性问清楚**，不在后续流程中反复打断用户
 - **子仓库优先**：存在私有仓库依赖时，优先推动子仓库完成 Kunpeng 适配后再编译主仓库
 
@@ -21,10 +21,10 @@ metadata:
 
 ## 整体流程
 
-> **阶段 1（环境检测与准备，子 agent）** → **阶段 2（依赖分析，子 agent）** → **阶段 3（汇总子 agent 待确认项，等待用户回复）** → **阶段 4（源码迁移扫描与适配，严格串行）** → **阶段 5（编译验证循环）** → **阶段 6（迁移总结报告）**
+> 阶段 1（环境检测与准备，子 agent）→ 阶段 2（依赖分析，子 agent）→ 阶段 3（汇总待确认项，等待用户回复）→ 阶段 4 → 阶段 5 → 阶段 6
 
 > **关键约束**：
-> - 阶段 2 完成后，进入阶段 3 暂停等待用户回复，**未获得用户明确确认前不进入阶段 4**
+> - 阶段 3 确认闸门：待确认项汇总后暂停等待用户回复，**未获得用户明确确认前不进入阶段 4**
 > - 阶段 4 内部**严格串行**：必须先完成 DevKit 扫描并拿到报告，再开始源码/构建修改，**不可并行**
 > - 阶段 4 和 5 的所有修改均需有**架构宏保护**，确保 x86 编译不受影响
 
@@ -37,12 +37,13 @@ metadata:
 ```bash
 PROJECT_ROOT=<项目绝对路径>
 WORK_DIR="$(dirname $PROJECT_ROOT)/$(basename $PROJECT_ROOT)-arm-migration"
-mkdir -p $WORK_DIR/{reports,downloads,build,logs,devkit}
+mkdir -p $WORK_DIR/{reports,output,downloads,build,logs,devkit}
 ```
 
 | 目录 | 用途 |
 |------|------|
 | `reports/` | DevKit 扫描报告、依赖分析报告、修改清单 |
+| `output/` | 最终展示产物：总结报告、迁移 patch |
 | `downloads/` | 依赖源码包、Kunpeng 预编译库下载 |
 | `build/` | 第三方库临时编译安装目录 |
 | `logs/` | 每轮编译日志（`build_1.log`、`build_2.log`…） |
@@ -52,7 +53,7 @@ mkdir -p $WORK_DIR/{reports,downloads,build,logs,devkit}
 
 ## 阶段时间戳记录
 
-主编排在每个阶段的开始和结束时，向时间线日志追加记录，供阶段 6 生成时长统计：
+主 agent 在每个阶段的开始和结束时，向时间线日志追加记录，供阶段 6 生成时长统计：
 
 ```bash
 # 阶段开始时
@@ -80,7 +81,7 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 待确认项格式（YAML 风格代码块）
 
-每条待确认项为一个 YAML 代码块，便于主编排解析：
+每条待确认项为一个 YAML 代码块，便于主 agent 解析：
 
 ```yaml
 - id: env_bazel_version            # 全局唯一，env_ 前缀=阶段1，dep_ 前缀=阶段2
@@ -99,14 +100,14 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ### 输出规则
 
-1. 无待确认项时文件标注"无待确认项"（主编排据此跳过提问）；用户回复由主编排写入 `$WORK_DIR/reports/user_decisions.txt`
+1. 无待确认项时文件标注"无待确认项"（主 agent 据此跳过提问）；用户回复由主 agent 写入 `$WORK_DIR/reports/user_decisions.txt`
 2. **命中 `kunpeng_confirmed.md` 的依赖不生成待确认项**：改为写入待切换清单（stage_2_switch_list.md）
 
 ---
 
 ## 阶段 1：环境检测与准备（子 agent）
 
-> 以子 agent 模式执行 [environment-prepare/SKILL.md](environment-prepare/SKILL.md)（`description: "阶段1-环境检测与准备"`）；调起方式、路径变量传入、子 agent 边界统一见文末「调起约定与跨助手适配」。冲突项写入 `$WORK_DIR/reports/stage_1_pending_items.md`（格式见「子 agent 待确认项输出契约」），**不在本阶段提问**。
+> 以子 agent 模式执行 [environment-prepare.md](environment-prepare/environment-prepare.md)（`description: "阶段1-环境检测与准备"`）；调起方式、路径变量传入、子 agent 边界统一见文末「调起约定与跨助手适配」。冲突项写入 `$WORK_DIR/reports/stage_1_pending_items.md`（格式见「子 agent 待确认项输出契约」），**不在本阶段提问**。
 
 **本阶段目标**：确认 Kunpeng 环境具备编译条件，输出环境检测报告到 `$WORK_DIR/reports/environment_check_report.md`，并输出待确认项清单到 `$WORK_DIR/reports/stage_1_pending_items.md`。
 
@@ -126,7 +127,7 @@ echo "PHASE_1_END|$(date '+%Y-%m-%d %H:%M:%S')" >> $WORK_DIR/reports/timeline.lo
 
 ## 阶段 2：依赖分析与 Kunpeng 兼容性探测（子 agent）
 
-> 以子 agent 模式执行 [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md)（`description: "阶段2-依赖分析与ARM兼容性探测"`）；调起方式、路径变量传入、子 agent 边界统一见文末「调起约定与跨助手适配」。冲突项写入 `$WORK_DIR/reports/stage_2_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖写入 `$WORK_DIR/reports/stage_2_switch_list.md` 待切换清单（格式见「子 agent 待确认项输出契约」），**不在本阶段提问**。
+> 以子 agent 模式执行 [dependency-analysis.md](dependency-analysis/dependency-analysis.md)（`description: "阶段2-依赖分析与ARM兼容性探测"`）；调起方式、路径变量传入、子 agent 边界统一见文末「调起约定与跨助手适配」。冲突项写入 `$WORK_DIR/reports/stage_2_pending_items.md`；命中 `kunpeng_confirmed.md` 的依赖写入 `$WORK_DIR/reports/stage_2_switch_list.md` 待切换清单（格式见「子 agent 待确认项输出契约」），**不在本阶段提问**。
 
 **本阶段目标**：全面分析项目所有外部依赖，评估每个依赖的 Kunpeng 兼容性，输出依赖分析报告，并输出待确认项清单与待切换清单。
 
@@ -200,7 +201,7 @@ options:
 
 ## 阶段 4：源码迁移扫描与适配（严格串行）
 
-> **必须立即读取文件 `source-migration-scan/SKILL.md` 获取完整执行步骤。**
+> **必须立即读取文件 `source-migration-scan.md` 获取完整执行步骤。**
 
 **本阶段目标**：先运行 DevKit 扫描发现源码 x86 专属问题，**扫描结束后**再根据报告结果完成构建系统配置适配与源码修改。
 
@@ -213,7 +214,7 @@ options:
 >
 > **不可并行的原因**：DevKit 扫描结果对后续修改有**直接指导作用**——它会定位需要修改的源文件、指出问题类型（内联汇编 / intrinsics / 头文件 / 类型大小等）、给出修改建议。如果先修改再扫描，可能遗漏问题或做重复/冲突修改。因此**必须先等扫描结束、拿到报告，再开始源码和构建适配**。
 >
-> `which devkit` 返回空时不允许跳过扫描，必须向用户提问让其决策：手动提供安装路径 / 由 Skill 自动下载安装 / 中止（详见 source-migration-scan/SKILL.md 4.1.1）。
+> `which devkit` 返回空时不允许跳过扫描，必须向用户提问让其决策：手动提供安装路径 / 由 Skill 自动下载安装 / 中止（详见 source-migration-scan.md 4.1.1）。
 >
 > 阶段 4 只做源码迁移扫描与适配——依赖分支切换已在阶段 3 末尾完成，此处不再切换。
 >
@@ -224,14 +225,14 @@ options:
 
 ## 阶段 5：编译验证循环
 
-> **必须立即读取文件 `sourcecode-build-verify/SKILL.md` 获取完整执行步骤。**
+> **必须立即读取文件 `sourcecode-build-verify.md` 获取完整执行步骤。**
 
 **本阶段目标**：循环执行编译验证，直到编译成功或人工介入。
 
-**错误修复优先级（两级查询，详见 sourcecode-build-verify/SKILL.md 5.2/5.5 节）**：
+**错误修复优先级（两级查询，详见 sourcecode-build-verify.md 5.2/5.5 节）**：
 - **第1级**：查 [build-error-quickfix.md](sourcecode-build-verify/references/build-error-quickfix.md) 速查表（扁平关键字表，扫描快），命中则按「修复」列描述修复
-- **第2级**：速查表未命中时，查 [migration-cases/](sourcecode-build-verify/references/migration-cases/) 案例库（generic/version/project 路由索引 → 详细案例，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 sourcecode-build-verify/SKILL.md 5.5 节）
-- **代码仓权限问题**：遇到代码仓无权限时，**严禁在服务器其他目录查找代码仓**，必须向用户提问，请用户提供已下载的代码仓路径（详见 sourcecode-build-verify/SKILL.md 5.2.1 节）
+- **第2级**：速查表未命中时，查 [migration-cases/](sourcecode-build-verify/references/migration-cases/) 案例库（generic/version/project 路由索引 → 详细案例，结构化教案兜底），命中则按案例修复；**每次查询须在交互界面输出醒目标识**（格式见 sourcecode-build-verify.md 5.5 节）
+- **阻塞性问题**：遇到代码仓权限、依赖库版本严重不符、编译环境严重不符等阻塞性问题时，停止自动修复并**必须向用户提问**，请用户选择处理方案（详见 sourcecode-build-verify.md 2.1 节）
 - **报告目录不存在**：回到阶段 4 重新执行 DevKit 扫描，不得跳过
 
 **阶段 5 编译成功后**，进入阶段 6。
@@ -240,15 +241,15 @@ options:
 
 ## 阶段 6：迁移总结报告
 
-> **必须立即读取文件 `migration-summary/SKILL.md` 获取完整执行步骤。**
+> **必须立即读取文件 `migration-summary.md` 获取完整执行步骤。**
 
 **本阶段目标**：汇总整个迁移过程，生成结构化总结报告，包含各阶段执行时长、修改文件清单及修改点描述、重要提示与建议；并生成 patch 文件（含源码 + 构建配置改动，排除 `.so`/`.a` 等二进制文件）供归档与跨环境应用。
 
 **触发条件**：
 - 阶段 5 编译成功 → 正常生成完整总结报告
 
-**报告保存路径**：`$WORK_DIR/reports/migration_summary_report.md`
-**patch 保存路径**：`$WORK_DIR/reports/migration.patch`（排除二进制文件）
+**报告保存路径**：`$WORK_DIR/output/migration_summary_report.md`
+**patch 保存路径**：`$WORK_DIR/output/migration.patch`（排除二进制文件）
 
 **报告生成后**：向用户醒目展示报告中的"必须执行"项和"建议关注"项。
 
@@ -256,29 +257,29 @@ options:
 
 ## 子 Skill
 
-本主 Skill 包含以下子模块，阶段 1、2 均为子 Skill（以子 agent 模式执行，含完整方法与输入/输出契约，由主编排拉起子 agent），阶段 4、5、6 为子 Skill（由主编排直接调用）：
+本主 Skill 包含以下子模块，阶段 1、2 均为子 Skill（以子 agent 模式执行，含完整方法与输入/输出契约，由主 agent 拉起子 agent），阶段 4、5、6 为子 Skill（由主 agent 直接调用）：
 
 | 子模块 | 入口文件 | 用途 |
 |----------|----------|------|
-| `environment-prepare` | [environment-prepare/SKILL.md](environment-prepare/SKILL.md) | 阶段 1 子 Skill：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
-| `dependency-analysis` | [dependency-analysis/SKILL.md](dependency-analysis/SKILL.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
-| `source-migration-scan` | [source-migration-scan/SKILL.md](source-migration-scan/SKILL.md) | 阶段 4 子 Skill：源码迁移扫描与适配（含输入/输出契约、DevKit 下载与扫描流程） |
-| `sourcecode-build-verify` | [sourcecode-build-verify/SKILL.md](sourcecode-build-verify/SKILL.md) | 阶段 5 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库） |
-| `migration-summary` | [migration-summary/SKILL.md](migration-summary/SKILL.md) | 阶段 6 子 Skill：迁移总结报告生成与 patch 导出（含各阶段时长统计、修改文件清单、重要提示、patch 生成排除二进制） |
+| `environment-prepare` | [environment-prepare.md](environment-prepare/environment-prepare.md) | 阶段 1 子 Skill：环境检测与编译环境准备（含输入/输出契约、待确认项格式） |
+| `dependency-analysis` | [dependency-analysis.md](dependency-analysis/dependency-analysis.md) | 阶段 2 子 Skill：依赖分析与 Kunpeng 兼容性探测（含输入/输出契约、待确认项/待切换清单格式） |
+| `source-migration-scan` | [source-migration-scan.md](source-migration-scan/source-migration-scan.md) | 阶段 4 子 Skill：源码迁移扫描与适配（含输入/输出契约、DevKit 下载与扫描流程） |
+| `sourcecode-build-verify` | [sourcecode-build-verify.md](sourcecode-build-verify/sourcecode-build-verify.md) | 阶段 5 子 Skill：编译验证与循环修复（含 build-error-quickfix 速查表、migration-cases 案例库） |
+| `migration-summary` | [migration-summary.md](migration-summary/migration-summary.md) | 阶段 6 子 Skill：迁移总结报告生成与 patch 导出（含各阶段时长统计、修改文件清单、重要提示、patch 生成排除二进制） |
 
-> 各子 Skill 目录下的引用文档（references / scripts / assets）由子 Skill 自行管理，详见对应 SKILL.md，主 Skill 不再逐一列举。
+> 各子 Skill 目录下的引用文档（references / scripts / assets）由子 Skill 自行管理，详见对应子 Skill 文档，主 Skill 不再逐一列举。
 
 ---
 
 ## 调起约定与跨助手适配
 
-本 Skill 的阶段 1、2 以**子 agent** 模式执行（阶段 1 用 environment-prepare/SKILL.md、阶段 2 用 dependency-analysis/SKILL.md 的提示词模板）。为支持不同编程助手，调起方式与工具调用统一采用语义描述，具体 API 按运行环境映射。
+本 Skill 的阶段 1、2 以**子 agent** 模式执行（阶段 1 用 environment-prepare.md、阶段 2 用 dependency-analysis.md 的提示词模板）。为支持不同编程助手，调起方式与工具调用统一采用语义描述，具体 API 按运行环境映射。
 
 ### 子 agent 调起语义
 
-主编排读取对应子 Skill 的 SKILL.md，把已知的三个路径变量（`PROJECT_ROOT` / `WORK_DIR` / `SKILL_DIR`）传入后，**作为提示词拉起一个独立上下文的子 agent 执行**。子 agent 在自己的上下文里完成检测/分析，把报告与待确认项写入中间文件，最终向主编排返回摘要。
+主 agent 读取对应子 Skill 的入口文档，把已知的三个路径变量（`PROJECT_ROOT` / `WORK_DIR` / `SKILL_DIR`）传入后，**作为提示词拉起一个独立上下文的子 agent 执行**。子 agent 在自己的上下文里完成检测/分析，把报告与待确认项写入中间文件，最终向主 agent 返回摘要。
 
-**子 agent 边界（重要）**：子 agent **不向用户提问**--所有需用户决策的项一律按「子 agent 待确认项输出契约」写入中间文件，由主编排在阶段 3 统一提问。这条边界是阶段 1、2 的核心约束：避免子 agent 在独立上下文里打断用户、也避免主编排漏收待确认项。正文各阶段不再重复此约束，统一以本节为准。
+**子 agent 边界（重要）**：子 agent **不向用户提问**--所有需用户决策的项一律按「子 agent 待确认项输出契约」写入中间文件，由主 agent 在阶段 3 统一提问。这条边界是阶段 1、2 的核心约束：避免子 agent 在独立上下文里打断用户、也避免主 agent 漏收待确认项。正文各阶段不再重复此约束，统一以本节为准。
 
 ### 各助手映射（示例，可扩展）
 
