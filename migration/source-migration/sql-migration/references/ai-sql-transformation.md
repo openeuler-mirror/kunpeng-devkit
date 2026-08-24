@@ -92,7 +92,7 @@ ORACLE_ROWNUM_TO_MYSQL_LIMIT
 MYSQL_BACKTICK_TO_DM_DOUBLE_QUOTE
 ```
 
-同一转换模式（不区分表名/列名）只沉淀一条规则。仅在 `target_db_conn.flag=true` 且 EXPLAIN 验证通过时用于规则沉淀；未提供则跳过该条沉淀。
+同一转换模式（不区分表名/列名）只沉淀一条规则。所有 AI converted 且通过完整性检查的项均沉淀为规则，按 target 库验证状态标注【已验证】（EXPLAIN 通过）或【待人工确认】（验证失败或未启用目标库验证）；未提供 `rule_pattern_key` 则跳过该条沉淀。
 
 **`rule_summary`（一句话转换说明，作为规则标题）**：
 

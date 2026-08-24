@@ -102,12 +102,11 @@ SELECT CASE WHEN status = 1 THEN 'ACTIVE' WHEN status = 2 THEN 'INACTIVE' ELSE '
 $WORK_DIR/devkit-sql-migration-cache/rulers_<SOURCE_DB>_to_<TARGET_DB>.md
 ```
 
-`finalize_ai_stage.py` 在 AI converted 项通过目标数据库动态 `EXPLAIN` 后，按本模板自动生成规则并追加。去重粒度为 source_db + target_db + rule_pattern_key，同一转换模式只沉淀一条规则。
+`finalize_ai_stage.py` 对所有 AI converted 且通过完整性检查的项，按本模板自动生成规则并追加，按 target 库验证状态标注【已验证】或【待人工确认】。去重粒度为 source_db + target_db + rule_pattern_key，同一转换模式只沉淀一条规则。
 
 以下项目不沉淀：
 
 - AI 仅确认兼容的 `compatible`；
-- 未启用目标数据库验证的 `pending_confirm`；
-- EXPLAIN 失败或无法执行的转换；
+- AI converted 完整性检查失败（源码未实际修改/仍有方言残留）的项；
 - `manual-review`；
 - 缺少 `rule_pattern_key` 的 converted 项。

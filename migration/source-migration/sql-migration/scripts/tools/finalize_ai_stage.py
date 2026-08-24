@@ -198,13 +198,19 @@ def persist_validated_rules(
     work_dir: Path,
     workset: dict[str, Any],
     by_id: dict[str, dict[str, Any]],
-    passed_ids: set[str],
+    converted_ids: set[str],
     validation: dict[str, Any],
 ) -> dict[str, Any]:
-    """Append AI-converted + target-EXPLAIN-PASS examples to the existing rulers file.
+    """Append AI-converted examples (with validation status) to the existing rulers file.
 
     去重粒度：转换模式键（rule_pattern_key）。同一 source_db + target_db + pattern_key
     只沉淀一条规则，表名/列名不同的 SQL 不产生重复规则。
+
+    沉淀范围：所有 AI converted 且通过完整性检查的项（accepted_converted），
+    按 target 库验证状态标注【已验证】或【待人工确认】：
+      - passed（EXPLAIN 通过）→ 【已验证】
+      - failed（EXPLAIN 失败）→ 【待人工确认】
+      - pending（未启用目标库验证 flag=false）→ 【待人工确认】
 
     AI 在 workset item 中写入：
       - rule_pattern_key：转换模式键（如 ORACLE_DECODE_TO_MYSQL_CASE_WHEN）
@@ -225,7 +231,7 @@ def persist_validated_rules(
         "rule_file": "",
         "items": {},
     }
-    if not source_db or not target_db or not passed_ids:
+    if not source_db or not target_db or not converted_ids:
         return result
 
     rule_file = work_dir / "devkit-sql-migration-cache" / f"rulers_{source_db}_to_{target_db}.md"
@@ -234,8 +240,10 @@ def persist_validated_rules(
     result["rule_file"] = str(rule_file)
     rule_count = len(re.findall(r"(?m)^##\s+[^\n]+$", existing))
     additions: list[str] = []
+    passed_set = set(validation.get("passed") or [])
+    failed_set = set((validation.get("failed") or {}).keys())
 
-    for wid in sorted(passed_ids):
+    for wid in sorted(converted_ids):
         item = by_id.get(wid) or {}
         # source_sql 优先用纯 SQL，未提供时跳过（不用 source_fragment 兜底）
         source_sql = str(item.get("source_sql") or "").strip()
@@ -261,18 +269,27 @@ def persist_validated_rules(
 
         rule_count += 1
         sql_id = str(item.get("sql_id") or wid)
+        if wid in passed_set:
+            status_label = "已验证"
+            validation_desc = "目标数据库动态连接 `EXPLAIN` 验证通过"
+        elif wid in failed_set:
+            status_label = "待人工确认"
+            validation_desc = "目标数据库动态连接 `EXPLAIN` 验证失败，需人工复核"
+        else:
+            status_label = "待人工确认"
+            validation_desc = "未启用目标库动态验证，需人工确认"
         lines = [
-            f"## [规则 {rule_count:02d}] {rule_summary}",
+            f"## [规则 {rule_count:02d}] 【{status_label}】 {rule_summary}",
             marker,
             f"<!-- rule_pattern_key: {pattern_key} -->",
             "### 1. 语法转换映射",
             f"- **转换模式：** {rule_summary}",
             f"- **源数据库（{source_db}）：** 见下方转换前 SQL",
-            f"- **目标数据库（{target_db}）：** 见下方转换后 SQL；目标数据库动态 `EXPLAIN` 验证通过",
+            f"- **目标数据库（{target_db}）：** 见下方转换后 SQL；{validation_desc}",
             "",
             "### 2. 核心差异说明",
             f"- 转换模式键：`{pattern_key}`",
-            "- 验证：目标数据库动态连接 `EXPLAIN` PASS",
+            f"- 验证状态：{status_label}（{validation_desc}）",
             "- 复用约束：作为相同转换模式的候选规则，后续仍需结合当前 SQL 上下文判断。",
             "",
             "### 3. 标准对照示例",
@@ -467,7 +484,7 @@ def synchronize_reports(
         elif workset_id in pending:
             work_item["target_validation"] = "PENDING"
 
-    rule_persistence = persist_validated_rules(work_dir, workset, by_id, passed & accepted_converted, validation)
+    rule_persistence = persist_validated_rules(work_dir, workset, by_id, accepted_converted, validation)
     for wid, detail in (rule_persistence.get("items") or {}).items():
         if wid in by_id:
             by_id[wid]["rule_persistence"] = detail

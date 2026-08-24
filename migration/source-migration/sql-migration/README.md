@@ -65,7 +65,7 @@
 |--------|------|
 | DevKit SQL Analysis | 鲲鹏 DevKit 已安装；未提供时由入口脚本 `download_devkit.sh` 自动定位或下载 |
 | Java 运行环境 | JRE 由 DevKit 包内嵌或系统提供；JDK 仅在启用目标库动态验证时需要（用于编译 EXPLAIN 验证器），由入口脚本 `download_jdk.sh` 按需定位或下载 |
-| Python | ≥ 3.6（用于报告解析与汇总报告生成） |
+| Python | ≥ 3.7（用于报告解析与汇总报告生成） |
 | 数据库连接（可选） | 源库/目标库 JDBC 连接信息配置在 `assets/db-connection.json` 中，`flag=true` 时启用动态兼容性评估 |
 | 数据库驱动（可选） | 启用动态验证时需提供对应数据库的 JDBC Driver JAR 路径 |
 

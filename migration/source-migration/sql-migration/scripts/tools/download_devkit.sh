@@ -75,24 +75,24 @@ DEVKIT_SEARCH_ROOTS=(
 
 # --- 0.5 定位优先：在 DEVKIT_SEARCH_ROOTS 搜索已存在的 DevKit ---
 #
-# 定位时必须同时校验 jar 和 toolscript 入口，避免命中只有 jar 而无 toolscript
-# 的旧版 Porting-Advisor 包（会导致后续入口定位失败）。
+# 定位时校验 jar 和 ai-migration 二进制，避免命中只有 jar 而无 ai-migration
+# 的旧版包（会导致后续入口定位失败）。
 locate_existing_devkit() {
     for root in "${DEVKIT_SEARCH_ROOTS[@]}"; do
         [[ -d "$root" ]] || continue
-        # 找到所有 jar 候选，逐个校验是否同时含 toolscript 入口
+        # 找到所有 jar 候选，逐个校验是否含 ai-migration 二进制
         while IFS= read -r found_jar; do
             [[ -n "$found_jar" ]] || continue
             # DevKit 工具根目录 = jar 所在 sql_analysis 目录的上级
-            local jar_dir devkit_root toolscript_entry
+            local jar_dir devkit_root ai_migration_entry
             jar_dir=$(dirname "$found_jar")
             devkit_root=$(dirname "$jar_dir")
-            toolscript_entry="$devkit_root/toolscript/sql-migration/scripts/sql_migration.pyc"
-            if [[ -f "$toolscript_entry" ]]; then
+            ai_migration_entry="$devkit_root/ai-migration"
+            if [[ -f "$ai_migration_entry" ]]; then
                 echo "$found_jar"
                 return 0
             fi
-            log "跳过（无 toolscript 入口）：$found_jar"
+            log "跳过（无 ai-migration 二进制）：$found_jar"
         done < <(find "$root" -maxdepth 5 -type f -name "sql-analysis-*.jar" 2>/dev/null)
     done
     return 1
