@@ -10,7 +10,7 @@
 
 | 条件 | 必须满足 |
 |---|---|
-| `status=SUCCESS` | `build_status=success` 且 `test_status!=fail` |
+| `status=SUCCESS` | `build_status=success` 且 `test_status!=fail` 且 `startup_status=ok` |
 | `status=FAILED` | 必须填写 `failure_reason`；失败证据写入 `notes` |
 | 构建前失败 | `build_status=fail` 或在 `notes` 明确“未进入构建” |
 | `test_status=skip` | `notes` 说明未执行原因和剩余风险 |
@@ -32,6 +32,7 @@
   "buildkit_enabled": true,
   "build_command": "<实际执行的 docker build 命令；未执行时为空字符串>",
   "test_status": "pass|fail|skip",
+  "startup_status": "ok|crash|skip",
   "migration_mode": "IMAGE_MIG_SKILLSET",
   "retry_count": 0,
   "changes_applied": [

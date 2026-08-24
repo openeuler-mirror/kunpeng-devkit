@@ -56,15 +56,44 @@ A. 含 INTERNAL_REGISTRIES 域名（内网镜像）
        {repo}:{tag}-arm64  /  {repo}:{tag}_arm64  /  {repo}:{tag}-aarch64  /  {repo}-arm64:{tag}
    → 使用 manifest 检查逐个验证，不用 `docker pull` 代替存在性判断
    → 仅对验证通过的候选标记 [CHANGE-FROM-GUESS]，并记录候选、命中项和 manifest 证据
-   → 所有候选均无效：
-       - 能从原镜像 metadata 和应用依赖确定等价公开基础镜像时，生成 [FALLBACK-TO-PUBLIC-BASE] 候选；
-         基础镜像语义可能变化时必须先获得用户确认
-       - 无法证明等价时标记 FAILED(INTERNAL_IMAGE_UNAVAILABLE)，由主 Agent 汇总待确认项
+   → 所有候选均无效（基础镜像不存在 ARM64 版本或为用户自研版本）：
+       执行"基础镜像优先迁移"流程（见 1.2.1），不得自动降级为公开基础镜像
 
 B. 公开镜像（Docker Hub / 官方）
    → 先验证目标 tag 存在 `linux/arm64` manifest
    → 验证通过：加 `--platform=linux/arm64`，标记 [KEEP-FROM-PUBLIC]
    → 验证失败：检索 `references/build_knowledge_reference.md` 的替代或升级方案；无方案时按主 Skill 全局执行红线失败
+```
+
+### 1.2.1 基础镜像优先迁移
+
+当内网基础镜像不存在 ARM64 版本或为用户自研版本时，**不得自动降级为公开基础镜像**（会导致基础镜像组件缺失）。按以下顺序处理：
+
+```text
+1. 拉取 x86 基础镜像
+   docker pull --platform linux/amd64 <原基础镜像>
+   拉取失败 → 交互提示用户：
+     "无法拉取基础镜像 <image>，请确认基础镜像来源：
+      提供可拉取的镜像地址 / 提供基础镜像的 Dockerfile / 跳过本项目"
+   用户未确认前不得继续
+
+2. 优先迁移基础镜像
+   - 有基础镜像的 Dockerfile → 按本文件流程迁移基础镜像，生成 Dockerfile.arm64 并构建 ARM64 基础镜像
+   - 无基础镜像的 Dockerfile → 按 image_reconstruction.md 流程逆向重构基础镜像
+   - 基础镜像迁移成功后，获得 ARM64 基础镜像：<image>-arm64:latest
+
+3. 逐行验证 docker history
+   docker history --no-trunc --format "{{.CreatedBy}}" <image>-arm64:latest
+   逐层检查：
+     - 每个 RUN 层涉及的包/库在 ARM64 上可安装（apt 包有 arm64 版、pip 包有 aarch64 wheel）
+     - 无 x86_64/amd64 架构残留（ELF 文件、.so 库），必要时用 DevKit pkg-mig 扫描
+     - COPY/ADD 引入的文件无 x86 native 库
+   验证不通过 → 回到步骤 2 修复基础镜像迁移，不得进入业务镜像迁移
+
+4. 使用迁移后的 ARM64 基础镜像
+   Dockerfile.arm64 的 FROM 改为：
+     FROM --platform=linux/arm64 <image>-arm64:latest
+   标记 [CHANGE-FROM-BASE-MIGRATED]，记录原基础镜像名、迁移后镜像名、history 验证结论
 ```
 
 ### 1.3 RUN 指令分类
@@ -321,14 +350,33 @@ docker build --platform linux/arm64 \
 
 ### 5.1 运行验证
 
+> 必须先执行层次 0（真实启动验证），通过后才执行后续层次。分层策略见 `build_knowledge_reference.md` 第 21 节。
+
 ```bash
-# 示例 1：容器可启动；若镜像 ENTRYPOINT 不接受 echo，请使用适合该镜像的探测命令
+# 步骤 1（必须）：真实 ENTRYPOINT/CMD 启动验证——不覆盖原始命令
+#   先确认镜像的 ENTRYPOINT 和 CMD 内容
+docker inspect <IMAGE> --format '{{.Config.Entrypoint}} {{.Config.Cmd}}'
+
+#   后台启动，不覆盖任何命令，等待数秒后检查进程存活
+docker run -d --platform linux/arm64 --name test-real-<project> <IMAGE>
+sleep 8
+if docker ps -a --filter "name=test-real-<project>" --filter "status=running" | grep -q test-real-<project>; then
+  echo "STARTUP_OK"
+  docker logs test-real-<project> 2>&1 | tail -20
+else
+  echo "STARTUP_CRASH"
+  docker logs test-real-<project> 2>&1 | tail -50
+  # 记录崩溃日志，进入 5.2 增量 patch 修复
+fi
+docker rm -f test-real-<project> 2>/dev/null
+
+# 步骤 2：容器可启动（覆盖命令的基础探活）
 docker run --rm --platform linux/arm64 <IMAGE> echo "Container OK"
 
-# 示例 2：Python 项目的核心模块可 import
+# 步骤 3：Python 项目的核心模块可 import
 docker run --rm --platform linux/arm64 <IMAGE> python3 -c "import <core_module>; print('OK')"
 
-# 示例 3：服务类项目的 HTTP 端口探活
+# 步骤 4：服务类项目的 HTTP 端口探活
 docker run -d --platform linux/arm64 --name test-<project> -p <HOST>:<CONTAINER> <IMAGE>
 sleep 5
 curl -s http://localhost:<HOST>/health || curl -s http://localhost:<HOST>/monitor/alive

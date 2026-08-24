@@ -177,6 +177,7 @@ TASK_CTX:
 
 3. **状态一致性自检**：
   - `status=SUCCESS` 必须满足 `build_status=success` 且 `test_status!=fail`
+  - `status=SUCCESS` 必须包含真实启动验证结果 `startup_status=ok`（即不覆盖 ENTRYPOINT/CMD 后容器仍存活）；`startup_status` 缺失或为 `crash` 时不得标记 SUCCESS
   - `status=FAILED` 必须包含 `failure_reason`，并在 `notes` 写清失败证据与边界
   - `test_status=skip` 必须说明跳过原因和剩余风险
 

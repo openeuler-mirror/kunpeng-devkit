@@ -985,7 +985,24 @@ docker system df
 **按层次依次验证，前一层失败则不进入下一层**：
 
 ```bash
-# 层次 1：容器可启动
+# 层次 0：真实 ENTRYPOINT/CMD 启动验证（不覆盖原始命令）
+#   目的：确认镜像用自身 ENTRYPOINT/CMD 能正常启动，而非用 echo 等替换命令绕过
+#   先查 inspect 确认 EntryAnchored/Cmd 内容，再以 --entrypoint "" 起一个短暂容器看进程是否立即退出
+docker inspect <IMAGE> --format '{{.Config.Entrypoint}} {{.Config.Cmd}}'
+
+#   后台启动，不覆盖任何命令，等待数秒后检查进程存活
+docker run -d --platform linux/arm64 --name test-real-<project> <IMAGE>
+sleep 8
+#   容器仍在运行 = 启动成功；已退出 = 启动崩溃
+if docker ps -a --filter "name=test-real-<project>" --filter "status=running" | grep -q test-real-<project>; then
+  echo "STARTUP_OK"
+else
+  echo "STARTUP_CRASH"
+  docker logs test-real-<project> 2>&1 | tail -50
+fi
+docker rm -f test-real-<project> 2>/dev/null
+
+# 层次 1：容器可启动（覆盖命令的基础探活）
 docker run --rm --platform linux/arm64 <IMAGE> echo "Container OK"
 
 # 层次 2：核心模块可 import（Python 项目）
@@ -1019,6 +1036,16 @@ done
 | `libGL.so.1: cannot open shared object file` | `apt-get install -y libgl1-mesa-dri libgl1` |
 | `cannot connect to X server :99` | 加 `sleep 3` 等 Xvfb 启动 |
 | `AttributeError: module 'collections' has no attribute 'Mapping'` | `pip install "networkx>=2.6"` |
+
+**层次 0 启动崩溃处理流程**：
+
+当 `STARTUP_CRASH` 发生时，按以下顺序诊断与修复：
+
+1. `docker logs` 采集完整启动日志，提取 fatal/error/traceback 关键行
+2. 按"常见运行时崩溃快速修复"表匹配已知错误模式
+3. 匹配失败时检索本文件对应章节（如 native 库缺失查第 12 节、pip 包冲突查第 15 节）
+4. 能通过增量 patch 修复时走第 22 节增量 patch 镜像；涉及基础镜像/系统包时回到 Dockerfile 重构阶段
+5. 修复后必须重跑层次 0 确认 `STARTUP_OK`，才可继续后续层次验证
 
 ---
 
@@ -1614,7 +1641,7 @@ RUN apt-get install -y firefox-esr
 | 值 | 含义 |
 |----|------|
 | `NO_ARM64_SUPPORT` | 基础镜像无 ARM64 版本 |
-| `INTERNAL_IMAGE_UNAVAILABLE` | 内网镜像无可用 ARM64 tag，且无法降级到公开镜像 |
+| `INTERNAL_IMAGE_UNAVAILABLE` | 内网镜像无可用 ARM64 tag，且拉取失败或用户未确认基础镜像来源 |
 | `ARCH_INCOMPATIBILITY` | native 库/工具链不兼容 ARM64（Android/Flutter/WebGL 等） |
 | `VERSION_INCOMPATIBILITY` | 语言/框架版本不兼容 |
 | `DEPENDENCY_CONFLICT` | 依赖冲突无法解决 |

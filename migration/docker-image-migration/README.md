@@ -319,7 +319,7 @@ native 库扫描阶段若未检测到 `devkit`，Skill 会通过 `AskUserQuestio
 
 ### Q: 私有内网镜像无 ARM64 版本怎么办？
 
-阶段 1 会探测内网镜像的 ARM64 tag 候选（`-arm64`/`_arm64`/`-aarch64` 等）。所有候选均无效时：能从原镜像 metadata 确定等价公开基础镜像时生成 `[FALLBACK-TO-PUBLIC-BASE]` 候选（语义可能变化时需用户确认）；无法证明等价时标记 `FAILED(INTERNAL_IMAGE_UNAVAILABLE)`，由主 Agent 汇总待确认项。
+阶段 1 会探测内网镜像的 ARM64 tag 候选（`-arm64`/`_arm64`/`-aarch64` 等）。所有候选均无效时，先拉取 x86 基础镜像并优先迁移为 ARM64 版本，对迁移后的镜像逐行验证 `docker history` 确保 ARM 兼容后，再进入业务镜像迁移。拉取失败时交互提示用户确认基础镜像来源（提供可拉取镜像地址 / Dockerfile / 跳过本项目），用户未确认前不继续。
 
 ### Q: 无 Dockerfile 场景下 ARM64 主机无法采集 layer 怎么办？
 

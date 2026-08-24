@@ -229,10 +229,39 @@ docker manifest inspect <BASE_IMAGE>
 ```
 
 - 有 `linux/arm64`：保存 tag/digest 与命令输出，进入 1.6.2。
-- 明确无 `linux/arm64`：先检索 [build_knowledge_reference.md](../references/build_knowledge_reference.md) 的替代或版本升级方案；无方案时使用 `FAILED(NO_ARM64_SUPPORT)`。
+- 明确无 `linux/arm64`：执行"基础镜像优先迁移"流程（见下方），不得自动降级为公开基础镜像。
 - 认证失败、超时或 Registry 不可达：属于证据缺失，不得等同于“不支持 ARM64”。
 
 官方镜像族的最小构建探测边界统一见 `../references/build_knowledge_reference.md`；最终报告仍需 manifest 或等价平台证据。
+
+**基础镜像优先迁移**（基础镜像明确无 ARM64 或为用户自研版本时触发）：
+
+```text
+1. 拉取 x86 基础镜像
+   docker pull --platform linux/amd64 <原基础镜像>
+   拉取失败 → 交互提示用户：
+     "无法拉取基础镜像 <image>，请确认基础镜像来源：
+      提供可拉取的镜像地址 / 提供基础镜像的 Dockerfile / 跳过本项目"
+   用户未确认前不得继续
+
+2. 优先迁移基础镜像
+   - 有基础镜像的 Dockerfile → 按 dockerfile_migration.md 流程迁移，生成 Dockerfile.arm64 并构建
+   - 无基础镜像的 Dockerfile → 按本文件流程逆向重构基础镜像（采集 manifest/history/layer → 决策矩阵 → 重建 → 构建）
+   - 基础镜像迁移成功后，获得 ARM64 基础镜像：<image>-arm64:latest
+
+3. 逐行验证 docker history
+   docker history --no-trunc --format "{{.CreatedBy}}" <image>-arm64:latest
+   逐层检查：
+     - 每个 RUN 层涉及的包/库在 ARM64 上可安装（apt 包有 arm64 版、pip 包有 aarch64 wheel）
+     - 无 x86_64/amd64 架构残留（ELF 文件、.so 库），必要时用 DevKit pkg-mig 扫描
+     - COPY/ADD 引入的文件无 x86 native 库
+   验证不通过 → 回到步骤 2 修复基础镜像迁移，不得进入业务镜像迁移
+
+4. 使用迁移后的 ARM64 基础镜像
+   阶段 4 重建 Dockerfile 时 FROM 改为：
+     FROM --platform=linux/arm64 <image>-arm64:latest
+   标记 [CHANGE-FROM-BASE-MIGRATED]，记录原基础镜像名、迁移后镜像名、history 验证结论
+```
 
 #### 1.6.2 `history.json` 解读
 
@@ -343,21 +372,10 @@ docker rm $CID
 
 内网定制镜像（含 INTERNAL_REGISTRIES）→ 推断 ARM64 tag：
   {repo}:{tag}-arm64  /  {repo}:{tag}_arm64  /  {repo}:{tag}-aarch64
-  推断失败（manifest unknown）→ 退回到 layout os.pretty_name + pip_packages 对应公开镜像：
+  推断失败（manifest unknown 或用户自研版本）→ 执行"基础镜像优先迁移"流程（见 1.6.1 末尾），
+  不得自动降级为公开基础镜像（会导致基础镜像组件缺失）
 
-  OS 回退映射表（按 layout.os.pretty_name 匹配）：
-    Ubuntu 22.04 + Python 3.x  → python:3.x-slim-jammy
-    Ubuntu 20.04 + Python 3.x  → python:3.x-slim-focal
-    Ubuntu 22.04 (无 Python)   → ubuntu:22.04
-    Ubuntu 20.04 (无 Python)   → ubuntu:20.04
-    Debian 12 + Python 3.x    → python:3.x-slim-bookworm
-    Debian 11 + Python 3.x    → python:3.x-slim-bullseye
-    Debian 12 (无 Python)     → debian:bookworm-slim
-    Debian 11 (无 Python)     → debian:bullseye-slim
-    Node.js (layout有 node)   → node:<version>-slim（版本来自 layout）
-    Java (layout有 java/jvm)  → eclipse-temurin:<version>-jre-jammy
-
-  ★ 回退后必须标记 [FALLBACK-TO-PUBLIC-BASE]，报告中说明原内网镜像名及回退原因
+  迁移后标记 [CHANGE-FROM-BASE-MIGRATED]，报告中说明原内网镜像名、迁移后镜像名及 history 验证结论
 ```
 
 ### 4.3 层重建顺序（按 history 从旧到新）
@@ -448,7 +466,24 @@ docker build --platform linux/arm64 \
 
 ### 6.1 运行验证
 
+> 必须先执行层次 0（真实启动验证），通过后才执行后续层次。分层策略见 `build_knowledge_reference.md` 第 21 节。
+
 ```bash
+# 步骤 1（必须）：真实 ENTRYPOINT/CMD 启动验证——不覆盖原始命令
+docker inspect <IMAGE> --format '{{.Config.Entrypoint}} {{.Config.Cmd}}'
+docker run -d --platform linux/arm64 --name test-real-<project> <IMAGE>
+sleep 8
+if docker ps -a --filter "name=test-real-<project>" --filter "status=running" | grep -q test-real-<project>; then
+  echo "STARTUP_OK"
+  docker logs test-real-<project> 2>&1 | tail -20
+else
+  echo "STARTUP_CRASH"
+  docker logs test-real-<project> 2>&1 | tail -50
+  # 记录崩溃日志，进入 6.2 增量 patch 修复
+fi
+docker rm -f test-real-<project> 2>/dev/null
+
+# 步骤 2：容器可启动（覆盖命令的基础探活）
 docker run --rm --platform linux/arm64 <IMAGE> echo "Container OK"
 docker run --rm --platform linux/arm64 <IMAGE> python3 -c "import <core_module>; print('OK')"
 docker run -d --platform linux/arm64 --name test-<project> -p <HOST>:<CONTAINER> <IMAGE>
