@@ -1,12 +1,4 @@
----
-name: sourcecode-build-verify
-description: C/C++ 鲲鹏迁移的编译验证子 Skill。作为 cpp-kunpeng-migration 阶段 5 被调用，或用户需要在鲲鹏（aarch64）环境编译 C/C++ 项目、排查编译错误或查询鲲鹏迁移案例时使用。负责执行编译、提取关键错误，并依次查询 build-error-quickfix 速查表和 migration-cases 案例库完成修复与重试，直至编译成功。不负责前置环境准备、依赖分析和源码迁移扫描与适配。
-license: MulanPSL-2.0
-metadata:
-  author: Kunpeng DevKit
----
-
-# 编译验证与循环修复功能描述
+# 阶段 5：编译验证与循环修复
 本阶段用于循环执行鲲鹏编译验证，分析编译错误，查阅案例库，修复后重试，直到编译成功。
 
 **执行方式**：作为 cpp-kunpeng-migration 主 Skill 的阶段5 子 Skill 调用。
@@ -22,7 +14,7 @@ metadata:
 - `<skill目录绝对路径>` -> `SKILL_DIR`（cpp-kunpeng-migration skill 目录）
 
 - `SKILL_DIR`：本 skill 自知（cpp-kunpeng-migration 目录 = 本子 skill 目录的上一层）。
-- `PROJECT_ROOT`、`WORK_DIR`：主编排调用时由主编排传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
+- `PROJECT_ROOT`、`WORK_DIR`：主 agent 调用时由主 agent 传入；独立调用时优先从用户提示词取，未提供则向用户提问获取。
 
 ---
 
@@ -30,64 +22,7 @@ metadata:
 
 ## 1. 确定编译命令
 
-在第一次编译前，先查阅项目的 README、`build.sh` 等构建脚本确定正确的编译命令，不要盲目猜测。根据构建系统类型，参考以下方式：
-
-### Bazel 项目
-
-```bash
-# 确认架构
-ARCH=$(uname -m)
-
-# 确认 WORKSPACE 已切换到 arm（若 build.sh 不自动处理，手动切换）
-# 仅在项目无 WORKSPACE 且存在 WORKSPACE_arm 时临时复制，避免误删项目原有 WORKSPACE
-if [ ! -e "$PROJECT_ROOT/WORKSPACE" ] && [ -e "$PROJECT_ROOT/WORKSPACE_arm" ]; then
-    cp $PROJECT_ROOT/WORKSPACE_arm $PROJECT_ROOT/WORKSPACE
-fi
-
-# 确认 software.sh 已运行（设置 PATH 中的 Bazel 路径）
-cd $PROJECT_ROOT && source ./software.sh
-
-# 确认 Bazel 可用
-bazel version 2>&1 | head -3
-
-# 编译命令（ARM 配置）
-COMPILE_CMD="bazel build <主编译目标> --verbose_failures --config=linux_aarch64"
-
-# 若使用 build.sh 封装，则
-COMPILE_CMD="bash $PROJECT_ROOT/build.sh"
-```
-
-> **编译目标来源**：来自阶段 1 environment-prepare/SKILL.md 的检测结果（通常在 build.sh 中），或用户在阶段 3 确认的目标名。
-
-### CMake 项目
-
-```bash
-BUILD_DIR=$WORK_DIR/build/cmake-aarch64
-mkdir -p $BUILD_DIR
-
-cmake -B $BUILD_DIR -S $PROJECT_ROOT \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
-  -DCMAKE_SYSTEM_NAME=Linux \
-  -DAUTO_SUBMODULE=OFF
-
-COMPILE_CMD="cmake --build $BUILD_DIR -j$(nproc) 2>&1"
-```
-
-### Make 项目
-
-```bash
-COMPILE_CMD="cd $PROJECT_ROOT && make -j$(nproc) 2>&1"
-```
-
-### Blade 项目
-
-```bash
-# 确认 blade 可用（版本需 >= 3.0 以支持 arm64）
-blade --version 2>/dev/null
-
-COMPILE_CMD="cd $PROJECT_ROOT && blade build <目标> --toolchain-prefix=<prefix> 2>&1"
-```
+在第一次编译前，先查阅项目的 README、`build.sh` 等构建脚本确定正确的编译命令，不要盲目猜测。阶段 1 已识别构建系统类型，按类型确定 `COMPILE_CMD`（执行见第 3 节）。
 
 ---
 
@@ -102,9 +37,8 @@ while true:
     │  执行编译，输出重定向到日志              │
     └─────────────────────────────────────────┘
 
-    LOG_FILE = $WORK_DIR/logs/build_${ATTEMPT}.log
-    执行 $COMPILE_CMD 并 tee 到 $LOG_FILE
-    BUILD_EXIT_CODE = $?
+    执行编译命令并将输出保存到 $WORK_DIR/logs/build_${ATTEMPT}.log，
+    通过执行工具获取编译命令自身的退出码判断成败
 
     ┌─────────────────────────────────────────┐
     │  判断编译结果                           │
@@ -120,12 +54,12 @@ while true:
     current_errors = 第 4 节的错误提取方法
 
     ┌─────────────────────────────────────────┐
-    │  代码仓权限问题检测（特殊分支）         │
+    │  阻塞性问题检测（特殊分支）             │
     └─────────────────────────────────────────┘
 
-    if current_errors 命中代码仓权限问题关键字（见 2.1 节）:
-        → 跳到 2.1 节权限问题处理（向用户提问）
-        → 用户提供代码仓路径后，更新构建配置并继续编译
+    if current_errors 命中阻塞性问题关键字（代码仓权限 / 依赖版本严重不符 / 编译环境严重不符，见 2.1 节）:
+        → 跳到 2.1 节阻塞性问题处理（向用户提问）
+        → 用户提供处理方案后，更新配置并继续编译
         → ATTEMPT += 1，继续循环
 
     ┌─────────────────────────────────────────┐
@@ -137,7 +71,7 @@ while true:
     若速查表命中 → 按「修复」列描述修复
 
     【第2级】速查表未命中 → 查 migration-cases 案例库（详细兜底）
-    路由：references/migration-cases/ 下 01/02/03 路由索引 → G/V/P-cases 案例库
+    路由：references/migration-cases/ 下 generic-kunpeng-migration-index / version-compatibility-index / project-specific-index → 对应 cases 案例库
     若案例库命中 → 按案例修复方法修复
 
     每次执行第2级案例库查询时，必须在交互界面输出醒目标识（格式见第 5 节），
@@ -150,93 +84,72 @@ while true:
 
 ---
 
-## 2.1. 代码仓权限问题处理（向用户提问分支）
+## 2.1. 阻塞性问题处理（向用户提问分支）
 
-> **硬性约束**：遇到代码仓无权限访问时，**严禁在服务器其他目录查找相关代码仓**，**必须**向用户提问，由用户提供已下载好的代码仓路径。
+> **硬性约束**：以下三类问题**无法通过速查表/案例库自动修复**，遇到时必须**停止自动修复**、**向用户提问**：
+> 1. **代码仓权限问题**：远程仓库无访问权限
+> 2. **依赖库版本严重不符**：项目需求版本与可获取版本存在破坏性差异（ABI/API 不兼容）
+> 3. **编译环境严重不符**：编译器/工具链/系统库与项目要求严重不匹配，无法在当次编译中自动兼容
 
-### 2.1.1. 权限错误关键字识别
+### 2.1.1. 阻塞性问题关键字识别
 
-编译日志中出现以下任一关键字时，判定为代码仓权限问题：
+编译日志中出现以下任一关键字时，判定为阻塞性问题，进入提问分支：
 
-| 关键字 | 典型场景 |
-|--------|---------|
-| `Permission denied (publickey)` | SSH 密钥未授权 |
-| `could not read Username` / `Authentication failed` | HTTPS 仓库鉴权失败 |
-| `Access denied` / `Repository not found` | 无仓库访问权限 |
-| `fatal: unable to access` + `403`/`401` | HTTP 鉴权失败 |
-| `ERROR: error cloning` + 权限相关字样 | Bazel `git_repository` 拉取失败 |
-| `fatal: could not clone` + 权限相关字样 | CMake `FetchContent` / submodule 拉取失败 |
+| 场景 | 关键字 | 典型场景 |
+|------|--------|---------|
+| 权限 | `Permission denied (publickey)` | SSH 密钥未授权 |
+| 权限 | `Authentication failed` / `could not read Username` | HTTPS 仓库鉴权失败 |
+| 权限 | `Access denied` / `Repository not found` | 无仓库访问权限 |
+| 权限 | `403`/`401`、`error cloning`、`could not clone` | HTTP 鉴权失败或克隆拉取失败 |
+| 版本不符 | `undefined reference to` + `@GLIBCXX`/`@CXXABI` | ABI 不兼容，库版本与编译器/项目不符 |
+| 版本不符 | `version 'GLIBCXX_3.4.x' not found` | 依赖库要求更高版本系统库 |
+| 版本不符 | `No rule to make target` / `not found` + 库版本号 | 找不到匹配版本的依赖 |
+| 环境不符 | `unsupported GNU version` / `compiler too old` | 编译器版本低于项目要求 |
+| 环境不符 | `unrecognized command line option` / `-std=c++17 not supported` | 编译器不支持项目所用标准/选项 |
+| 环境不符 | `fatal error: 'xxx' file not found` + 系统级头文件 | 系统库/工具链缺失或版本过旧 |
 
 ### 2.1.2. 向用户提问流程
 
-检测到权限问题后，**立即停止自动修复**，**必须**向用户提问：
+检测到阻塞性问题后，**立即停止自动修复**，**必须**向用户提问，使用统一模板（`<问题类型>` 填 代码仓权限 / 依赖版本不符 / 编译环境不符）：
 
 ```
 question:
-  header: "代码仓权限"
-  question: "编译过程中检测到代码仓 <仓库名/URL> 无访问权限（错误：<错误摘要>）。请提供已下载好的代码仓本地路径，或选择处理方式："
+  header: "阻塞性问题"
+  question: "编译过程中检测到<问题类型>：<错误摘要>。请提供所需资源，或选择处理方式："
   options:
     - label: "提供本地路径"
-      description: "我已在本地下载好该代码仓，将在后续提供路径"
+      description: "请通过自定义输入（Other）填写所需本地路径（代码仓 / 匹配版本依赖库 / 工具链）"
+    - label: "调整到环境可用"
+      description: "允许按环境现有资源调整构建配置或源码兼容点（改动需架构宏保护）"
     - label: "跳过该依赖"
       description: "暂不处理该依赖，继续编译其他目标（可能导致后续链接错误）"
-    - label: "中止迁移"
-      description: "中止整个迁移流程"
   multiSelect: false
 ```
 
-### 2.1.3. 用户提供路径后的处理
+> 用户选择「提供本地路径」后，通过提问工具的**自定义输入（Other）**填写具体路径，子 agent 收到后按 2.1.3 校验并使用。
+> 「跳过该依赖」仅适用于代码仓权限 / 依赖版本不符场景；编译环境不符场景无此选项。
 
-1. **校验路径**：确认用户提供的路径存在且包含代码仓内容（检查 `.git` 目录或关键文件如 `CMakeLists.txt` / `WORKSPACE` / `Makefile`）
-2. **更新构建配置**：将构建配置中该依赖的远程仓库引用替换为本地路径
+### 2.1.3. 用户回复后的处理
+
+1. **场景 1：校验路径**：确认用户提供的路径存在且包含代码仓内容（检查 `.git` 目录或关键文件如 `CMakeLists.txt` / `WORKSPACE` / `Makefile`），然后更新构建配置：
    - **Bazel**：`git_repository` → `local_repository`，或修改 `url` 为 `file://` 本地路径
    - **CMake**：`FetchContent_Declare` 的 `GIT_REPOSITORY` + `GIT_TAG` → `SOURCE_DIR` 本地路径
    - **Make/Blade/SCons**：更新依赖路径变量指向本地目录
-3. **记录到修复历史**：在 `$WORK_DIR/reports/fix_history.txt` 记录权限问题、用户提供的路径、配置变更
-4. **继续编译循环**：`ATTEMPT += 1`，重新执行编译
+2. **场景 2：按用户选择处理**：提供匹配版本库则校验路径并更新构建配置指向该版本；允许调整到环境可用版本则修改构建配置/源码兼容点（改动需架构宏保护）
+3. **场景 3：按用户选择处理**：提供工具链路径则更新 `CC`/`CXX`/`PATH` 等环境变量指向该工具链；用户自行处理则等待用户完成环境修复后继续
+4. **记录到修复历史**：在 `$WORK_DIR/reports/fix_history.txt` 记录阻塞性问题类型、用户提供的路径/方案、配置变更
+5. **继续编译循环**：`ATTEMPT += 1`，重新执行编译
 
 > **禁止行为**：
-> - **不得**在服务器 `/home`、`/tmp`、`/opt` 等其他目录搜索同名代码仓
 > - **不得**尝试修改 SSH 密钥或 git credentials 配置以绕过权限
-> - **不得**跳过权限问题继续编译（会导致后续链接错误更难排查）
+> - **不得**跳过阻塞性问题继续编译（会导致后续链接错误更难排查）
+> - **不得**在依赖库版本不匹配、API 函数不存在时自行构造 API 绕过（如手写同名函数、伪造库接口），必须按用户选择处理或询问用户
 
 ---
 
-## 3. 执行编译命令（详细）
+## 3. 执行编译命令
 
-```bash
-ATTEMPT=1  # 每次循环递增
-
-LOG_FILE="$WORK_DIR/logs/build_${ATTEMPT}.log"
-mkdir -p $WORK_DIR/logs
-
-echo "=== 第 ${ATTEMPT} 次编译 [$(date)] ===" | tee -a $WORK_DIR/reports/fix_history.txt
-
-# 执行编译（Bazel 示例）
-cd $PROJECT_ROOT
-
-# 确保 WORKSPACE 已就位（仅在项目无 WORKSPACE 且存在 WORKSPACE_arm 时临时复制）
-WORKSPACE_COPIED_MARKER="$PROJECT_ROOT/.arm_migration_workspace_copied"
-if [ ! -e "WORKSPACE" ] && [ -e "WORKSPACE_arm" ]; then
-    cp WORKSPACE_arm WORKSPACE
-    touch "$WORKSPACE_COPIED_MARKER"
-fi
-
-source ./software.sh  # 确保 Bazel PATH 已设置
-
-bazel build <主目标> \
-  --verbose_failures \
-  --config=linux_aarch64 \
-  2>&1 | tee $LOG_FILE
-
-BUILD_EXIT_CODE=${PIPESTATUS[0]}
-
-# 仅清理本次临时复制的 WORKSPACE
-if [ -e "$WORKSPACE_COPIED_MARKER" ]; then
-    [ -e "WORKSPACE" ] && rm WORKSPACE
-    rm "$WORKSPACE_COPIED_MARKER"
-fi
-```
+执行第 1 节确定的 $COMPILE_CMD，输出 tee 到日志 $WORK_DIR/logs/build_${ATTEMPT}.log，捕获退出码用于判断。
 
 ### 判断编译成功的标准
 
@@ -333,20 +246,13 @@ EOF
 ## 7. 编译成功后收尾
 
 ```bash
-# 1. 清理临时 WORKSPACE（仅当由本 Skill 临时复制时才删除，避免误删项目原有文件）
-WORKSPACE_COPIED_MARKER="$PROJECT_ROOT/.arm_migration_workspace_copied"
-if [ -e "$WORKSPACE_COPIED_MARKER" ] && [ -e "$PROJECT_ROOT/WORKSPACE" ]; then
-    rm "$PROJECT_ROOT/WORKSPACE"
-    rm "$WORKSPACE_COPIED_MARKER"
-fi
-
-# 2. 记录成功信息到 build_summary.txt
+# 记录成功信息到 build_summary.txt
 echo "ARM 编译成功（第 ${ATTEMPT} 次）：$(date)" >> $WORK_DIR/reports/build_summary.txt
 ```
 
 编译成功后还需向用户提示：
 
-- **x86 双架构验证**：提示用户在 x86 机器上验证编译未被破坏--方式1 用项目构建脚本（若已加架构自动检测，x86 上自动走 x86 路径），方式2 执行 `cd $PROJECT_ROOT && bazel build <target> --verbose_failures --config=linux_x86`。
+- **x86 双架构验证**：提示用户在 x86 机器上验证编译未被破坏--方式1 用项目构建脚本（若已加架构自动检测，x86 上自动走 x86 路径）。
 
 ---
 
@@ -357,10 +263,9 @@ echo "ARM 编译成功（第 ${ATTEMPT} 次）：$(date)" >> $WORK_DIR/reports/b
 - [ ] 已确定正确的编译命令（含 --config=linux_aarch64 或等效参数）
 - [ ] 第 1 次编译已执行，日志已保存到 `$WORK_DIR/logs/build_1.log`
 - [ ] 若失败，已提取并分析关键错误信息
-- [ ] 遇到代码仓权限问题时，已向用户提供本地路径（未在服务器其他目录查找代码仓）
+- [ ] 遇到代码仓权限问题时，已向用户提供本地路径
 - [ ] 已查询速查表 / migration-cases 案例库匹配已知问题（两级查询）
 - [ ] 每次修复均已记录到 `fix_history.txt`
 - [ ] 最终编译成功（退出码 0，无 `error:` 行）
-- [ ] 临时 WORKSPACE 文件已清理
 - [ ] 已提示进行 x86 双架构兼容性验证
 - [ ] 已记录阶段 5 结束时间戳到 timeline.log

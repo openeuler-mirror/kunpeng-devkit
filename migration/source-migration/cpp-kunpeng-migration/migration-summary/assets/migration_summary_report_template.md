@@ -62,7 +62,7 @@
 | 用户决策记录 | $WORK_DIR/reports/user_decisions.txt |
 | 时间线日志 | $WORK_DIR/reports/timeline.log |
 | 编译日志 | $WORK_DIR/logs/build_<N>.log |
-| 迁移 patch | $WORK_DIR/reports/migration.patch（源码+构建配置，排除二进制） |
+| 迁移 patch | $WORK_DIR/output/migration.patch（源码+构建配置，排除二进制） |
 | 二进制改动清单 | $WORK_DIR/reports/binary_changes.txt |
 | ARM 适配确认清单 | $WORK_DIR/kunpeng_confirmed.md |
 
