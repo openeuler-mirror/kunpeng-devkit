@@ -10,6 +10,7 @@
 | systemd Type=simple 立即退出 | 二进制默认 `daemon on` 会 fork 后父进程退出，systemd 误判崩溃；需在 nginx.conf 首行注入 `daemon off;` |
 | 二进制使用相对配置路径 `conf/nginx.conf` | systemd ExecStart 需带 `-p <deploy_dir>/` 指定 prefix 目录 |
 | `nginx -t` 验证报 `../../nginx/conf/nginx.conf` 失败 | 默认 prefix 为相对路径，验证命令需 `${DEPLOY_DIR}/sbin/nginx -t -p ${DEPLOY_DIR}/` |
+| 启动报 `module ... version ... instead of ...` 且 Service 反复 failed | 目标机 `/etc/nginx` 里的 `include /usr/share/nginx/modules/*.conf` 加载了系统自带 nginx 的动态模块，其编译版本与迁移目标 nginx 二进制版本不一致，`nginx -t` 失败导致 systemd 重启风暴。修复：注释掉 nginx.conf 中的 `include /usr/share/nginx/modules/*.conf;`（如确需第三方动态模块，应为目标版本重新编译并单独 `load_module`） |
 
 ## Redis
 
@@ -29,6 +30,7 @@
 | JAVA_HOME 路径 | 更新 setenv.sh 配置 |
 | 内存泄漏检查 | 调整 JVM 参数 |
 | 验证阶段 HTTP 探测失败但服务实际正常 | Java 中间件启动较慢，start_service 通过 wait_service_ready 轮询服务状态与端口（最长 120s），就绪后才进入验证 |
+| 验证 `curl 127.0.0.1:8080` 失败但服务 active | 源端 server.xml 因端口被占用把 HTTP Connector 改为非 8080 端口（如 18080），恢复配置后服务监听该端口，与 registry 验证探测端口 8080 不一致。修复：将 `server.xml` 中 HTTP Connector 端口改回 8080（或调整验证命令），重启后探测通过 |
 
 ## Elasticsearch
 
@@ -45,6 +47,7 @@
 | Erlang 版本依赖 | 安装对应 aarch64 版本 Erlang |
 | 队列持久化 | 检查 /var/lib/rabbitmq/ |
 | 镜像队列 | 重新配置策略 |
+| `require_env CURRENT_VERSION` 报缺少环境变量，脚本无法重装 | 计划 `route.middleware[].source.version` 为空（采集时未确认版本）时，`transform_plan.py` 生成 `current_version=""`，`migrate_package.sh` 首行 `require_env CURRENT_VERSION` 直接退出。批准后计划只读，脚本无法绕过。处理：执行发起计划变更补充 `source.version` 后重新迁移；或确认目标已有健康实例后接受现有实例 |
 
 ## Docker
 
@@ -62,6 +65,8 @@
 | 数据库配置 | application.properties 中 DB 连接检查 |
 | 集群配置 | cluster.conf 中节点 IP 更新为目标主机 |
 | 端口冲突 | 8848/9848/9849 端口检查与防火墙 |
+| `require_env CURRENT_VERSION` 报缺少环境变量，脚本无法重装 | 计划 `source.version` 为空时 `migrate_javamiddleware.sh` 首行 `require_env ... CURRENT_VERSION ...` 直接退出，导致不安装。批准后计划只读。处理：发起计划变更补充 `source.version` 重迁移；或目标已有健康实例时接受现有实例 |
+| 服务 203/EXEC 失败且 Restart 风暴 | systemd `ExecStart` 指向的 `bin/startup-foreground.sh` 不在官方 tar 包内（旧实例自建的目标机产物），重新解压重建目录后脚本缺失，`Type=simple` 立即 203/EXEC，`Restart=on-failure` 触发快速重试风暴。修复：按 nacos 官方 `startup.sh` 参数补回 `startup-foreground.sh`（standalone 前台以 `exec java ... -jar target/nacos-server.jar` 启动），`reset-failed` 后启动 |
 
 ## RocketMQ
 

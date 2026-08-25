@@ -659,6 +659,22 @@ install_systemd_service() {
     local service_file="/etc/systemd/system/${arm_svc}.service"
     local service_user deploy_dir
 
+    # 前置校验 ExecStart：解析出主程序路径（去掉参数），必须存在且可执行，
+    # 否则写入 service 文件后 systemd 会 203/EXEC 并触发 Restart 风暴。
+    # 跳过含 shell 变量/环境变量展开的命令（无法静态解析）。
+    local exec_bin
+    exec_bin=$(printf '%s' "$exec_start" | awk '{print $1}')
+    case "$exec_bin" in
+        ""|*'$'*|*'${'*|'bash'|'sh'|'/bin/bash'|'/bin/sh') ;;
+        *)
+            if [ ! -x "$exec_bin" ]; then
+                log_error "ExecStart 不可执行或不存在: $exec_bin (完整: $exec_start)"
+                log_error "请检查安装包是否完整或 exec_start 路径是否正确，停止安装避免 systemd 重启风暴"
+                return 1
+            fi
+            ;;
+    esac
+
     # 内核参数
     apply_service_sysctl "$mtype"
 
@@ -677,7 +693,13 @@ install_systemd_service() {
         [ -n "$env_vars" ] && echo "Environment=$env_vars"
         echo "ExecStart=$exec_start"
         [ -n "$exec_stop" ] && echo "ExecStop=$exec_stop"
-        echo "Restart=on-failure"; echo
+        # 深度防御：避免 203/EXEC 等永久性失败时 systemd 快速重试风暴。
+        # RestartSec 给 Java 应用留启动时间；StartLimit 限制 60s 内最多重试 3 次后停止。
+        echo "Restart=on-failure"
+        echo "RestartSec=5s"
+        echo "StartLimitIntervalSec=60"
+        echo "StartLimitBurst=3"
+        echo
         echo "[Install]"; echo "WantedBy=multi-user.target"
     } > "$service_file"
 
