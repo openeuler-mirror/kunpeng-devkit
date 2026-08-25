@@ -44,10 +44,12 @@
 
 | 问题 | 解决方案 |
 |------|---------|
-| Erlang 版本依赖 | 安装对应 aarch64 版本 Erlang |
+| Erlang 版本依赖 | 安装对应 aarch64 版本 Erlang（如 erlang-24.3.4.15） |
 | 队列持久化 | 检查 /var/lib/rabbitmq/ |
 | 镜像队列 | 重新配置策略 |
 | `require_env CURRENT_VERSION` 报缺少环境变量，脚本无法重装 | 计划 `route.middleware[].source.version` 为空（采集时未确认版本）时，`transform_plan.py` 生成 `current_version=""`，`migrate_package.sh` 首行 `require_env CURRENT_VERSION` 直接退出。批准后计划只读，脚本无法绕过。处理：执行发起计划变更补充 `source.version` 后重新迁移；或确认目标已有健康实例后接受现有实例 |
+| rpm 已安装但迁移脚本报「安装来源全部失败」 | `source_type=OFFICIAL` 的 .rpm 被当归档解压（`rpm --prefix`），而该 rpm 实为系统包应 `rpm -ivh` 或 `yum install`。目标机 `rpm -q rabbitmq-server` 已装 3.9.29 时无需重装，直接 `systemctl enable --now rabbitmq-server` 并 `rabbitmqctl status` 验证 |
+| 配置恢复 | `/etc/rabbitmq/rabbitmq.conf` 需与采集品一致（listeners / management / log.dir 等） |
 
 ## Docker
 
@@ -76,3 +78,19 @@
 | NameServer/Broker 分离 | 检查 namesrvAddr 配置 |
 | Topic 迁移 | 使用 admin 工具导出导入 Topic |
 | 数据目录权限 | chown -R rocketmq:rocketmq /opt/rocketmq/store |
+
+## ZooKeeper（系统仓库包）
+
+| 问题 | 解决方案 |
+|------|---------|
+| systemd 启动失败，`journalctl -u zookeeper` 报 `logs/...out: 权限不够` | 系统包 `zookeeper.service` 以 `zookeeper` 用户运行，日志目录属 root 导致写不进。修复：`chown -R zookeeper:zookeeper /opt/zookeeper/logs`（以及 `dataDir` 目录，如 `/data/middleware-lab/zookeeper`）后 `systemctl restart zookeeper` |
+| 目标仓库版本与 plan 目标版本不一致 | 系统仓库（如 `@ks10-adv-updates`）可能只提供 3.6.x 而非 plan 的 3.8.6；以目标机 `dnf list --installed zookeeper` 实际版本为准，必要时向用户确认是否接受仓库版本 |
+| dataDir 无 `myid` | 单机模式可不配置，集群模式需在 `dataDir` 写节点 id |
+
+## Kafka（未登记，走通用流程）
+
+| 问题 | 解决方案 |
+|------|---------|
+| 只完成解压，未注册 systemd 服务（GENERIC 警告） | 按采集 `server.properties` 恢复配置，注册 `/etc/systemd/system/kafka.service`（`ExecStart=/opt/kafka-*/bin/kafka-server-start.sh .../config/server.properties`），`After=zookeeper.service` 并 `Requires=zookeeper.service`，再 `systemctl enable --now kafka` |
+| 启动用 JDK 版本 | 复用迁移后的毕昇 JDK（如 `/opt/bisheng-jdk-11.0.26`），在 service 中设置 `Environment=JAVA_HOME=...` |
+| 数据目录 | `server.properties` 中 `log.dirs` 指向的目标目录需存在，如 `/data/middleware-lab/kafka` |

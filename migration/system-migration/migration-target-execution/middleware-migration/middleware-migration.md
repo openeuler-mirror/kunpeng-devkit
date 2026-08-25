@@ -17,7 +17,7 @@ bash middleware-migration/scripts/run_migration.sh "$MIGRATION_PLAN_PATH"
 | 退出码 | 含义 | 必须执行的后续动作 |
 |---|---|---|
 | 0 | 全部成功 | 流程结束 |
-| 1 | 存在失败项且无 handoff | 读 `batch_migration_summary.json` 排查，按需重试 |
+| 1 | 存在失败项且无 handoff、无阻塞 | 读 `batch_migration_summary.json` 排查，按需重试 |
 | 2 | 冲突待确认或 License 阻塞 | 读 `middleware-action-required.json`，向用户确认后重跑 |
 | 3 | 有 Agent 接管项 | **必须**执行 `run_handoff.sh` 补完（见下方"未登记中间件与 Agent 接管"） |
 
@@ -27,11 +27,7 @@ bash middleware-migration/scripts/run_migration.sh "$MIGRATION_PLAN_PATH"
 
 ### 部署目录
 
-部署目录不由 `migration-plan.json` 显式指定，而是自动推导：
-
-1. **产品策略**：`middleware_registry.json` 中每类中间件配置的 `deploy_dir_strategy` 决定推导方式——`source_parent`（默认，装到源目录的同级）、`install_dir`（优先按 `source.location` 推导，缺失时回退 registry 的 `install_dir` 字段）、`skip`（系统包安装，不推导）；
-2. **源端信息**：`migration-plan.json` 中 `source.location`（源机安装路径），作为推导输入；
-3. **环境变量覆盖**：可通过 `DEPLOY_DIR_<TYPE>` 显式指定部署目录（设为 `skip` 表示跳过该中间件的目录推导）。
+部署目录自动推导（策略见 registry 各条目 `deploy_dir_strategy`），具体路径由脚本写入接管清单与冲突清单的 `deploy_dir` 字段，Agent 直接读取、勿自行推断；可用 `DEPLOY_DIR_<TYPE>` 环境变量覆盖（设为 `skip` 跳过该中间件目录推导）。
 
 ### 冲突检测
 
@@ -51,6 +47,17 @@ Java 中间件优先复用已迁移的目标 Java 运行时；未就绪时按 re
 Agent 接管**必须**遵守：不改动 `scripts/` 下脚本与 `config/` 下配置（通用流程不修改、Agent 接管亦不修改），仅在目标机操作产物目录、systemd 服务与配置文件。
 
 Agent **必须**调用 `scripts/run_handoff.sh <handoff.json> <单任务处理器脚本>` 逐项串行补完接管项并汇总结果（可先用 `--dry-run` 查看接管项摘要）。生成 `middleware-agent-handoff.json` 后，`run_migration.sh` 以退出码 3 退出并打印 `[NEXT]` 指令；agent 必须按指令执行 `run_handoff.sh`，不得将其视为可选步骤或自行手动处理接管项。
+
+#### Agent 接管项处理规则（硬性约束，必须逐条遵守）
+
+接管阶段只消费 `middleware-agent-handoff.json`、采集包配置制品和目标机现状三类信息。**禁止**为了"弄懂怎么迁移/怎么启动"而去阅读 `scripts/**` 与 `config/middleware_registry.json` 的实现源码；迁移逻辑与启动策略由脚本和清单承载，不属于 Agent 补完所需的推断材料。
+
+按以下固定顺序执行，顺序不可颠倒，也不得跳过：
+
+1. **只读 `middleware-agent-handoff.json` 的 `reason`、`exit_code`、`diagnostics` 定位根因**，按 `exit_code` 分流（诊断字段与分流动作详见 `reference/middleware_handoff_playbook.md`）。
+2. **恢复配置只从采集包取**：按清单 `source_dir` 对应组件的采集制品恢复到目标部署目录（目录取自清单 `deploy_dir` 字段，勿自行推断）。**禁止**用 `find`/`glob` 重新搜索同名文件，禁止用目标机已存在文件反推配置。
+3. **仅当第 1、2 步信息不足时才查目标机现状**，且只允许最小核对（系统包是否已装、服务状态、端口监听）。查完即修复并启动验证，不再追问无关信息。
+4. **必须产出单任务处理器脚本**并交给 `run_handoff.sh <handoff.json> <处理器脚本>` 执行。**禁止**在调用 `run_handoff.sh` 之前手工修改 systemd 服务、部署目录或配置文件来绕过汇总闭环。
 
 ## 输出
 

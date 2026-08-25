@@ -414,9 +414,14 @@ for ((idx=0; idx<MIDDLEWARE_COUNT; idx++)); do
             set_migration_state "$MIDDLEWARE_TYPE" success
             append_summary OK "$MIDDLEWARE_TYPE" "$CURRENT_VERSION" "$TARGET_VERSION" "$MIGRATION_PATH" "" "$MIDDLEWARE_ID" ;;
         10)
-            WARNING_COUNT=$((WARNING_COUNT + 1))
-            set_migration_state "$MIDDLEWARE_TYPE" success_with_warnings
-            append_summary WARN "$MIDDLEWARE_TYPE" "$CURRENT_VERSION" "$TARGET_VERSION" "$MIGRATION_PATH" "迁移完成但存在警告，查看组件报告" "$MIDDLEWARE_ID" ;;
+            # GENERIC 路径的 exit 10（SERVICE_VALIDATION_UNAVAILABLE）表示已安装但无法验证，
+            # 应交由 Agent 接管（下方 handoff 块处理），不计 WARNING，避免与 handoff 双重计数。
+            # 非 GENERIC 路径的 exit 10 才按"成功带警告"处理。
+            if [ "$MIGRATION_PATH" != "GENERIC" ]; then
+                WARNING_COUNT=$((WARNING_COUNT + 1))
+                set_migration_state "$MIDDLEWARE_TYPE" success_with_warnings
+                append_summary WARN "$MIDDLEWARE_TYPE" "$CURRENT_VERSION" "$TARGET_VERSION" "$MIGRATION_PATH" "迁移完成但存在警告，查看组件报告" "$MIDDLEWARE_ID"
+            fi ;;
         20)
             BLOCKED_COUNT=$((BLOCKED_COUNT + 1))
             set_migration_state "$MIDDLEWARE_TYPE" blocked
@@ -434,9 +439,15 @@ for ((idx=0; idx<MIDDLEWARE_COUNT; idx++)); do
     # 通用流程未完成（安装失败或无法启动验证）时记录到 agent 接管清单；License 阻塞(20)不属于接管范围
     if [ "$MIGRATION_PATH" = "GENERIC" ] && [ "$rc" -ne 0 ] && [ "$rc" -ne 20 ]; then
         handoff_count=$((handoff_count + 1))
-        python3 - "$HANDOFF_ITEMS" "$MIDDLEWARE_ID" "$MIDDLEWARE_TYPE" "$DEPLOY_DIR" "$SOURCE_DIR" "$TARGET_VERSION" "$CURRENT_VERSION" "$rc" <<'PY'
+        # 采集真实诊断信息一并写入接管项，供后续 Agent 直接定位根因，
+        # 避免 Agent 重复通读脚本源码排查。覆盖：目标服务状态与日志、部署目录现状。
+        diag_arm_svc=$(resolve_arm_service "$MIDDLEWARE_TYPE")
+        diag_status=$(systemctl status "$diag_arm_svc" --no-pager 2>&1 | head -20 || true)
+        diag_journal=$(journalctl -u "$diag_arm_svc" --no-pager -n 25 2>&1 | tail -25 || true)
+        diag_dir=$(ls -la "$DEPLOY_DIR" 2>&1 | head -20 || true)
+        python3 - "$HANDOFF_ITEMS" "$MIDDLEWARE_ID" "$MIDDLEWARE_TYPE" "$DEPLOY_DIR" "$SOURCE_DIR" "$TARGET_VERSION" "$CURRENT_VERSION" "$rc" "$diag_arm_svc" "$diag_status" "$diag_journal" "$diag_dir" <<'PY'
 import json, sys
-out, mid, mtype, deploy, src, tgt, cur, rc = sys.argv[1:]
+out, mid, mtype, deploy, src, tgt, cur, rc, svc, status, journal, ddir = sys.argv[1:]
 reason = "已完成安装与配置恢复，但无法确定启动方式或未通过服务验证" if rc == "10" else "通用流程安装失败"
 with open(out, 'a', encoding='utf-8') as stream:
     stream.write(json.dumps({
@@ -448,6 +459,12 @@ with open(out, 'a', encoding='utf-8') as stream:
         'current_version': cur,
         'exit_code': int(rc),
         'reason': reason,
+        'diagnostics': {
+            'service_name': svc,
+            'service_status': status,
+            'service_journal': journal,
+            'deploy_dir_listing': ddir,
+        },
     }, ensure_ascii=False) + '\n')
 PY
     fi

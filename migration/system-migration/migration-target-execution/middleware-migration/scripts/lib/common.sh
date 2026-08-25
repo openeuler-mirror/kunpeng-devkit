@@ -127,7 +127,7 @@ derive_deploy_dir() {
 
     if [ -n "$mtype" ]; then
         local upper var user_val
-        upper=$(echo "$mtype" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+        upper=$(printf '%s' "$mtype" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9_' '_')
         eval "user_val=\${DEPLOY_DIR_${upper}:-}"
         if [ -n "$user_val" ]; then
             [ "$user_val" = "skip" ] && { DERIVE_ERROR="$mtype: 用户选择跳过"; return 4; }
@@ -151,12 +151,13 @@ derive_deploy_dir() {
         install_dir)
             if [ -n "$source_dir" ]; then
                 [ -z "$target_version" ] && { DERIVE_ERROR="$mtype: target_version 为空"; log_error "$DERIVE_ERROR"; return 1; }
-                local root="${source_dir%/}"
+                local root="${source_dir%/}" parent
                 case "$root" in */conf|*/config) root="$(dirname "$root")" ;; esac
-                case "$root" in
+                parent="$(dirname "$root")"
+                case "$parent" in
                     ""|"/") DERIVE_ERROR="$mtype: 无法从 source.location 推导部署目录: $source_dir"; log_error "$DERIVE_ERROR"; return 1 ;;
                 esac
-                echo "$(dirname "$root")/${mtype}-${target_version}"
+                echo "$parent/${mtype}-${target_version}"
                 return 0
             fi
             local reg_dir
@@ -224,7 +225,7 @@ prompt_deploy_dir_conflict() {
             *)
                 log_error "非交互环境且目录已存在: $deploy_dir"
                 if [ -n "$mtype" ]; then
-                    local upper; upper=$(echo "$mtype" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+                    local upper; upper=$(printf '%s' "$mtype" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9_' '_')
                     log_error "请设置 CONFLICT_ACTION_${upper}=overwrite|skip，或 CONFLICT_ACTION=overwrite|skip 后重新执行"
                 else
                     log_error "请设置 CONFLICT_ACTION=overwrite|skip 后重新执行"
@@ -296,7 +297,7 @@ prompt_service_conflict() {
             *)
                 log_error "非交互环境且服务已存在: $arm_svc"
                 if [ -n "$mtype" ]; then
-                    local upper; upper=$(echo "$mtype" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+                    local upper; upper=$(printf '%s' "$mtype" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9_' '_')
                     log_error "请设置 CONFLICT_ACTION_${upper}=overwrite|skip，或 CONFLICT_ACTION=overwrite|skip 后重新执行"
                 else
                     log_error "请设置 CONFLICT_ACTION=overwrite|skip 后重新执行"

@@ -125,6 +125,10 @@ fi
 log_info "停止当前服务: $ARM_SVC"
 "$SYSTEMCTL_BIN" stop "$ARM_SVC" 2>/dev/null || true
 "$SYSTEMCTL_BIN" disable "$ARM_SVC" 2>/dev/null || true
+# 清理已有部署目录（上层冲突处理已删除用户选择 overwrite 的目录，此处为兜底）
+if [ -d "$TONGWEB_HOME" ]; then
+    log_info "清理已有部署目录: $TONGWEB_HOME"
+fi
 rm -rf "$TONGWEB_HOME"
 
 log_info "安装 TongWeb 到 $TONGWEB_HOME"

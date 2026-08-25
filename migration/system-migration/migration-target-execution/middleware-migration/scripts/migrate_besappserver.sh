@@ -151,6 +151,10 @@ fi
 log_info "停止当前服务: $ARM_SVC"
 "$SYSTEMCTL_BIN" stop "$ARM_SVC" 2>/dev/null || true
 "$SYSTEMCTL_BIN" disable "$ARM_SVC" 2>/dev/null || true
+# 清理已有部署目录（上层冲突处理已删除用户选择 overwrite 的目录，此处为兜底）
+if [ -d "$BES_HOME" ]; then
+    log_info "清理已有部署目录: $BES_HOME"
+fi
 rm -rf "$BES_HOME"
 
 # 创建 BES 用户（如果不存在）
@@ -295,7 +299,7 @@ if [ -n "$BES_HEALTH_URL" ]; then
         _attempt=$((_attempt + 1))
         HTTP_CODE=$(curl -sS -o /dev/null --connect-timeout 3 --max-time 5 -w '%{http_code}' "$BES_HEALTH_URL" 2>/dev/null || true)
         case "$HTTP_CODE" in
-            2??|3??|4??|5??) HEALTH_STATUS="HTTP_$HTTP_CODE"; break ;;
+            2??|3??) HEALTH_STATUS="HTTP_$HTTP_CODE"; break ;;
         esac
         sleep 3
     done
