@@ -186,15 +186,16 @@ REPORT_HEADERS = [
 
 
 def make_dedup_key(item):
-    """生成去重 key：path + start_line + end_line + sql_id"""
+    """生成去重 key：path + start_line + end_line + sql_id + source_sql"""
     path = item.get("path", "") or item.get("file_path", "") or ""
-    return f"{path}::{item.get('start_line', 0)}::{item.get('end_line', 0)}::{item.get('sql_id', '')}"
+    source_sql = item.get("source_sql", "") or item.get("statement", "") or ""
+    return f"{path}::{item.get('start_line', 0)}::{item.get('end_line', 0)}::{item.get('sql_id', '')}::{source_sql}"
 
 
 def load_all_rows(reports_dir):
     """加载所有 JSON 报告，提取字段并做跨文件去重。
 
-    跨文件去重规则：同一条 SQL（path + start_line + end_line + sql_id 相同）
+    跨文件去重规则：同一条 SQL（path + start_line + end_line + sql_id + source_sql 相同）
     只保留第一次出现的条目，防止同一 SQL 同时出现在多个文件中导致重复计数。
 
     优先级：compatible > migrated > to_do > pending_confirm > manual_review
@@ -347,7 +348,7 @@ def main():
 
     if not os.path.isdir(reports_dir):
         print(f"错误: 报告目录不存在 - {reports_dir}", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -365,7 +366,8 @@ def main():
         print("注意: 因环境无 openpyxl，已降级为 CSV")
 
     write_completion_result(reports_dir, output_dir, args.source_db, args.target_db)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

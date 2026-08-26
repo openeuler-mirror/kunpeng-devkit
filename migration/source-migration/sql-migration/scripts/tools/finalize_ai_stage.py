@@ -12,7 +12,6 @@ import hashlib
 import json
 import re
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -63,21 +62,23 @@ def int_value(value: Any) -> int:
         return 0
 
 
-def report_key(item: dict[str, Any]) -> tuple[str, int, int, str]:
+def report_key(item: dict[str, Any]) -> tuple[str, int, int, str, str]:
     return (
         canonical_path(item.get("path") or item.get("file_path")),
         int_value(item.get("start_line")),
         int_value(item.get("end_line")),
         str(item.get("sql_id") or item.get("id") or ""),
+        str(item.get("source_sql") or item.get("statement") or ""),
     )
 
 
-def workset_key(item: dict[str, Any]) -> tuple[str, int, int, str]:
+def workset_key(item: dict[str, Any]) -> tuple[str, int, int, str, str]:
     return (
         canonical_path(item.get("path")),
         int_value(item.get("start_line")),
         int_value(item.get("end_line")),
         str(item.get("sql_id") or ""),
+        str(item.get("source_sql") or item.get("statement") or ""),
     )
 
 
@@ -90,10 +91,15 @@ def locate_todo(todo: list[dict[str, Any]], work_item: dict[str, Any]) -> dict[s
     sql_id = str(work_item.get("sql_id") or "")
     start = int_value(work_item.get("start_line"))
     end = int_value(work_item.get("end_line"))
+    source_sql = str(work_item.get("source_sql") or work_item.get("statement") or "")
     for item in todo:
         path = str(item.get("path") or item.get("file_path") or "").replace("\\", "/")
+        item_source_sql = str(item.get("source_sql") or item.get("statement") or "")
         is_match = (
-            str(item.get("sql_id") or "") == sql_id and int_value(item.get("start_line")) == start and int_value(item.get("end_line")) == end
+            str(item.get("sql_id") or "") == sql_id
+            and int_value(item.get("start_line")) == start
+            and int_value(item.get("end_line")) == end
+            and item_source_sql == source_sql
         )
         if (
             is_match
@@ -320,12 +326,17 @@ def persist_validated_rules(
     return result
 
 
-def synchronize_reports(
+def _load_and_validate_workset(
     work_dir: Path,
     compatible_ids: set[str],
     converted_ids: set[str],
     manual_ids: set[str],
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+    """加载 ai-workset.json，校验 workset_id 唯一性与分类完整性。
+
+    返回 (workset, by_id, work_items, original_todo, reports)。其中 reports 是
+    load_report_lists 的结果，调用方在此基础上做 strip 和分类 append。
+    """
     reports_dir = work_dir / "reports"
     workset_path = reports_dir / "ai-workset.json"
     workset = load_json(workset_path, {})
@@ -348,9 +359,27 @@ def synchronize_reports(
     if missing:
         raise ValueError("all AI workset items must be classified; missing: " + ", ".join(sorted(missing)))
 
-    db = workset.get("database_context") or {}
-    source_db = str(db.get("source_db") or "")
-    target_db = str(db.get("target_db") or "")
+    reports = load_report_lists(reports_dir)
+    original_todo = list(reports["todo"])
+    return workset, by_id, work_items, original_todo, reports
+
+
+def _check_converted_integrity(
+    by_id: dict[str, dict[str, Any]],
+    converted_ids: set[str],
+    source_db: str,
+    target_db: str,
+) -> tuple[dict[str, Any], set[str], set[str], set[str]]:
+    """对 converted 项做完整性检查。
+
+    返回 (converted_integrity, rejected_converted, semantic_manual, accepted_converted)。
+    完整性维度：
+      - source_fragment_changed: 指定源码范围是否检测到实际修改
+      - detect_source_dialect_issues: 残留源库方言问题
+      - semantic_review.manual_review_required: 必须人工确认的语义风险
+    status != PASSED 或 semantic_required 的项从 accepted_converted 中排除，
+    分别归入 rejected_converted / semantic_manual，最终走 manual_review 分支。
+    """
     converted_integrity: dict[str, Any] = {}
     rejected_converted: set[str] = set()
     semantic_manual: set[str] = set()
@@ -380,11 +409,22 @@ def synchronize_reports(
             rejected_converted.add(wid)
         if semantic_required:
             semantic_manual.add(wid)
+    accepted_converted = converted_ids - rejected_converted - semantic_manual
+    return converted_integrity, rejected_converted, semantic_manual, accepted_converted
 
-    rejected_all = rejected_converted | semantic_manual
-    accepted_converted = converted_ids - rejected_all
-    effective_manual = manual_ids | rejected_all
 
+def _run_target_validation(
+    work_dir: Path,
+    work_items: list[dict[str, Any]],
+    accepted_converted: set[str],
+    db_config_path: Path,
+) -> dict[str, Any]:
+    """构造 validation_items 并对 accepted_converted 执行目标库 EXPLAIN 验证。
+
+    accepted_converted 项写入 validation_sql_after_ai 字段（优先用 AI 写入的
+    ai_target_sql，缺失时回退到当前源码片段），作为 validate_target_sql 的输入。
+    db_config_path 由调用方注入（从 state 读取或 main argparse 解析）。
+    """
     validation_items: list[dict[str, Any]] = []
     for item in work_items:
         prepared = dict(item)
@@ -394,120 +434,147 @@ def synchronize_reports(
             ai_target_sql = str(item.get("ai_target_sql") or "").strip()
             prepared["validation_sql_after_ai"] = ai_target_sql or current_fragment(item)
         validation_items.append(prepared)
-    validation = validate_target_sql(work_dir, validation_items, accepted_converted)
-    passed = set(validation.get("passed") or [])
-    failed = set((validation.get("failed") or {}).keys())
-    pending = set((validation.get("pending") or {}).keys())
+    return validate_target_sql(work_dir, validation_items, accepted_converted, db_config_path)
 
-    reports = load_report_lists(reports_dir)
-    original_todo = list(reports["todo"])
+
+def _strip_processed_from_reports(
+    reports: dict[str, list[dict[str, Any]]],
+    work_items: list[dict[str, Any]],
+) -> None:
+    """从 reports 字典的每个列表中移除已处理的 work keys（原地替换 list）。
+
+    避免同一 SQL 在 compatible/migrated/todo/pending_confirm/manual_review 中重复出现。
+    """
     work_keys = {workset_key(item) for item in work_items}
     for key in reports:
         reports[key] = [item for item in reports[key] if report_key(item) not in work_keys]
 
-    now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-    for workset_id, work_item in by_id.items():
-        base = locate_todo(original_todo, work_item)
-        fragment = current_fragment(work_item)
-        ai_target_sql = str(work_item.get("ai_target_sql") or "").strip()
-        original_target = str(base.get("target_sql") or work_item.get("target_sql") or "").strip()
 
-        if workset_id in compatible_ids:
-            base.update({
-                "compatibility": 0,
-                "target_sql": "",
-                "conversion_source": "AI确认兼容",
-                "transformation_notes": "AI语义判断无需修改源码即可兼容目标数据库。",
-            })
-            reports["compatible"].append(base)
-            outcome = "COMPATIBLE"
-        elif workset_id in accepted_converted:
-            base["compatibility"] = 1
-            # target_sql 必须是纯 SQL 语句，优先用 AI 写入的 ai_target_sql；
-            # 未提供时回退到 DevKit 原始建议（可能为空），不用源码块兜底
-            base["target_sql"] = ai_target_sql or original_target
-            origin = "DevKit+AI" if original_target else "AI"
-            if workset_id in passed:
-                base["conversion_source"] = origin
-                base["transformation_notes"] = "AI完成源码改造并通过目标库确定性EXPLAIN验证。"
-                reports["migrated"].append(base)
-                outcome = "CONVERTED_VALIDATED"
-            elif workset_id in failed:
-                base["conversion_source"] = "AI验证失败"
-                base["last_error"] = str((validation.get("failed") or {}).get(workset_id) or "target SQL validation failed")
-                base["transformation_notes"] = base["last_error"]
-                reports["manual_review"].append(base)
-                outcome = "MANUAL_REVIEW"
-            else:
-                base["conversion_source"] = "AI待确认"
-                base["transformation_notes"] = str((validation.get("pending") or {}).get(workset_id) or "等待目标环境验证。")
-                reports["pending_confirm"].append(base)
-                outcome = "CONVERTED_PENDING"
-        else:
-            base["compatibility"] = 1
-            if workset_id in semantic_manual:
-                detail = converted_integrity.get(workset_id) or {}
-                reasons = detail.get("semantic_reason_codes") or []
-                reason = "AI转换涉及必须人工确认的语义风险"
-                if reasons:
-                    reason += "：" + ", ".join(str(v) for v in reasons)
-                base["last_error"] = reason
-                base["reason_code"] = "MANUAL_REVIEW_SEMANTIC_RISK"
-                base["transformation_notes"] = reason
-                outcome = "MANUAL_REVIEW_SEMANTIC_RISK"
-            elif workset_id in rejected_converted:
-                detail = converted_integrity.get(workset_id) or {}
-                residual = detail.get("residual_issues") or []
-                reason = "AI converted 完整性检查失败"
-                if not detail.get("source_changed"):
-                    reason += "：指定源码范围未检测到实际修改"
-                if residual:
-                    reason += "；仍存在源数据库方言问题：" + ", ".join(str(v) for v in residual)
-                base["last_error"] = reason
-                base["reason_code"] = "MANUAL_REVIEW_INCOMPLETE_CONVERSION"
-                base["transformation_notes"] = reason
-                outcome = "MANUAL_REVIEW_INCOMPLETE_CONVERSION"
-            else:
-                base["last_error"] = base.get("last_error") or "AI处理后仍需人工介入。"
-                base["transformation_notes"] = base.get("transformation_notes") or base["last_error"]
-                outcome = "MANUAL_REVIEW"
-            reports["manual_review"].append(base)
+def _classify_compatible(base: dict[str, Any]) -> tuple[str, str]:
+    """compatible 分类：AI 判断无需修改源码即可兼容目标数据库。"""
+    base.update({
+        "compatibility": 0,
+        "target_sql": "",
+        "conversion_source": "AI确认兼容",
+        "transformation_notes": "AI语义判断无需修改源码即可兼容目标数据库。",
+    })
+    return "compatible", "COMPATIBLE"
 
-        work_item["ai_outcome"] = outcome
-        work_item["ai_processed_at"] = now
-        if fragment:
-            work_item["final_source_fragment"] = fragment
-        if workset_id in passed:
-            work_item["target_validation"] = "SUCCESS"
-        elif workset_id in failed:
-            work_item["target_validation"] = "FAILED"
-        elif workset_id in pending:
-            work_item["target_validation"] = "PENDING"
 
-    rule_persistence = persist_validated_rules(work_dir, workset, by_id, accepted_converted, validation)
-    for wid, detail in (rule_persistence.get("items") or {}).items():
-        if wid in by_id:
-            by_id[wid]["rule_persistence"] = detail
+def _classify_accepted_converted(
+    workset_id: str,
+    base: dict[str, Any],
+    ai_target_sql: str,
+    original_target: str,
+    validation: dict[str, Any],
+    passed: set[str],
+    failed: set[str],
+) -> tuple[str, str]:
+    """accepted_converted 分类：AI 已改造源码并通过完整性检查，按目标库 EXPLAIN 结果分流。
 
-    for key, name in REPORT_FILES.items():
-        write_json(reports_dir / name, reports[key])
-    workset["ai_stage"] = {
+    target_sql 必须是纯 SQL 语句，优先用 AI 写入的 ai_target_sql；
+    未提供时回退到 DevKit 原始建议（可能为空），不用源码块兜底。
+    """
+    base["compatibility"] = 1
+    base["target_sql"] = ai_target_sql or original_target
+    origin = "DevKit+AI" if original_target else "AI"
+    if workset_id in passed:
+        base["conversion_source"] = origin
+        base["transformation_notes"] = "AI完成源码改造并通过目标库确定性EXPLAIN验证。"
+        return "migrated", "CONVERTED_VALIDATED"
+    if workset_id in failed:
+        base["conversion_source"] = "AI验证失败"
+        base["last_error"] = str((validation.get("failed") or {}).get(workset_id) or "target SQL validation failed")
+        base["transformation_notes"] = base["last_error"]
+        return "manual_review", "MANUAL_REVIEW"
+    base["conversion_source"] = "AI待确认"
+    base["transformation_notes"] = str((validation.get("pending") or {}).get(workset_id) or "等待目标环境验证。")
+    return "pending_confirm", "CONVERTED_PENDING"
+
+
+def _classify_manual(
+    workset_id: str,
+    base: dict[str, Any],
+    semantic_manual: set[str],
+    rejected_converted: set[str],
+    converted_integrity: dict[str, Any],
+) -> tuple[str, str]:
+    """manual_review 分类：含 semantic_manual / rejected_converted / 显式 manual 三类。"""
+    base["compatibility"] = 1
+    if workset_id in semantic_manual:
+        detail = converted_integrity.get(workset_id) or {}
+        reasons = detail.get("semantic_reason_codes") or []
+        reason = "AI转换涉及必须人工确认的语义风险"
+        if reasons:
+            reason += "：" + ", ".join(str(v) for v in reasons)
+        base["last_error"] = reason
+        base["reason_code"] = "MANUAL_REVIEW_SEMANTIC_RISK"
+        base["transformation_notes"] = reason
+        return "manual_review", "MANUAL_REVIEW_SEMANTIC_RISK"
+    if workset_id in rejected_converted:
+        detail = converted_integrity.get(workset_id) or {}
+        residual = detail.get("residual_issues") or []
+        reason = "AI converted 完整性检查失败"
+        if not detail.get("source_changed"):
+            reason += "：指定源码范围未检测到实际修改"
+        if residual:
+            reason += "；仍存在源数据库方言问题：" + ", ".join(str(v) for v in residual)
+        base["last_error"] = reason
+        base["reason_code"] = "MANUAL_REVIEW_INCOMPLETE_CONVERSION"
+        base["transformation_notes"] = reason
+        return "manual_review", "MANUAL_REVIEW_INCOMPLETE_CONVERSION"
+    base["last_error"] = base.get("last_error") or "AI处理后仍需人工介入。"
+    base["transformation_notes"] = base.get("transformation_notes") or base["last_error"]
+    return "manual_review", "MANUAL_REVIEW"
+
+
+def _apply_workitem_metadata(
+    workset_id: str,
+    work_item: dict[str, Any],
+    outcome: str,
+    fragment: str,
+    now: str,
+    passed: set[str],
+    failed: set[str],
+    pending: set[str],
+) -> None:
+    """写回 work_item 的 ai_outcome/ai_processed_at/final_source_fragment/target_validation 字段。"""
+    work_item["ai_outcome"] = outcome
+    work_item["ai_processed_at"] = now
+    if fragment:
+        work_item["final_source_fragment"] = fragment
+    if workset_id in passed:
+        work_item["target_validation"] = "SUCCESS"
+    elif workset_id in failed:
+        work_item["target_validation"] = "FAILED"
+    elif workset_id in pending:
+        work_item["target_validation"] = "PENDING"
+
+
+def _build_ai_stage(
+    counts: dict[str, set[str]],
+    validation: dict[str, Any],
+    rule_persistence: dict[str, Any],
+    now: str,
+) -> dict[str, Any]:
+    """构造 workset.ai_stage 摘要：分类计数 + 完整性 + 目标验证 + 规则沉淀结果。"""
+    return {
         "status": "CLASSIFIED",
         "classified_at": now,
-        "compatible": len(compatible_ids),
-        "converted_requested": len(converted_ids),
-        "converted": len(accepted_converted),
-        "manual_review": len(effective_manual),
+        "compatible": len(counts["compatible"]),
+        "converted_requested": len(counts["converted_requested"]),
+        "converted": len(counts["accepted"]),
+        "manual_review": len(counts["manual_review"]),
         "converted_integrity": {
-            "passed": len(accepted_converted),
-            "failed": len(rejected_converted),
-            "failed_ids": sorted(rejected_converted),
+            "passed": len(counts["accepted"]),
+            "failed": len(counts["rejected"]),
+            "failed_ids": sorted(counts["rejected"]),
         },
         "target_validation": {
             "enabled": bool(validation.get("enabled")),
-            "passed": len(passed),
-            "failed": len(failed),
-            "pending": len(pending),
+            "passed": len(set(validation.get("passed") or [])),
+            "failed": len((validation.get("failed") or {}).keys()),
+            "pending": len((validation.get("pending") or {}).keys()),
         },
         "rule_persistence": {
             "persisted": int(rule_persistence.get("persisted") or 0),
@@ -516,8 +583,36 @@ def synchronize_reports(
             "rule_file": rule_persistence.get("rule_file") or "",
         },
     }
+
+
+def _write_reports_and_workset(
+    reports_dir: Path,
+    reports: dict[str, list[dict[str, Any]]],
+    workset_path: Path,
+    workset: dict[str, Any],
+    ai_stage: dict[str, Any],
+) -> None:
+    """落盘 5 个 report JSON、更新 workset.ai_stage、写回 workset、touch .ai-completed。"""
+    for key, name in REPORT_FILES.items():
+        write_json(reports_dir / name, reports[key])
+    workset["ai_stage"] = ai_stage
     write_json(workset_path, workset)
     (reports_dir / ".ai-completed").touch()
+
+
+def _build_summary(
+    workset_path: Path,
+    compatible_ids: set[str],
+    converted_ids: set[str],
+    accepted_converted: set[str],
+    effective_manual: set[str],
+    rejected_converted: set[str],
+    semantic_manual: set[str],
+    converted_integrity: dict[str, Any],
+    validation: dict[str, Any],
+    rule_persistence: dict[str, Any],
+) -> dict[str, Any]:
+    """构造 synchronize_reports 的返回 summary。"""
     return {
         "workset": str(workset_path),
         "compatible": len(compatible_ids),
@@ -537,49 +632,163 @@ def synchronize_reports(
     }
 
 
+def synchronize_reports(
+    work_dir: Path,
+    compatible_ids: set[str],
+    converted_ids: set[str],
+    manual_ids: set[str],
+    db_config_path: Path,
+) -> dict[str, Any]:
+    """编排：分类校验 → 完整性检查 → 验证 → 报告同步 → 规则沉淀 → workset 写回。
+
+    各阶段拆分为独立函数，主流程仅做编排：
+      1. _load_and_validate_workset: 加载 workset、校验 ID 分类完整性、加载 reports
+      2. _check_converted_integrity: converted 项完整性检查 + accepted/rejected 分流
+      3. _run_target_validation: 对 accepted_converted 执行目标库 EXPLAIN 验证
+      4. _strip_processed_from_reports: 清理 reports 中已处理的 work keys
+      5. 主循环: _classify_compatible / _classify_accepted_converted / _classify_manual
+                + _apply_workitem_metadata
+      6. persist_validated_rules: 规则沉淀（已存在的独立函数）
+      7. _write_reports_and_workset: 落盘 reports + workset + .ai-completed
+      8. _build_summary: 构造返回值
+
+    db_config_path 必传：用于目标库 EXPLAIN 验证读取连接信息。
+    """
+    workset, by_id, work_items, original_todo, reports = _load_and_validate_workset(
+        work_dir, compatible_ids, converted_ids, manual_ids
+    )
+    db = workset.get("database_context") or {}
+    source_db = str(db.get("source_db") or "")
+    target_db = str(db.get("target_db") or "")
+
+    converted_integrity, rejected_converted, semantic_manual, accepted_converted = _check_converted_integrity(
+        by_id, converted_ids, source_db, target_db
+    )
+    effective_manual = manual_ids | rejected_converted | semantic_manual
+
+    validation = _run_target_validation(work_dir, work_items, accepted_converted, db_config_path)
+    passed = set(validation.get("passed") or [])
+    failed = set((validation.get("failed") or {}).keys())
+    pending = set((validation.get("pending") or {}).keys())
+
+    _strip_processed_from_reports(reports, work_items)
+
+    now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    for workset_id, work_item in by_id.items():
+        base = locate_todo(original_todo, work_item)
+        fragment = current_fragment(work_item)
+        ai_target_sql = str(work_item.get("ai_target_sql") or "").strip()
+        original_target = str(base.get("target_sql") or work_item.get("target_sql") or "").strip()
+
+        if workset_id in compatible_ids:
+            report_key_name, outcome = _classify_compatible(base)
+        elif workset_id in accepted_converted:
+            report_key_name, outcome = _classify_accepted_converted(
+                workset_id, base, ai_target_sql, original_target, validation, passed, failed
+            )
+        else:
+            report_key_name, outcome = _classify_manual(
+                workset_id, base, semantic_manual, rejected_converted, converted_integrity
+            )
+        reports[report_key_name].append(base)
+
+        _apply_workitem_metadata(workset_id, work_item, outcome, fragment, now, passed, failed, pending)
+
+    rule_persistence = persist_validated_rules(work_dir, workset, by_id, accepted_converted, validation)
+    for wid, detail in (rule_persistence.get("items") or {}).items():
+        if wid in by_id:
+            by_id[wid]["rule_persistence"] = detail
+
+    reports_dir = work_dir / "reports"
+    workset_path = reports_dir / "ai-workset.json"
+    counts = {
+        "compatible": compatible_ids,
+        "converted_requested": converted_ids,
+        "accepted": accepted_converted,
+        "manual_review": effective_manual,
+        "rejected": rejected_converted,
+    }
+    ai_stage = _build_ai_stage(counts, validation, rule_persistence, now)
+    _write_reports_and_workset(reports_dir, reports, workset_path, workset, ai_stage)
+    return _build_summary(
+        workset_path, compatible_ids, converted_ids, accepted_converted, effective_manual,
+        rejected_converted, semantic_manual, converted_integrity, validation, rule_persistence,
+    )
+
+
 def run_sql_finalize(work_dir: Path) -> int:
+    """AI 阶段收敛后，in-process 接力调用 sql_migration.main 进入 FINALIZE 阶段。
+
+    ai-migration 二进制入口即 sql_migration.main()（统一入口），因此无需通过
+    subprocess 调用 ai-migration sql-migration 命令行，改为 in-process 委托：
+    复用 sql_migration.main 的 argparse + 错误处理 + payload 打印，本函数只负责
+    构造 sys.argv 后委托执行。sys.argv 带 --project-path（不带 finalize 专属的
+    --compatible/--converted/--manual-review），sql_migration.main 依此自动判定为
+    migrate 模式，故走迁移主流程。
+
+    --internal-resume 标记：sql_migration 到达 COMPLETE 时仍建立 WAITING_FOR_USER_DECISION
+    门禁，但直接返回迁移结果（不带询问 payload）。询问交互留给后续用户主动发起的
+    入口调用，避免在 finalize_ai_stage 的调用上下文里触发询问。
+    """
     state = load_json(work_dir / "sql-migration-state.json", {})
     if not isinstance(state, dict):
         raise ValueError("invalid SQL migration state")
     project_path = str(state.get("project_path") or "")
     source_db = str(state.get("input_source_db") or state.get("source_db") or "")
     target_db = str(state.get("input_target_db") or state.get("target_db") or "")
-    if not project_path or not source_db or not target_db:
-        raise ValueError("SQL migration state is missing project/source/target identity")
-    cmd = [
-        sys.executable, str(SCRIPTS_DIR / "sql_migration.py"),
+    db_config_path = str(state.get("db_config_path") or "")
+    if not all([project_path, source_db, target_db, db_config_path]):
+        raise ValueError("SQL migration state is missing project/source/target/db_config identity")
+
+    sys.argv = [
+        "sql_migration.py",
         "--project-path", project_path,
         "--work-dir", str(work_dir),
         "--source-db", source_db,
         "--target-db", target_db,
-        # 标识本次为内部接力调用：sql_migration.py 到达 COMPLETE 时仍建立
-        # WAITING_FOR_USER_DECISION 门禁，但直接返回迁移结果（不带询问 payload）。
-        # 询问交互留给后续用户主动发起的入口调用，避免在 finalize_ai_stage.py
-        # 的调用上下文里触发询问。
+        "--db-config", db_config_path,
         "--internal-resume",
     ]
-    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
-    if proc.stdout:
-        print(proc.stdout.rstrip())
-    return proc.returncode
+    from sql_migration import main as sql_migration_main
+    return sql_migration_main()
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Finalize bounded AI SQL transformation")
-    parser.add_argument("--work-dir", required=True)
-    parser.add_argument("--compatible", action="append", default=[])
-    parser.add_argument("--converted", action="append", default=[])
-    parser.add_argument("--manual-review", action="append", default=[])
-    args = parser.parse_args()
+def run_from_args(args: argparse.Namespace) -> int:
+    """AI 阶段收敛主流程：接收已解析的 args namespace，由 sql_migration.main 在
+    finalize 子命令下委托调用，也可由本模块 main() 在直接执行时复用。
+
+    与迁移主流程的 main() 不同，本函数不捕获 MigrationError / 异常，由调用方
+    （sql_migration.main 或 main）统一处理。返回退出码。
+    """
     work_dir = Path(args.work_dir).expanduser().resolve()
+    db_config_path = Path(args.db_config).expanduser().resolve()
     summary = synchronize_reports(
         work_dir,
         parse_ids(args.compatible),
         parse_ids(args.converted),
         parse_ids(args.manual_review),
+        db_config_path,
     )
     print(json.dumps({"status": "AI_STAGE_CLASSIFIED", **summary}, ensure_ascii=False, indent=2))
     return run_sql_finalize(work_dir)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="finalize_ai_stage",
+        description="Finalize bounded AI SQL transformation (standalone entry; preferred entry is ai-migration sql-migration finalize)",
+    )
+    parser.add_argument("--work-dir", required=True)
+    parser.add_argument("--compatible", action="append", default=[])
+    parser.add_argument("--converted", action="append", default=[])
+    parser.add_argument("--manual-review", action="append", default=[])
+    parser.add_argument(
+        "--db-config",
+        required=True,
+        help="SKILL 中 assets/db-connection.json 的绝对路径",
+    )
+    args = parser.parse_args()
+    return run_from_args(args)
 
 
 if __name__ == "__main__":

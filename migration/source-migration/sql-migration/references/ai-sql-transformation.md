@@ -8,7 +8,10 @@ AI_TRANSFORMATION 阶段（`WAITING_FOR_AI`）的唯一工作集：
 $WORK_DIR/reports/ai-workset.json
 ```
 
-工作集顶层直接提供 `database_context`，包含源/目标数据库、源库/目标库动态验证是否启用，以及目标库验证关闭时 converted 项进入 `pending_confirm` 的规则。AI 不再额外读取 `assets/db-connection.json` 判断这些状态。
+工作集（`schema_version=1.2`）顶层直接提供 `database_context`，包含源/目标数据库、源库/目标库动态验证是否启用，以及目标库验证关闭时 converted 项进入 `pending_confirm` 的规则。AI 不再额外读取 `assets/db-connection.json` 判断这些状态。顶层同时固化以下路径字段供 Agent 调用 `finalize` 子命令时复用，无需自行推断：
+
+- `ai_migration_path`：`ai-migration` 二进制绝对路径（来自 `reports/devkit_path.txt` 的 `AI_MIGRATION` 字段）；
+- `finalize.entry`：完整的 `sql-migration finalize` 命令前缀（含二进制路径、`sql-migration finalize` 子命令与 `--db-config` 参数），`finalize.entry_mode=SUBCOMMAND` 表示该前缀可直接拼接；`finalize.db_config` 为前缀中固化的 SKILL 资源路径副本，Agent 不应修改。`references/ai-sql-transformation.md` 与 `scripts/sql_migration.sh` 不再固化到 ai-workset.json，由 Agent 通过 SKILL 目录结构自行定位。
 
 每条工作项直接包含：
 
@@ -143,16 +146,18 @@ rulers_<SOURCE>_to_<TARGET>.md（规则库，位于 devkit-sql-migration-cache/�
 .ai-completed
 ```
 
-统一调用：
+统一调用 `ai-migration` 二进制的 `sql-migration finalize` 子命令（命令前缀由 `ai-workset.json.finalize.entry` 提供，无需手动拼接）：
 
 ```bash
-python3 scripts/tools/finalize_ai_stage.py \
+"<ai-migration>" sql-migration finalize \
+  --db-config "<SKILL>/assets/db-connection.json" \
   --work-dir "$WORK_DIR" \
   --compatible "<workset-id,...>" \
   --converted "<workset-id,...>" \
   --manual-review "<workset-id,...>"
 ```
 
+`<ai-migration>` 路径来自 `ai-workset.json` 顶层的 `ai_migration_path` 字段（与 `finalize.entry` 前缀一致）。`--db-config` 已固化在前缀中，Agent 直接复制 `finalize.entry` 字段并在末尾追加 `--work-dir / --compatible / --converted / --manual-review` 即可，不要重新拼接路径。`references/ai-sql-transformation.md` 与 `scripts/sql_migration.sh` 不再通过参数注入，由 Agent 通过 SKILL 目录结构自行定位。
 
 所有 `workset_id` 必须且只能进入一个结果分类。脚本会自动：
 
@@ -162,7 +167,7 @@ python3 scripts/tools/finalize_ai_stage.py \
 4. 同步 compatible/migrated/pending_confirm/manual_review/to_do；
 5. 把 `ai_outcome`、处理时间、`converted_integrity` 和最终源码片段记录回 `ai-workset.json`；
 6. 创建 `.ai-completed`；
-7. 自动重新调用 `sql_migration.py` 进入 FINALIZE；
+7. 自动 in-process 调用 `sql_migration.main` 并附加 `--internal-resume` 接力续跑进入 FINALIZE（不通过 `ai-migration sql-migration` 命令行转发）；
 8. 生成 `source_code.patch`、路径转换和最终汇总报告。
 
 不创建固定 `ai-migration-result.json`，也不需要临时 Python 脚本整理报告。
@@ -176,4 +181,4 @@ python3 scripts/tools/finalize_ai_stage.py \
 
 ### AI 转换风险与收敛
 
-`ai-workset.json` 中 `semantic_review.manual_review_required=true` 的工作项必须归入 `manual-review`，不得提交为 `converted`。典型包括 `REPLACE INTO` 的 upsert 语义改写和疑似源 SQL 异常（如 `TIMESTAP(...)`）。系统目录改写等高风险项会保留风险标记，由后续确认/验证处理。AI 完成分类后使用 `ai-workset.json.finalize.entry` 提供的绝对入口及 `finalize.work_dir` 调用 Finalize，不根据当前目录重新拼接脚本路径。
+`ai-workset.json` 中 `semantic_review.manual_review_required=true` 的工作项必须归入 `manual-review`，不得提交为 `converted`。典型包括 `REPLACE INTO` 的 upsert 语义改写和疑似源 SQL 异常（如 `TIMESTAP(...)`）。系统目录改写等高风险项会保留风险标记，由后续确认/验证处理。AI 完成分类后使用 `ai-workset.json.finalize.entry` 提供的 `sql-migration finalize` 命令前缀（`entry_mode=SUBCOMMAND`，仅含 `--db-config` 共享参数）及 `finalize.work_dir` 调用 Finalize：直接复制 `finalize.entry` 字段，并在末尾追加 `--work-dir` / `--compatible` / `--converted` / `--manual-review` 参数，不根据当前目录重新拼接路径，也不直接调用 `scripts/tools/finalize_ai_stage.py`。

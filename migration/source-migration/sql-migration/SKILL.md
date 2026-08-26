@@ -12,7 +12,7 @@ metadata:
 ## 核心原则
 
 - **数据库类型禁止推断（强制约束，优先于一切执行逻辑）**：`SOURCE_DB` / `TARGET_DB` 必须由用户明确提供，任一缺失立即停止执行并向用户询问，不得使用默认值或假设；
-- **统一入口**：首次执行与断点恢复只通过 `sql_migration.sh` 进入；重复迁移按 `reset_command` 直接调用 `sql_migration.py`，复用环境缓存，不重复执行环境准备（见「统一入口」与「重复迁移决策」）；
+- **统一入口**：首次执行与断点恢复只通过 `sql_migration.sh` 进入；重复迁移按 `reset_command` 直接调用 `ai-migration sql-migration migrate --reset`，PREPARE 阶段从 `reports/devkit_path.txt` 复用已就绪的 DevKit/JDK 缓存，跳过环境定位/下载步骤（见「统一入口」与「重复迁移决策」）；
 - **AI 与程序职责分离**：AI 只做语义判断与源码修改，不直接写规则库、不生成 Patch、不手工维护分类 JSON；校验、验证与沉淀全部由确定性程序完成（见「AI处理边界」）；
 - **不改变源码语义**：只改写 SQL 方言（函数、语法、分页等），严禁修改变量名、控制流和业务逻辑。
 
@@ -47,10 +47,23 @@ bash scripts/sql_migration.sh \
   [--work-dir "$WORK_DIR"]
 ```
 
-入口脚本负责**环境准备**（`WORK_DIR` 子目录初始化、DevKit 定位或下载、按需 JDK 定位或下载），完成后调用 `sql_migration.py` 进入迁移主流程。只读取入口预置的 `reports/devkit_path.txt` 与 `reports/jdk_path.txt`，不再包含 DevKit/JDK 的定位或下载逻辑。首次执行、断点恢复使用同一入口。重复迁移（`--reset`）由 `reset_command` 直接调用 `sql_migration.py`，复用已就绪的环境缓存，不重复执行环境准备（见「重复迁移决策」）。
+入口脚本负责**环境准备**（`WORK_DIR` 子目录初始化、DevKit 定位或下载、按需 JDK 定位或下载），完成后调用 `ai-migration` 二进制的 `sql-migration migrate` 子命令进入迁移主流程。`ai-migration` 二进制随 DevKit 压缩包分发，路径由 `scripts/download_devkit.sh` 解压后写入 `reports/devkit_path.txt` 的 `AI_MIGRATION` 字段，入口脚本读取后调用；调用时仅显式传入 `--db-config` 一个 SKILL 资源绝对路径（指向 `assets/db-connection.json`），二进制本身不依赖 SKILL 目录结构。`references/ai-sql-transformation.md` 由 Agent 通过 SKILL.md 的 references 指引自行定位读取，`scripts/sql_migration.sh` 由 Agent 通过 SKILL 目录结构自行定位调用，二者均不通过参数注入二进制。迁移主流程只读取入口预置的 `reports/devkit_path.txt` 与 `reports/jdk_path.txt`，不再包含 DevKit/JDK 的定位或下载逻辑。首次执行、断点恢复使用同一入口。重复迁移（`--reset`）由 `reset_command` 直接调用 `ai-migration sql-migration migrate --reset`，PREPARE 阶段复用 `reports/devkit_path.txt` 已就绪的缓存，跳过环境定位/下载步骤；缓存丢失时 PREPARE 失败，由 Agent 引导用户重新调 `sql_migration.sh` 走完整环境准备（见「重复迁移决策」）。
 
+`ai-migration` 二进制只暴露 `sql-migration` 一个子命令，下分 `migrate` / `finalize` 两个子命令区分两种模式（迁移主流程 / AI 阶段收敛），共享 `--db-config` 一个 SKILL 资源参数：
 
-Agent 只直接调用入口脚本与 `tools/finalize_ai_stage.py`（AI 阶段收敛，见 AI处理边界），不直接调用 `common/`、`stages/` 内部模块，也不直接调用 `tools/` 下的 `devkit-sql-migration.sh`、`download_devkit.sh`、`download_jdk.sh`、`build_ai_workset.py` 等其余脚本。
+```bash
+# 迁移主流程（首次执行 / 断点恢复 / --reset 重跑）
+ai-migration sql-migration migrate --project-path ... --source-db ... --target-db ... \
+  [--work-dir ...] [--reset] [--internal-resume] \
+  --db-config ...
+
+# AI 阶段收敛（WAITING_FOR_AI 后 Agent 调用）
+ai-migration sql-migration finalize \
+  --work-dir ... --compatible ... --converted ... --manual-review ... \
+  --db-config ...
+```
+
+Agent 只直接调用入口脚本与 `ai-migration sql-migration finalize`（AI 阶段收敛，见 AI处理边界），不直接调用 `common/`、`stages/`、`tools/` 内部 Python 模块，也不直接调用 `scripts/download_devkit.sh`、`scripts/download_jdk.sh` 等环境准备脚本。这些内部 Python 模块（`sql_migration.py`、`stages/*`、`tools/build_ai_workset.py`、`tools/finalize_ai_stage.py`、`tools/parse_report.py`、`tools/target_sql_validator.py`、`common/*` 等）已封装进 `ai-migration` 二进制，SKILL 目录只保留 `sql_migration.sh` / `download_devkit.sh` / `download_jdk.sh` 三个 shell 入口。
 
 ## 执行流程
 
@@ -112,17 +125,17 @@ $WORK_DIR/reports/sql-migration-result.json
   - `previous_result`：上次迁移的完整结果；
   - `prompt`：询问用户是否重复迁移的提示文案；
   - `reset_command`：带 `--reset` 参数的完整命令，用户选择重复迁移时由 Agent 执行。
-- **`finalize_ai_stage.py` 接力调用**（带 `--internal-resume`）：直接返回最终迁移结果，**不返回询问 payload**——询问交互留给后续用户主动发起的入口调用。`finalize_ai_stage.py` 内部调用 `sql_migration.py` 时自动附加 `--internal-resume`，Agent 无需关心。
+- **`ai-migration sql-migration finalize` 接力调用**（带 `--internal-resume`）：直接返回最终迁移结果，**不返回询问 payload**——询问交互留给后续用户主动发起的入口调用。`finalize` 子命令收敛完成后 in-process 调用 `sql_migration.main`（以 `--internal-resume` 形式接力续跑 migrate 模式，不通过命令行转发），Agent 无需关心。
 - **`--reset` 重跑**（带 `--reset`，state 中 `reset_run=True`）：用户刚明确选择重复迁移，跑完直接返回最终结果，不询问。
 
 Agent 收到 `WAITING_FOR_USER_DECISION`（仅用户主动发起的首次入口调用会返回此 payload）后**必须立即向用户提问**，提供两个选项，**不预展示 `previous_result`，不主动读取工作目录下的历史产物文件**（reports 等）：
 
 - **查看已有结果**：用户选择后，Agent 从 payload 的 `previous_result` 展示（不读产物文件），并明确告知实际验证模式（`source_validation_enabled`/`target_validation_enabled`），不执行 `reset_command`；
-- **重复迁移**：Agent 执行 `reset_command`（带 `--reset` 直接调用 `sql_migration.py`），清理工作目录（保留 `downloads/`、`sql-analysis/`、`devkit-sql-migration-cache/` 及 `reports/devkit_path.txt`、`reports/jdk_path.txt` 环境缓存）并从阶段 1 重跑。环境缓存保留使得重跑无需重新定位/下载 DevKit/JDK。
+- **重复迁移**：Agent 执行 `reset_command`（`ai-migration sql-migration migrate ... --reset`，复用 `reports/devkit_path.txt` 中已就绪的 `ai-migration` 二进制与 DevKit 缓存），清理工作目录（保留 `downloads/`、`sql-analysis/`、`devkit-sql-migration-cache/` 及 `reports/devkit_path.txt`、`reports/jdk_path.txt` 环境缓存）并从阶段 1 重跑。环境缓存保留使得重跑无需重新定位/下载 DevKit/JDK；若缓存已丢失，PREPARE 失败，由 Agent 引导用户重新调 `sql_migration.sh` 走完整环境准备。
 
 **约束**：
 
 - Agent 不得在首次迁移、断点恢复或其它阶段主动附加 `--reset`；
 - Agent 不得自行决定是否重复迁移，必须由用户选择；
-- Agent 不得主动附加 `--internal-resume`，该参数仅供 `finalize_ai_stage.py` 内部接力调用使用；
+- Agent 不得主动附加 `--internal-resume`，该参数仅供 `ai-migration sql-migration finalize` 内部接力调用使用；
 - 用户未决策前再次调用主入口（不带 `--reset`）会继续返回 `WAITING_FOR_USER_DECISION`。

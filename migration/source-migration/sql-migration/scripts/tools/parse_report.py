@@ -335,11 +335,12 @@ def load_existing_report(filepath: str) -> list[dict[str, Any]]:
 
 def make_dedup_key(entry: dict[str, Any]) -> str:
     """
-    生成去重 key：path + start_line + end_line + sql_id。
+    生成去重 key：path + start_line + end_line + sql_id + source_sql。
 
-    使用物理位置（path + 行号区间）作为唯一标识，避免以下问题：
+    使用物理位置（path + 行号区间）+ SQL 内容作为唯一标识，避免以下问题：
     - sql_id 为空时碰撞（非 MyBatis 场景）
     - 同文件同 sql_id 但不同 SQL 的碰撞（如 JDBC 中同方法多 SQL）
+    - 同文件同行号区间但 SQL 内容不同的碰撞（罕见但确实存在，需结合 source_sql 区分）
 
     Args:
         entry: SQL 条目（支持 parse_devkit_report 原始输出和 format_report_entry 格式）
@@ -348,7 +349,8 @@ def make_dedup_key(entry: dict[str, Any]) -> str:
         去重 key 字符串
     """
     path = entry.get("file_path", "") or entry.get("path", "")
-    return f"{path}::{entry.get('start_line', 0)}::{entry.get('end_line', 0)}::{entry.get('sql_id', '')}"
+    source_sql = entry.get("statement", "") or entry.get("source_sql", "")
+    return f"{path}::{entry.get('start_line', 0)}::{entry.get('end_line', 0)}::{entry.get('sql_id', '')}::{source_sql}"
 
 
 def merge_migrated_sqls(
@@ -362,7 +364,7 @@ def merge_migrated_sqls(
     变成 compatibility=0（已兼容），不会出现在当前解析结果中。
     通过 --merge 合并，保留步骤 2.1 生成的 DevKit 转换记录。
 
-    去重规则：按 path + start_line + end_line + sql_id 去重。若同一条 SQL
+    去重规则：按 path + start_line + end_line + sql_id + source_sql 去重。若同一条 SQL
     同时存在于已有和当前结果中，优先保留已有记录（保留 conversion_source 等附加字段）。
 
     Args:

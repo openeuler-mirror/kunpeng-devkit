@@ -104,11 +104,16 @@ write_devkit_path() {
     local jar_dir
     jar_dir=$(dirname "$jar_file")
 
+    # DevKit 工具根目录 = jar 所在 sql_analysis 目录的上级。
+    # ai-migration launcher 位于此根目录下，需在 jar_dir 被 config 回退逻辑
+    # 修改之前提前固定，避免误算到 sql_analysis/ai-migration。
+    local devkit_root
+    devkit_root=$(dirname "$jar_dir")
+
     # 定位 config 目录
     local config_dir="${jar_dir}/config"
     if [[ ! -d "$config_dir" ]]; then
-        local parent_dir
-        parent_dir=$(dirname "$jar_dir")
+        local parent_dir="$devkit_root"
         if [[ -d "${parent_dir}/config" ]]; then
             config_dir="${parent_dir}/config"
             jar_dir="$parent_dir"
@@ -154,10 +159,21 @@ write_devkit_path() {
     local config_complete="true"
     [[ ${#missing_configs[@]} -eq 0 ]] || config_complete="false"
 
+    # 定位 ai-migration 二进制：launcher 位于 devkit_root 下（即 jar 所在
+    # sql_analysis 目录的上级）。locate_existing_devkit 已用相同算法预校验过；
+    # 这里再次校验文件存在并 chmod +x，缺失时回退 ABSOLUTE 模式。
+    local ai_migration_path="${devkit_root}/ai-migration"
+    if [[ -f "$ai_migration_path" ]]; then
+        chmod +x "$ai_migration_path" 2>/dev/null || warn "chmod +x $ai_migration_path 失败"
+    else
+        ai_migration_path=""
+        warn "未找到 ai-migration 二进制（devkit_root=${devkit_root}），finalize 入口将回退 ABSOLUTE 模式"
+    fi
+
     # 写 devkit_path.txt
     local path_file="$REPORT_DIR/devkit_path.txt"
-    printf 'DEVKIT_TOOL_PATH=%s\nJAR_FILE=%s\nCONFIG_DIR=%s\nCONFIG_COMPLETE=%s\nMISSING_CONFIGS=%s\nJAVA_HOME=%s\n' \
-        "$jar_dir" "$jar_file" "$config_dir" "$config_complete" "${missing_configs[*]:-none}" "${java_home_result:-none}" \
+    printf 'DEVKIT_TOOL_PATH=%s\nJAR_FILE=%s\nCONFIG_DIR=%s\nCONFIG_COMPLETE=%s\nMISSING_CONFIGS=%s\nJAVA_HOME=%s\nAI_MIGRATION=%s\n' \
+        "$jar_dir" "$jar_file" "$config_dir" "$config_complete" "${missing_configs[*]:-none}" "${java_home_result:-none}" "${ai_migration_path:-none}" \
         > "$path_file" || fail 7 "写入 $path_file 失败"
 
     # 输出 JSON
@@ -340,6 +356,10 @@ JAR_FILE=$(find "$DEVKIT_DIR" -type f -name "sql-analysis-*.jar" 2>/dev/null | h
 [[ -n "$JAR_FILE" ]] || fail 5 "解压后未找到 sql-analysis-*.jar 文件"
 
 JAR_DIR=$(dirname "$JAR_FILE")
+# DevKit 工具根目录 = jar 所在 sql_analysis 目录的上级。
+# ai-migration launcher 位于此根目录下，需在 JAR_DIR 被 config 回退逻辑
+# 修改之前提前固定，避免误算到 sql_analysis/ai-migration。
+DEVKIT_ROOT=$(dirname "$JAR_DIR")
 log "找到 jar 文件: $JAR_FILE"
 
 # --- 4. 定位 Java（若包内含 JDK）---
@@ -388,8 +408,20 @@ fi
 PATH_FILE="$REPORT_DIR/devkit_path.txt"
 CONFIG_COMPLETE=$(if [ ${#MISSING_CONFIGS[@]} -eq 0 ]; then echo "true"; else echo "false"; fi)
 
-if ! printf 'DEVKIT_TOOL_PATH=%s\nJAR_FILE=%s\nCONFIG_DIR=%s\nCONFIG_COMPLETE=%s\nMISSING_CONFIGS=%s\nJAVA_HOME=%s\n' \
-    "$JAR_DIR" "$JAR_FILE" "$CONFIG_DIR" "$CONFIG_COMPLETE" "${MISSING_CONFIGS[*]:-none}" "${JAVA_HOME_RESULT:-none}" \
+# 定位 ai-migration 二进制：launcher 位于 DEVKIT_ROOT 下（即 jar 所在
+# sql_analysis 目录的上级）。chmod +x 确保 launcher 可执行。
+# .pyc 文件按目录结构摆放在 launcher 同级目录下（sql_migration.pyc、stages/*.pyc、
+# tools/*.pyc、common/*.pyc 等），launcher 启动 Python 解释器执行对应 .pyc。
+AI_MIGRATION_PATH="${DEVKIT_ROOT}/ai-migration"
+if [[ -f "$AI_MIGRATION_PATH" ]]; then
+    chmod +x "$AI_MIGRATION_PATH" 2>/dev/null || warn "chmod +x $AI_MIGRATION_PATH 失败"
+else
+    AI_MIGRATION_PATH=""
+    warn "未找到 ai-migration 二进制（devkit_root=${DEVKIT_ROOT}），finalize 入口将回退 ABSOLUTE 模式"
+fi
+
+if ! printf 'DEVKIT_TOOL_PATH=%s\nJAR_FILE=%s\nCONFIG_DIR=%s\nCONFIG_COMPLETE=%s\nMISSING_CONFIGS=%s\nJAVA_HOME=%s\nAI_MIGRATION=%s\n' \
+    "$JAR_DIR" "$JAR_FILE" "$CONFIG_DIR" "$CONFIG_COMPLETE" "${MISSING_CONFIGS[*]:-none}" "${JAVA_HOME_RESULT:-none}" "${AI_MIGRATION_PATH:-none}" \
     > "$PATH_FILE"; then
   fail 7 "写入 $PATH_FILE 失败（检查目录权限/磁盘空间）"
 fi
@@ -397,11 +429,13 @@ fi
 # 结果输出（JSON）
 echo "DEVKIT_TOOL_PATH=$JAR_DIR"
 [ -n "$JAVA_HOME_RESULT" ] && echo "JAVA_HOME=$JAVA_HOME_RESULT"
+[ -n "$AI_MIGRATION_PATH" ] && echo "AI_MIGRATION=$AI_MIGRATION_PATH"
 log "成功：DEVKIT_TOOL_PATH=$JAR_DIR"
 log "路径已写入：$PATH_FILE"
 
 # 同时输出 JSON 格式结果
 JAVA_HOME_JSON=$(if [ -n "$JAVA_HOME_RESULT" ]; then echo "\"$JAVA_HOME_RESULT\""; else echo "null"; fi)
+AI_MIGRATION_JSON=$(if [ -n "$AI_MIGRATION_PATH" ]; then echo "\"$AI_MIGRATION_PATH\""; else echo "null"; fi)
 cat <<EOF
 {
   "devkit_tool_path": "${JAR_DIR}",
@@ -409,6 +443,7 @@ cat <<EOF
   "config_dir": "${CONFIG_DIR}",
   "config_complete": ${CONFIG_COMPLETE},
   "missing_configs": [$(IFS=,; echo "${MISSING_CONFIGS[*]:-}" | sed 's/,/","/g; s/^/"/; s/$/"/' | sed 's/""//g')],
-  "java_home": ${JAVA_HOME_JSON}
+  "java_home": ${JAVA_HOME_JSON},
+  "ai_migration": ${AI_MIGRATION_JSON}
 }
 EOF

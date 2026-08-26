@@ -11,8 +11,6 @@ from typing import Any
 
 from common.migration_common import MigrationError, load_json, run_command, write_json
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1]
-
 
 def generate_patch(work_dir: Path) -> dict[str, Any]:
     source_root = work_dir / "source-code"
@@ -82,12 +80,19 @@ def convert_report_paths(work_dir: Path) -> dict[str, Any]:
 def run(work_dir: Path, source_db: str, target_db: str) -> dict[str, Any]:
     generate_patch(work_dir)
     convert_report_paths(work_dir)
-    run_command([
-        sys.executable, str(SCRIPT_DIR / "tools" / "generate_report.py"),
+    # 通过修改 sys.argv 后 in-process 调用 generate_report.main，等价于原 subprocess
+    # 调用但不依赖 sys.executable（ai-migration launcher + .pyc 架构下，in-process
+    # 调用避免再起子进程，且不依赖 .py 源文件在文件系统中）。
+    sys.argv = [
+        "generate_report.py",
         "--reports-dir", str(work_dir / "reports"),
         "--output-dir", str(work_dir / "reports"),
         "--source-db", source_db,
         "--target-db", target_db,
-    ], work_dir, reason="SQL_MIGRATION_REPORT_GENERATION_FAILED")
+    ]
+    from generate_report import main as generate_report_main
+    rc = generate_report_main()
+    if rc != 0:
+        raise MigrationError("SQL_MIGRATION_REPORT_GENERATION_FAILED", f"generate_report exited with code {rc}", rc)
     result = load_json(work_dir / "reports" / "sql-migration-result.json", {})
     return result if isinstance(result, dict) else {}

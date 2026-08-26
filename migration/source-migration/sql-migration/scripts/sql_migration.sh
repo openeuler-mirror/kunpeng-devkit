@@ -20,6 +20,7 @@
 #     --target-db <TARGET_DB> \
 #     [--work-dir <WORK_DIR>] \
 #     [--reset]
+
 #
 # 退出码：透传 sql_migration.py 的退出码；环境准备阶段失败按 download_devkit.sh /
 # download_jdk.sh 的退出码返回。
@@ -106,8 +107,21 @@ done
 
 # --- 5. 定位或下载 DevKit ---
 log "准备 DevKit 环境（download_devkit.sh）"
-WORK_DIR="$WORK_DIR" bash "$SCRIPT_DIR/tools/download_devkit.sh"
+WORK_DIR="$WORK_DIR" bash "$SCRIPT_DIR/download_devkit.sh"
 [[ -f "$WORK_DIR/reports/devkit_path.txt" ]] || fail 5 "download_devkit.sh 未生成 reports/devkit_path.txt"
+
+# 从 devkit_path.txt 读取 ai-migration 二进制路径
+AI_MIGRATION_BIN=""
+if [[ -f "$WORK_DIR/reports/devkit_path.txt" ]]; then
+    AI_MIGRATION_BIN=$(awk -F'=' '/^AI_MIGRATION=/{sub(/^AI_MIGRATION=/, ""); print; exit}' "$WORK_DIR/reports/devkit_path.txt")
+fi
+if [[ -z "$AI_MIGRATION_BIN" || ! -x "$AI_MIGRATION_BIN" ]]; then
+    if [[ -n "$AI_MIGRATION_BIN" && -f "$AI_MIGRATION_BIN" ]]; then
+        chmod +x "$AI_MIGRATION_BIN" 2>/dev/null || true
+    fi
+    [[ -n "$AI_MIGRATION_BIN" && -x "$AI_MIGRATION_BIN" ]] || fail 5 "devkit_path.txt 中未找到可执行的 ai-migration 二进制"
+fi
+log "ai-migration 二进制：$AI_MIGRATION_BIN"
 
 # --- 6. 按需定位或下载 JDK（仅 target_db_conn.flag=true）---
 TARGET_FLAG="false"
@@ -125,12 +139,14 @@ fi
 
 if [[ "$TARGET_FLAG" == "true" ]]; then
     log "目标库动态验证已启用（target_db_conn.flag=true），准备 JDK 环境（download_jdk.sh）"
-    WORK_DIR="$WORK_DIR" bash "$SCRIPT_DIR/tools/download_jdk.sh"
+    WORK_DIR="$WORK_DIR" bash "$SCRIPT_DIR/download_jdk.sh"
     [[ -f "$WORK_DIR/reports/jdk_path.txt" ]] || fail 5 "download_jdk.sh 未生成 reports/jdk_path.txt"
 else
     log "目标库动态验证未启用，跳过 JDK 准备"
 fi
 
-# --- 7. 调用 DevKit 内部 sql_migration.py ---
-log "启动迁移主流程：python3 sql_migration.py ${PY_ARGS[*]}"
-exec python3 "$SCRIPT_DIR/sql_migration.py" "${PY_ARGS[@]}"
+# --- 7. 调用 ai-migration 二进制 sql-migration 子命令 ---
+log "启动迁移主流程：ai-migration sql-migration migrate ${PY_ARGS[*]} --db-config $CONFIG_PATH"
+exec "$AI_MIGRATION_BIN" sql-migration migrate\
+    "${PY_ARGS[@]}" \
+    --db-config "$CONFIG_PATH"

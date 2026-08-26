@@ -97,8 +97,22 @@ def backup_source(project_path: Path, work_dir: Path) -> dict[str, Any]:
     return payload
 
 
-def run(project_path: Path, work_dir: Path, source_db: str, target_db: str) -> dict[str, Any]:
-    context = build_context(project_path, work_dir, source_db, target_db)
+def run(
+    project_path: Path,
+    work_dir: Path,
+    source_db: str,
+    target_db: str,
+    *,
+    db_config_path: Path,
+) -> dict[str, Any]:
+    """PREPARE 阶段入口。
+
+    db_config_path 由 sql_migration.py 透传，最终从入口脚本（sql_migration.sh）注入。
+    本函数把它交给 build_context，进入 context 用于后续阶段。
+    references/ai-sql-transformation.md 与 scripts/sql_migration.sh 由 Agent 通过
+    SKILL 目录结构自行定位，不再透传到二进制内部。
+    """
+    context = build_context(project_path, work_dir, source_db, target_db, db_config_path)
     java_info = validate_java_executable(context["java_path"], work_dir)
     backup = backup_source(project_path, work_dir)
     config = context["db_config"]
@@ -113,6 +127,7 @@ def run(project_path: Path, work_dir: Path, source_db: str, target_db: str) -> d
         "sql_analysis_jar": str(context["jar_path"]),
         "sql_analysis_java": java_info,
         "db_config": str(context["db_config_path"]),
+        "ai_migration_path": str(context.get("ai_migration_path") or "") if context.get("ai_migration_path") else "",
         "db_conn_config": {
             "source_enabled": bool((config.get("source_db_conn") or {}).get("flag")),
             "target_enabled": target_enabled,

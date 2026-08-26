@@ -24,7 +24,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from common.migration_common import load_json, write_json  # noqa: E402
-from common.sql_context import DEFAULT_DB_CONFIG, resolve_jdk_for_target  # noqa: E402
+from common.sql_context import resolve_jdk_for_target  # noqa: E402
 
 JAVA_SOURCE = r'''
 import java.sql.*;
@@ -138,8 +138,18 @@ def _runtime_ready(config: dict[str, Any], state: dict[str, Any], work_dir: Path
     }, ""
 
 
-def validate(work_dir: Path, work_items: list[dict[str, Any]], converted_ids: set[str]) -> dict[str, Any]:
-    config = load_json(DEFAULT_DB_CONFIG, {})
+def validate(
+    work_dir: Path,
+    work_items: list[dict[str, Any]],
+    converted_ids: set[str],
+    db_config_path: Path,
+) -> dict[str, Any]:
+    """对 converted_ids 项执行目标库 EXPLAIN 验证。
+
+    db_config_path 必传：SKILL 中 db-connection.json 的路径，由调用方注入
+    （main 从 --db-config 解析；finalize_ai_stage._run_target_validation 从 state 读取）。
+    """
+    config = load_json(db_config_path, {})
     state = load_json(work_dir / "sql-migration-state.json", {})
     result = {"enabled": target_enabled(config), "passed": [], "failed": {}, "pending": {}, "validated_sql": {}}
     if not result["enabled"]:
@@ -215,13 +225,24 @@ def main() -> int:
     parser.add_argument("--work-dir", required=True)
     parser.add_argument("--workset", default="")
     parser.add_argument("--converted", default="")
+    parser.add_argument(
+        "--db-config",
+        required=True,
+        help="SKILL 中 assets/db-connection.json 的绝对路径",
+    )
     args = parser.parse_args()
     work_dir = Path(args.work_dir).expanduser().resolve()
+    db_config_path = Path(args.db_config).expanduser().resolve()
     workset_path = Path(args.workset).expanduser().resolve() if args.workset else work_dir / "reports" / "ai-workset.json"
     workset = load_json(workset_path, {})
     items = workset.get("items") if isinstance(workset, dict) else []
     converted = {v.strip() for v in args.converted.split(",") if v.strip()}
-    output = validate(work_dir, [v for v in items or [] if isinstance(v, dict)], converted)
+    output = validate(
+        work_dir,
+        [v for v in items or [] if isinstance(v, dict)],
+        converted,
+        db_config_path,
+    )
     print(json.dumps(output, ensure_ascii=False, indent=2))
     return 0
 

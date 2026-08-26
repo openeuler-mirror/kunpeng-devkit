@@ -241,6 +241,7 @@ def build_workset(
     source_db: str = "",
     target_db: str = "",
     db_config: Path | None = None,
+    ai_migration_path: Path | None = None,
 ) -> dict[str, Any]:
     raw = load_json(todo_path)
     if not isinstance(raw, list):
@@ -257,6 +258,24 @@ def build_workset(
             db_cfg = loaded
     source_validation_enabled = bool((db_cfg.get("source_db_conn") or {}).get("flag"))
     target_validation_enabled = bool((db_cfg.get("target_db_conn") or {}).get("flag"))
+
+    # finalize.entry 命令前缀：ai-migration 二进制 + sql-migration finalize 子命令 + --db-config。
+    # Agent 在末尾追加 --work-dir / --compatible / --converted / --manual-review。
+    # references/ai-sql-transformation.md 与 sql_migration.sh 由 Agent 通过 SKILL 目录结构自行定位，
+    # 不再固化到 ai-workset.json 中。ai_migration_path 缺失时直接报错（.pyc 模式下无 .py 文件可回退）。
+    ai_migration_str = str(ai_migration_path) if ai_migration_path else ""
+    # ai-migration 二进制路径由 download_devkit.sh 写入 devkit_path.txt 的 AI_MIGRATION 字段，
+    # 若缺失说明 DevKit 不完整，整个流程无法继续，直接报错而非回退 .py 文件
+    # （.pyc 模式下 .py 源文件不存在于文件系统，回退路径不可用）。
+    if not (ai_migration_str and Path(ai_migration_str).is_file() and db_config):
+        raise ValueError(
+            "ai_migration_path 或 db_config 缺失，无法构造 finalize.entry"
+        )
+    finalize_entry = (
+        f'"{ai_migration_str}" sql-migration finalize'
+        f' --db-config "{db_config}"'
+    )
+    finalize_entry_mode = "SUBCOMMAND"
 
     items: list[dict[str, Any]] = []
     files: set[str] = set()
@@ -314,7 +333,7 @@ def build_workset(
         })
 
     result = {
-        "schema_version": "1.1",
+        "schema_version": "1.2",
         "source": str(todo_path.resolve()),
         "source_root": str(source_root.resolve()),
         "item_count": len(items),
@@ -327,6 +346,7 @@ def build_workset(
             "converted_result_when_target_validation_disabled": "pending_confirm",
         },
         "rules_source": str(rules_file.resolve()) if rules_file and rules_file.is_file() else "",
+        "ai_migration_path": ai_migration_str,
         "instruction": (
             "Treat this file as the complete Phase-3 input. Use source_sql/target_sql, source_fragment, "
             "context_before/context_after, database_context and rule_candidates first. Do not scan the project tree, "
@@ -334,13 +354,15 @@ def build_workset(
             "context is insufficient may you read that item's fallback_read path and bounded line range. Limit edits to "
             "the listed path and SQL scope. Items whose semantic_review.manual_review_required=true must be classified "
             "as manual-review. Other items may be converted only after the source is actually modified and every "
-            "identified_issues marker is eliminated; finalize_ai_stage.py enforces both rules. Then classify every "
-            "workset_id using the absolute finalize.entry below; do not reconstruct its path from the current directory."
+            "identified_issues marker is eliminated; the finalize stage enforces both rules. Then classify every "
+            "workset_id using the finalize.entry command prefix below; append --work-dir/--compatible/--converted/"
+            "--manual-review to it. Do not reconstruct entry path from the current directory."
         ),
         "finalize": {
-            "entry": str((Path(__file__).resolve().parent / "finalize_ai_stage.py").resolve()),
+            "entry": finalize_entry,
             "work_dir": str(output_path.resolve().parent.parent),
-            "entry_mode": "ABSOLUTE",
+            "entry_mode": finalize_entry_mode,
+            "db_config": str(db_config) if db_config else "",
         },
         "items": items,
     }
@@ -356,7 +378,12 @@ def main() -> int:
     parser.add_argument("--rules-file", default="", help="Optional rulers_<SOURCE>_to_<TARGET>.md")
     parser.add_argument("--source-db", default="", help="Canonical source database name")
     parser.add_argument("--target-db", default="", help="Canonical target database name")
-    parser.add_argument("--db-config", default="", help="Optional db-connection.json used only to embed validation flags")
+    parser.add_argument("--db-config", default="", help="Optional db-connection.json used to embed validation flags")
+    parser.add_argument(
+        "--ai-migration-path",
+        default="",
+        help="ai-migration 二进制绝对路径（来自 reports/devkit_path.txt 的 AI_MIGRATION 字段）",
+    )
     parser.add_argument("--context-lines", type=int, default=8)
     parser.add_argument("--max-context-chars", type=int, default=8000)
     args = parser.parse_args()
@@ -366,10 +393,12 @@ def main() -> int:
     output = Path(args.output).expanduser().resolve()
     rules_file = Path(args.rules_file).expanduser().resolve() if args.rules_file else None
     db_config = Path(args.db_config).expanduser().resolve() if args.db_config else None
+    ai_migration_path = Path(args.ai_migration_path).expanduser().resolve() if args.ai_migration_path else None
     result = build_workset(
         todo, source_root, output, rules_file,
         max(0, args.context_lines), max(1000, args.max_context_chars),
         source_db=args.source_db, target_db=args.target_db, db_config=db_config,
+        ai_migration_path=ai_migration_path,
     )
     print(json.dumps({
         "output": str(output),
