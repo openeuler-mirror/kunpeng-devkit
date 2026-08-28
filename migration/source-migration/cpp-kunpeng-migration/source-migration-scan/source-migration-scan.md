@@ -47,16 +47,16 @@ options:
 
 ### 4.1.2 确认扫描参数
 
-根据阶段 1的构建系统检测结果，确定 `-b` 与 `-c` 参数：
+根据阶段 1的构建系统检测结果，确定 `-b` 参数：
 
-| 构建系统 | `-b` 参数值 | `-c` 参数值 |
-| --- | --- | --- |
-| Bazel | `bazel` | 不传 |
-| CMake | `cmake` | `cmake` |
-| Make/Makefile | `make` | `make` |
-| Automake（先 configure 再 make） | `make` | `make` |
-| Blade | `blade` | 不传 |
-| SCons/其他 | `other` | 不传 |
+| 构建系统 | `-b` 参数值 |
+| --- | --- |
+| Bazel | `bazel` |
+| CMake | `cmake` |
+| Make/Makefile | `make` |
+| Automake（先 configure 再 make） | `make` |
+| Blade | `blade` |
+| SCons/其他 | `other` |
 
 > **Automake 前置要求**：Automake 项目在执行 DevKit 扫描前，**必须先运行 `./configure`** 生成 `Makefile`，否则 DevKit 会扫描不全， -b参数值为 make。
 
@@ -69,7 +69,6 @@ mkdir -p $DEVKIT_REPORT_DIR
 $DEVKIT porting src-mig \
   -i $PROJECT_ROOT \
   -b <bazel|cmake|make|blade|other> \
-  -c <make|cmake> \
   -r all \
   -np $(( $(nproc) / 2 )) \
   -o $DEVKIT_REPORT_DIR \
@@ -79,8 +78,6 @@ $DEVKIT porting src-mig \
 > `-r all` 表示输出全部报告格式（json / html / csv）。
 
 > `-np` 指定扫描线程数，取当前机器 CPU 数的一半，避免占满 CPU 影响其他任务。
-
-> `-c` 指定项目编译命令，**对扫描结果影响较大**，需精准识别项目实际编译命令后传入。仅 make / cmake 项目支持（`-c make` / `-c cmake`，对应上表）；bazel / blade / other 等构建系统**不传 `-c`**（命令中删去该行）。
 
 > **扫描命令调不起来时**：若 `$DEVKIT porting src-mig` 无法启动（命令找不到、二进制报错、段错误、缺动态库等），视为已定位的 DevKit 包损坏或架构不符，不要反复重试扫描--回到 4.1.1.1 重跑 `source-migration-scan/scripts/devkit-download.sh` 重新下载安装后再回本步重试；重下仍失败则回 4.1.1 向用户提问。
 
