@@ -251,7 +251,7 @@ options:
 **报告保存路径**：`$WORK_DIR/output/migration_summary_report.md`
 **patch 保存路径**：`$WORK_DIR/output/migration.patch`（排除二进制文件）
 
-**报告生成后**：向用户醒目展示报告中的"必须执行"项和"建议关注"项。
+**报告生成后**：向用户醒目展示报告中的"建议关注"项。
 
 ---
 

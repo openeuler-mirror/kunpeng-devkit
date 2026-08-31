@@ -263,6 +263,8 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 ```
 cpp-kunpeng-migration/
 ├── SKILL.md                                          # 主控入口（六阶段流程编排）
+├── README.md                                         # 使用说明
+├── prompt.md                                         # 提示词模板
 ├── environment-prepare/                              # 阶段 1 子 Skill：环境检测与准备
 │   ├── environment-prepare.md
 │   ├── references/
@@ -314,7 +316,6 @@ cpp-kunpeng-migration/
     └── assets/
         └── migration_summary_report_template.md      # 迁移总结报告模板
 ```
-（prompt.md 位于父目录 source-migration/ 下）
 
 ---
 
