@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from binary_archive import class_prefix, detect_layout, safe_extract_zip
-from migration_common import EXIT_FAILED, EXIT_OK, MigrationError, load_json, write_json, run
+from migration_common import EXIT_FAILED, EXIT_OK, MigrationError, load_json, write_json, run as _run_command
 from component_context import env_paths, require_context, save, sql_adaptation_enabled
 
 
@@ -110,7 +110,7 @@ def _run_kernel(
     temp_root = work_dir / "workspace" / "decompile-tmp"
     out_path = work_dir / "workspace" / "decompile-result.json"
     command = [
-        devkit_cmd, "java-arm-migration", "migrate",
+        devkit_cmd, "java_arm_migration", "migrate",
         "--classes-dir", str(classes_dir),
         "--lib-dir", str(lib_dir),
         "--unpacked", str(unpacked),
@@ -125,7 +125,7 @@ def _run_kernel(
         command.extend(["--vineflower-jar", vineflower_jar])
     if vineflower_java:
         command.extend(["--vineflower-java", vineflower_java])
-    proc = run(command, logs / "decompiler-kernel.log", check=False)
+    proc = _run_command(command, logs / "decompiler-kernel.log", check=False)
     if proc.returncode != 0:
         raise MigrationError("DECOMPILER_KERNEL_FAILED", f"decompiler kernel exited {proc.returncode}; see {logs / 'decompiler-kernel.log'}")
     try:
