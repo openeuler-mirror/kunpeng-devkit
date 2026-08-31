@@ -4,11 +4,20 @@
 
 ## 入口
 
+`run_migration.sh` 部署在 DevKit 工具包内（预检按 plan 的 `migration_tools` 下载解包到 `$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/`，DevKit 包内固定相对路径 `toolscript/migration-target-execution/middleware-migration/scripts/run_migration.sh`）。DevKit 包内 `middleware-migration/` 只携带 `.sh` 脚本与 `scripts/lib/common.sh`；`scripts/lib/*.py`、`config/`、`reference/` 维护在本仓库 `middleware-migration/` 下，不打包进 DevKit 包。
+
+执行中间件迁移 skill 时，调用方先把本仓库的 `scripts/lib/*.py`、`config/`、`reference/` 复制到 DevKit 包 `middleware-migration/` 对应位置（使运行期结构完整，`run_migration.sh` 按 `BASH_SOURCE` 自定位 `SKILL_DIR` 后可同根直取），再调用：
+
 ```bash
-bash middleware-migration/scripts/run_migration.sh "$MIGRATION_PLAN_PATH"
+MW_PKG_DIR="$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/toolscript/migration-target-execution/middleware-migration"
+REPO_MW_DIR="<本仓库>/migration/system-migration/migration-target-execution/middleware-migration"
+cp "$REPO_MW_DIR"/scripts/lib/*.py "$MW_PKG_DIR/scripts/lib/"
+cp -r "$REPO_MW_DIR"/config "$MW_PKG_DIR"/
+cp -r "$REPO_MW_DIR"/reference "$MW_PKG_DIR"/
+bash "$MW_PKG_DIR/scripts/run_migration.sh" "$MIGRATION_PLAN_PATH"
 ```
 
-调用方只需传入 `migration-plan.json`，内部脚本完成解析、排序（JDK 优先）、安装、配置恢复、服务切换与验证、汇总。详细策略见 `config/middleware_registry.json`。
+`<devkit_id>`、`<devkit_pkg>` 取自 plan（`migration_tools` 中声明 `ai-migration` 的 DevKit 包 `id` 与解包顶层目录名）；`MIGRATION_WORK_DIR` 由 `python3 scripts/migration_plan.py work-dir --plan "$MIGRATION_PLAN_PATH"` 解析。调用方只需传入 `migration-plan.json`，内部脚本完成解析、排序（JDK 优先）、安装、配置恢复、服务切换与验证、汇总。详细策略见 `config/middleware_registry.json`。
 
 ## 执行时序（必须遵守）
 
@@ -40,13 +49,13 @@ bash middleware-migration/scripts/run_migration.sh "$MIGRATION_PLAN_PATH"
 
 Java 中间件优先复用已迁移的目标 Java 运行时；未就绪时按 registry 声明的依赖准备。计划内若所有 Java 中间件 JDK 需求版本一致，统一使用该版本避免冲突。
 
-### 未登记中间件与 Agent 接管
+### 迁移失败与 Agent 接管
 
-未在 `config/middleware_registry.json` 登记的中间件走通用流程（`scripts/migrate_generic.sh`）：尽力安装（解压/编译）并恢复配置。通用流程未能完整完成（安装失败，或已安装但无法确定启动方式／未通过服务验证）时，脚本生成 `middleware-agent-handoff.json` 清单，交由 Agent 用自身能力在目标机补完迁移（安装/启动/验证）。
+迁移流程分两类：已登记中间件走专属脚本（`scripts/migrate_*.sh`，路径标记 `REGISTERED`），未登记中间件走通用兜底流程（`scripts/migrate_generic.sh`，路径标记 `GENERIC`）。任一流程未能完整完成（安装失败，或已安装但无法确定启动方式／未通过服务验证）时，脚本生成 `middleware-agent-handoff.json` 清单，交由 Agent 用自身能力在目标机补完迁移（安装/启动/验证）；Agent 接管后仍无法解决才报最终失败。License 阻塞（exit 20）与 `REGISTERED` 路径的 exit 10（成功带警告）不进接管清单。
 
-Agent 接管**必须**遵守：不改动 `scripts/` 下脚本与 `config/` 下配置（通用流程不修改、Agent 接管亦不修改），仅在目标机操作产物目录、systemd 服务与配置文件。
+Agent 接管**必须**遵守：不改动 `scripts/` 下脚本与 `config/` 下配置（迁移流程不修改、Agent 接管亦不修改），仅在目标机操作产物目录、systemd 服务与配置文件。
 
-Agent **必须**调用 `scripts/run_handoff.sh <handoff.json> <单任务处理器脚本>` 逐项串行补完接管项并汇总结果（可先用 `--dry-run` 查看接管项摘要）。生成 `middleware-agent-handoff.json` 后，`run_migration.sh` 以退出码 3 退出并打印 `[NEXT]` 指令；agent 必须按指令执行 `run_handoff.sh`，不得将其视为可选步骤或自行手动处理接管项。
+Agent **必须**调用 DevKit 包内 `scripts/run_handoff.sh`（完整命令由 `run_migration.sh` 退出码 3 时在 stderr 的 `[NEXT]` 指令给出）逐项串行补完接管项并汇总结果（可先用 `--dry-run` 查看接管项摘要）。生成 `middleware-agent-handoff.json` 后，`run_migration.sh` 以退出码 3 退出并打印 `[NEXT]` 指令；agent 必须按指令执行 `run_handoff.sh`，不得将其视为可选步骤或自行手动处理接管项。
 
 #### Agent 接管项处理规则（硬性约束，必须逐条遵守）
 

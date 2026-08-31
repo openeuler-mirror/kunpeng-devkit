@@ -92,6 +92,8 @@ sh scripts/system-migration.sh verify \
 
 对应路由为空时直接跳过。子模块的具体命令、暂停状态、用户确认和恢复方式以其文档及运行结果为准。
 
+> 中间件子模块入口 `run_migration.sh` 部署在 DevKit 工具包内（预检按 plan 的 `migration_tools` 下载解包到 `$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/`，DevKit 包内固定相对路径 `toolscript/migration-target-execution/middleware-migration/scripts/run_migration.sh`）。DevKit 包内 `middleware-migration/` 只携带 `.sh` 脚本与 `scripts/lib/common.sh`；`scripts/lib/*.py`、`config/`、`reference/` 维护在本仓库 `middleware-migration/` 下，执行中间件迁移 skill 时由调用方复制到 DevKit 包对应位置（详见子模块文档）。详见 [middleware-migration/middleware-migration.md](middleware-migration/middleware-migration.md)。
+
 Java 组件的输入制品由其入口根据 `packages[].local_path` 确定性解析；调用方不使用 `find` / `glob` 重新选择同名制品。Java 组件请求独立 SQL Skill 或 Agent 验证时，完成外部动作后必须先按该组件 `workflow.resume` 恢复，由 Java 迁移程序消费结果并决定下一状态。
 
 ## 阶段 6：验收汇总
