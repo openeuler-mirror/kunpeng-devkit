@@ -33,7 +33,7 @@ SQL Skill 对外只接收以下参数：
 | `TARGET_DB` | 目标数据库类型（必须由用户提供，禁止推断，见核心原则） | 是 |
 | `WORK_DIR` | SQL迁移工作目录；省略时使用 `$PROJECT_PATH/.devkit-sql-migration/` | 否 |
 
-**动态验证（可选能力）**：数据库连接配置读取 `assets/db-connection.json`，`source_db_conn.flag`/`target_db_conn.flag` 设 `true` 启用对应库的 EXPLAIN 动态验证，未启用则静态分析。**迁移启动前，Agent 必须询问用户动态验证启用方式，提供三个选项：「已启用，直接开始」（用户已配 `flag=true`，一键跳过配置）、「启用，需配置」（引导用户编辑 `assets/db-connection.json` 设对应 `flag=true`，Agent 不代编辑敏感连接信息，由用户自行填写，配好后开始迁移）、「静态分析」（不启用，直接开始）**（配置方式见该文件内 `_comment`）。迁移结果含 `source_validation_enabled`/`target_validation_enabled` 字段，Agent 展示结果时必须告知用户实际验证模式（源库/目标库 已启用/未启用），若与用户选择不符需明确提示。SQL Analysis、Java 和内部工具不作为调用参数。
+**动态验证（可选能力）**：`assets/db-connection.json` 的 `source_db_conn.flag`/`target_db_conn.flag` 设 `true` 启用对应库 EXPLAIN 动态验证，未启用则静态分析。**迁移启动前，Agent 先读取当前 flag，再询问用户启用方式（三选项：「已启用，直接开始」期望 flag=true、「启用，需配置」引导用户编辑设 flag=true 并填连接信息、「静态分析」期望 flag=false；Agent 不代编辑敏感信息）。对「已启用」「静态分析」两项，若期望 flag 与当前配置不一致，Agent 必须再次提问确认：「按配置文件执行」（沿用当前 flag 开始）或「修改配置文件」（引导用户编辑 `assets/db-connection.json` 改 flag 至期望值后开始）；一致则直接开始。**（配置方式见该文件内 `_comment`）。迁移结果含 `source_validation_enabled`/`target_validation_enabled` 字段，Agent 展示结果时必须告知实际验证模式，若与用户选择不符需明确提示。SQL Analysis、Java 和内部工具不作为调用参数。
 
 ## 统一入口
 
