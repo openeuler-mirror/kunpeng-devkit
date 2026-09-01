@@ -110,7 +110,7 @@ def _run_kernel(
     temp_root = work_dir / "workspace" / "decompile-tmp"
     out_path = work_dir / "workspace" / "decompile-result.json"
     command = [
-        devkit_cmd, "java_arm_migration", "migrate",
+        devkit_cmd, "java-arm-migration", "migrate",
         "--classes-dir", str(classes_dir),
         "--lib-dir", str(lib_dir),
         "--unpacked", str(unpacked),
