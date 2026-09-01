@@ -38,8 +38,6 @@ not_found 时必须写明原因：x86_64 主机禁止安装 / 未部署 / 版本
 ```text
 question: "未在系统中检测到 DevKit，如何继续 pkg-mig 扫描？"
 options:
-  - id: download
-    label: "由 Skill 自动下载安装 DevKit"
   - id: provide_path
     label: "我知道路径，手动提供 DevKit 安装路径"
   - id: abort
@@ -49,51 +47,7 @@ options:
 按决策执行：
 
 - `provide_path`：使用用户提供路径再次执行 `--version`；失败则回到决策步骤。
-- `download`：仅在用户明确授权后执行 1.1 的自动安装流程，并记录下载来源、版本、校验结果与安装日志。
 - `abort`：终止当前扫描流程，并在报告中写明中止原因与影响范围。
-
-安装约束：
-
-- 只在 `aarch64` 主机执行安装；x86 主机不执行安装动作。
-- 安装前必须确认来源可信；若组织要求校验和/签名，先校验再安装。
-- 安装属于有副作用操作，必须在报告中记录版本、命令、结果与失败证据。
-
-### 1.1 自动下载安装方式（`download` 分支）
-
-下载源参考（不硬编码版本）：
-
-- `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/`
-- 动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`
-
-推荐方式：优先执行脚本，不要手动拆步骤。脚本负责参数校验、重试、完整性检查、解压和 `--version` 验证。
-
-```bash
-WORK_DIR="<WORK_DIR>" \
-  bash $SKILL_DIR/scripts/image_collector_cli/devkit-download.sh
-```
-
-执行约定：
-
-1. 在 `bash` 中执行，`WORK_DIR` 通过环境变量传入。
-2. 读取 stdout 末行 `DEVKIT=<path>` 作为 `DEVKIT` 可执行路径。
-3. 仅当退出码为 `0` 才继续；非 `0` 必须先处理异常，不得直接进入扫描。
-
-退出码处置（对齐参考实现）：
-
-- `0`：成功，继续第 2 节扫描。
-- `1`：环境或参数异常（如 `WORK_DIR`/依赖命令缺失），修复后重试一次。
-- `2`：镜像站不可达或未匹配到 CLI 包，回到决策步骤（`provide_path` / `download` / `abort`）。
-- `3`：下载失败或文件不完整，清理残文件后重试；仍失败回到决策步骤。
-- `4`：解压失败，删除损坏包后重试一次；仍失败回到决策步骤。
-- `5`：包结构异常（未找到 `devkit`），回到决策步骤。
-- `6`：`devkit --version` 验证失败，检查架构与动态库；仍失败回到决策步骤。
-- `7`：写入路径文件失败，检查权限和磁盘后重试。
-
-变量传播：若后续步骤在新 shell 执行，需从 `$WORK_DIR/reports/devkit_path.txt` 重新读取并 `export DEVKIT`。
-
-自动安装成功后，回到第 1 节执行“版本校验通过 → 进入第 2 节扫描”。
-
-规范文件名为 `devkit_pkg_mig_reference.md`；旧拼写文件仅作为兼容跳转保留。
 
 ## 2. 结构化扫描
 

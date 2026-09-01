@@ -30,7 +30,8 @@
 **核心设计原则**：
 
 - **单一事实来源**：全局调度、告警和失败规则以 `SKILL.md` 为准；场景文件只定义该场景特有的阶段和动作，不重复定义调度与重试策略
-- **非侵入式探测**：不主动安装 QEMU，不修改 `binfmt_misc`，不改写系统软件源；需要系统级变更时必须先获得用户明确确认
+- **非侵入式探测**：不在 x86_64 机器上执行系统级变更（安装系统软件、修改系统配置、改写软件源等）；需要运行 x86_64 容器的采集/扫描操作统一通过工作目录中的 `ai-migration` 预编译二进制经 SSH 远程调用（`${AI_MIGRATION_DIR}/ai-migration image-migration <subcommand>`），不用 `python3` 直接运行脚本；需要系统级变更时必须先获得用户明确确认
+- **系统环境变更确认**：任何对宿主机（ARM64 主控端或 x86_64 远程采集机）系统环境的变更（安装/升级软件、修改配置、启停服务、修改用户组等），执行前必须交互式请求用户确认，未确认前不得执行；容器内操作和工作目录文件读写不在此列
 - **有证据才判定**：所有失败判定都必须附证据，失败前必须先检索 `references/build_knowledge_reference.md`，只有「已检索且无可用方案」时才能进入失败判定
 
 ---
@@ -61,15 +62,15 @@
 
 ## 环境要求
 
-| 依赖项 | 要求                                            |
-|--------|-----------------------------------------------|
-| 目标架构 | ARM（aarch64 / 鲲鹏）服务器，具备编译条件                   |
-| Docker | CLI 与 daemon 可用，具备构建权限，建议启用 BuildKit          |
-| Docker Buildx | 建议安装，优先用于获取 manifest 与 history                |
-| DevKit | 鲲鹏 DevKit 已安装（native 库扫描所需，`which devkit` 可查） |
-| Bash | 4.0 或更高版本（采集脚本依赖）                             |
-| Python | Python 3.7+（采集脚本依赖）                           |
-| CatPaw IDE | 版本 ≥ 3.3.21（如使用 CatPaw IDE 运行 Skill）          |
+| 依赖项                  | 要求                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 目标架构                 | ARM（aarch64 / 鲲鹏）服务器，具备编译条件                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Docker               | CLI 与 daemon 可用，具备构建权限，建议启用 BuildKit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Docker Buildx        | 建议安装，优先用于获取 manifest 与 history                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| DevKit               | 鲲鹏 DevKit 已安装（native 库扫描所需，`which devkit` 可查）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `ai-migration` 可执行文件 | 镜像采集与分析的统一命令入口（**预编译二进制**），子命令格式 `ai-migration image-migration <subcommand>`（提供 `collect-x86` / `collect` / `analyze` / `diff` / `env` / `layout` / `get-safe-name` 子命令）。ARM 工具包（`DevKit-AI-Migration-Tool-<version>-Linux-Kunpeng`）和 x86 工具包（`...-Linux-x86-64`）分别放置在 ARM64 主控端和 x86_64 采集机的**工作目录**中。采集相关代码已随二进制嵌入 `_internal/`，**不存在可直接运行的 `collect.py`、`analyze.py` 等 Python 脚本**，所有机器禁止用 `python3` 直接调用采集/分析/扫描命令。优先在工作目录下定位（`ls <工作目录>/DevKit-AI-Migration-Tool-*/ai-migration`）；若不存在，从 `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/` 下载对应架构工具包到工作目录，本机网络不通时由另一台机器下载后传输，两台机器网络均不可用且工作目录均无工具包时请求用户上传或提供路径。详细定位与获取方法见 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「工具定位」 |
+| x86_64 采集机           | 无 Dockerfile 逆向重构场景的采集主力（manifest + history + layer 均在 x86_64 采集机采集）；需要采集 x86_64 镜像的 manifest + history、采集 layer 或执行 inspect 时必需。要求一台可 SSH 的 x86_64 机器，可获取 x86 工具包（`ai-migration` 可执行文件，置入工作目录）+ Docker 可用。有 Dockerfile 的直接迁移场景无需此机器                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| CatPaw IDE           | 版本 ≥ 3.3.21（如使用 CatPaw IDE 运行 Skill）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ---
 
@@ -83,22 +84,17 @@ docker-image-migration/
 │   └── image_reconstruction_report_template.md       # 单项目报告 + 总览报告 JSON 模板（image-reconstruction 场景）
 ├── asserts/
 │   └── decision_matrix.md                        # 逆向分析决策矩阵模板
-├── references/
-│   ├── build_knowledge_reference.md                  # 构建错误知识库
-│   ├── config_reference.md                           # 配置参数说明与默认值（用户可自定义配置参数）
-│   ├── devkit_pkg_mig_reference.md                   # DevKit pkg-mig 工具可用性检查与扫描规范
-│   ├── image_collector_reference.md                  # 镜像采集 CLI 使用说明
-│   ├── dockerfile_migration.md                       # 子场景 A：有 Dockerfile 直接迁移流程说明
-│   └── image_reconstruction.md                       # 子场景 B：无 Dockerfile 逆向重构流程说明
-└── scripts/
-    └── image_collector_cli/                          # 镜像元数据采集工具集
-        ├── collect.sh                                # 采集入口（manifest/history/layer）
-        ├── analyze.py                                # 采集结果分析
-        ├── diff_image_env.py                         # 业务镜像与基础镜像差异分析
-        ├── inspect_image_env.sh                      # 容器内环境检查
-        ├── inspect_image_history.sh                  # 镜像构建历史检查
-        └── inspect_image_layout.py                   # 容器布局检查
+└── references/
+    ├── build_knowledge_reference.md                  # 构建错误知识库
+    ├── config_reference.md                           # 配置参数说明与默认值（用户可自定义配置参数）
+    ├── devkit_pkg_mig_reference.md                   # DevKit pkg-mig 工具可用性检查与扫描规范
+    ├── image_collector_cli_reference.md              # image-migration 统一命令参考（collect / collect-x86 / analyze / diff / env / layout / get-safe-name；含采集边界、环境依赖、Registry 读取优先级）
+    ├── x86_remote_setup_reference.md                 # x86_64 远程采集机环境准备参考（工具包定位 / 环境检查）
+    ├── dockerfile_migration.md                       # 子场景 A：有 Dockerfile 直接迁移流程说明
+    └── image_reconstruction.md                       # 子场景 B：无 Dockerfile 逆向重构流程说明
 ```
+
+> 注：x86_64 采集机采集所需的 `x86_remote_collector/` 代码（env / layout / get-safe-name 子命令实现 + `.sh` 内层脚本）已**嵌入工作目录中工具包的预编译二进制 `_internal/`**，运行时由 `ai-migration` 自动加载。
 
 ---
 
@@ -200,7 +196,7 @@ Claude Code 支持 Subagent 特性，并发模式（`WORKER_COUNT >= 2`）的子
 
 【执行要求】
 按 docker-image-migration skill 流程执行（场景选择 → 启动门禁 → 任务上下文注入 → 场景阶段执行 → 报告生成与知识沉淀）。
-- 所有失败判定必须附证据，失败前必须先检索 build_knowledge_reference.md
+- 所有失败判定必须附证据，失败前必须先检索 references/build_knowledge_reference.md
 ```
 
 也可以直接描述迁移意图触发 Skill，Skill 会根据提供的资源自动选择对应场景：
@@ -224,7 +220,7 @@ Skill 启动后会自动按流程执行。**关键交互点**包括：
 1. **信息补齐**：当输入信息不完整时，Skill 会暂停并通过交互提示引导用户补齐所需信息（待迁移镜像、Dockerfile 或采集产物路径、访问凭据等），信息补齐前不会继续执行
 2. **门禁未通过**：当配置占位符未替换、镜像不存在、Registry 不可达等情况发生时，Skill 会暂停并请求用户确认后再继续
 3. **镜像层采集确认**：在无 Dockerfile 场景下，若 ARM64 主机无法采集镜像层信息，Skill 会提示用户确认是否继续（继续可能导致构建结果不完整）
-4. **DevKit 安装决策**：当未检测到 DevKit 时，Skill 会提示用户选择：自动下载安装 / 手动提供安装路径 / 中止扫描
+4. **DevKit 安装决策**：当未检测到 DevKit 时，Skill 会提示用户选择：手动提供安装路径 / 中止扫描
 
 场景阶段执行完成后，Skill 自动生成单项目报告与批次总览报告。
 
@@ -263,7 +259,7 @@ Skill 启动后会自动按流程执行。**关键交互点**包括：
 │  无 Dockerfile（6 步）：                                            │
 │  1 采集并分析镜像 → 2 生成迁移决策 → 3 提取内网资源                      │
 │  → 4 重建 Dockerfile → 5 构建验证 → 6 测试                          │
-│  标记失败前必须先检索 build_knowledge_reference.md 对应章节           │
+│  标记失败前必须先检索 references/build_knowledge_reference.md 对应章节 │
 └───────────────────────────┬──────────────────────────────────────┘
                             ▼
 ┌──────────────────────────────────────────────────────────────────┐
@@ -292,14 +288,14 @@ arm_builds_<YYYYMMDD>/
 
 迁移完成后，工作目录的 `arm_builds_<YYYYMMDD>/` 下会生成以下关键产物：
 
-| 文件 | 阶段 | 说明 |
-|------|------|------|
-| `Dockerfile.arm64` | 场景阶段 | 生成的 ARM64 Dockerfile（含变更标记注释） |
-| `Dockerfile.x86_orig` | 场景阶段 | 原 Dockerfile 备份（有 Dockerfile 场景） |
-| `manifest.json` / `history.json` / `layer.json` | 采集 | 无 Dockerfile 场景的镜像元数据采集产物 |
-| `decision_matrix.md` | 决策 | 无 Dockerfile 场景的分析决策矩阵 |
-| `build_reports/<project>.json` | 报告 | 单项目迁移报告（状态、变更、警告、证据） |
-| `build_reports/_summary.json` | 汇总 | 批次总览报告（成功率、干预记录、耗时） |
+| 文件                                              | 阶段   | 说明                               |
+| ----------------------------------------------- | ---- | -------------------------------- |
+| `Dockerfile.arm64`                              | 场景阶段 | 生成的 ARM64 Dockerfile（含变更标记注释）    |
+| `Dockerfile.x86_orig`                           | 场景阶段 | 原 Dockerfile 备份（有 Dockerfile 场景） |
+| `manifest.json` / `history.json` / `layer.json` | 采集   | 无 Dockerfile 场景的镜像元数据采集产物        |
+| `decision_matrix.md`                            | 决策   | 无 Dockerfile 场景的分析决策矩阵           |
+| `build_reports/<project>.json`                  | 报告   | 单项目迁移报告（状态、变更、警告、证据）             |
+| `build_reports/_summary.json`                   | 汇总   | 批次总览报告（成功率、干预记录、耗时）              |
 
 ---
 
@@ -311,19 +307,22 @@ arm_builds_<YYYYMMDD>/
 
 ### Q: DevKit 未安装怎么办？
 
-native 库扫描阶段若未检测到 `devkit`，Skill 会通过 `AskUserQuestion` 让你选择：由 Skill 自动下载安装 / 手动提供安装路径 / 中止当前扫描。不会跳过扫描或自行下载安装（自动下载仅在用户明确授权后执行，且只在 aarch64 主机执行）。
+native 库扫描阶段若未检测到 `devkit`，Skill 会通过 `AskUserQuestion` 让你选择：手动提供安装路径 / 中止当前扫描。不会跳过扫描或自行下载安装。
 
 ### Q: 构建持续失败无法自动修复怎么办？
 
-每次失败前 Skill 会先检索 `build_knowledge_reference.md` 对应章节并记录命中章节号。仅当「检索无可用方案」或「已按方案尝试仍失败」时，才写 `FAILED(...)` 结论，报告中最少记录：失败命令与退出码、关键日志、检索章节、已尝试修复动作。未收录的修复先标记 `NOVEL` 待人工复核。
+每次失败前 Skill 会先检索 `references/build_knowledge_reference.md` 对应章节并记录命中章节号。仅当「检索无可用方案」或「已按方案尝试仍失败」时，才写 `FAILED(...)` 结论，报告中最少记录：失败命令与退出码、关键日志、检索章节、已尝试修复动作。未收录的修复先标记 `NOVEL` 待人工复核。
 
 ### Q: 私有内网镜像无 ARM64 版本怎么办？
 
-阶段 1 会探测内网镜像的 ARM64 tag 候选（`-arm64`/`_arm64`/`-aarch64` 等）。所有候选均无效时，先拉取 x86 基础镜像并优先迁移为 ARM64 版本，对迁移后的镜像逐行验证 `docker history` 确保 ARM 兼容后，再进入业务镜像迁移。拉取失败时交互提示用户确认基础镜像来源（提供可拉取镜像地址 / Dockerfile / 跳过本项目），用户未确认前不继续。
+阶段 1 会探测内网镜像的 ARM64 tag 候选（`-arm64`/`_arm64`/`-aarch64` 等）。所有候选均无效时：能从原镜像 metadata 确定等价公开基础镜像时生成 `[FALLBACK-TO-PUBLIC-BASE]` 候选（语义可能变化时需用户确认）；无法证明等价时标记 `FAILED(INTERNAL_IMAGE_UNAVAILABLE)`，由主 Agent 汇总待确认项。
 
 ### Q: 无 Dockerfile 场景下 ARM64 主机无法采集 layer 怎么办？
 
-当前 `collect.sh` 在 ARM64 主机上会跳过 layer 采集。Skill 会交互式提示："无法采集 layer 层信息，是否继续迁移？继续后构建镜像可能不完整。建议先在 x86_64 机器手动采集 layer 并上传后再迁移。" 用户确认继续后记录 `LAYER_NOT_COLLECTED` 并继续；不继续则停止迁移等待用户上传手动采集产物。
+ARM64 主机无法运行 x86_64 容器，也无法 `docker pull`/`docker history` x86_64 镜像，因此 manifest + history + layer 均需在 x86_64 采集机采集。可通过两种方式处理：
+
+1. **远程 x86_64 采集机（推荐）**：x86_64 采集机工作目录中放置 x86 工具包（无则按定位/下载/跨机传输/请求用户的优先级获取），通过 SSH 远程调用预编译二进制采集：`collect-x86` 采集 manifest+history（`${X86_AI_MIGRATION_DIR}/ai-migration image-migration collect-x86 --mode base <image> --output <dir>`）、`env` 采集 layer。采用流程：x86_64 采集 manifest+history+layer → scp 回传 ARM64 → `analyze` 分析并打包。详细流程见 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「拆分采集流程」和 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md)。
+2. **跳过 layer 采集**：无远程 x86_64 采集机时，Skill 会交互式提示："无法采集 layer 层信息，是否继续迁移？继续后构建镜像可能不完整。建议先在 x86_64 机器采集 layer 并上传后再迁移。" 用户确认继续后，ARM64 端用 `collect`（仅 registry 元数据）采集 manifest + registry history，记录 `LAYER_NOT_COLLECTED` 并继续；不继续则停止迁移等待用户上传手动采集产物。
 
 ### Q: 当前环境不能执行 ARM64 构建怎么办？
 
@@ -348,4 +347,5 @@ native 库扫描阶段若未检测到 `devkit`，Skill 会通过 `AskUserQuestio
 - [SKILL.md](SKILL.md) — 主控流程编排文档
 - [config_reference.md](references/config_reference.md) — 配置参数说明与默认值
 - [build_knowledge_reference.md](references/build_knowledge_reference.md) — 构建错误知识库
-- [image_collector_reference.md](references/image_collector_reference.md) — 镜像采集 CLI 使用说明
+- [image_collector_cli_reference.md](references/image_collector_cli_reference.md) — `./ai-migration image-migration` 统一命令参考（`collect` / `collect-x86` / `analyze` / `diff` / `env` / `layout` / `get-safe-name`；含采集边界、环境依赖、Registry 读取优先级）
+- [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) — x86_64 远程采集机环境准备与工具包定位参考
