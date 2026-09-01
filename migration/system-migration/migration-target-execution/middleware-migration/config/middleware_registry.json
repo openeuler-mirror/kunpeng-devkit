@@ -24,7 +24,6 @@
       "install_method": "auto",
       "install_dir": "/opt/nginx",
       "deploy_dir_strategy": "install_dir",
-      "config_dir": "/etc/nginx",
       "service_name": "nginx",
       "package_name": "nginx",
       "bin_path": "sbin/nginx",
@@ -80,7 +79,7 @@
         ],
         "functional": [
           {
-            "command": "curl -sf http://127.0.0.1:8080"
+            "command": "PORT=$(grep '<Connector' ${DEPLOY_DIR}/conf/server.xml 2>/dev/null | grep -oP 'port=\"\\K[0-9]+' | head -1); curl -sf http://127.0.0.1:${PORT:-8080}"
           }
         ]
       }
@@ -110,7 +109,7 @@
         ],
         "functional": [
           {
-            "command": "curl -sf http://127.0.0.1:8080"
+            "command": "PORT=$(grep '<http' ${DEPLOY_DIR}/conf/resin.xml 2>/dev/null | grep -oP 'port=\"\\K[0-9]+' | head -1); curl -sf http://127.0.0.1:${PORT:-8080}"
           }
         ]
       }

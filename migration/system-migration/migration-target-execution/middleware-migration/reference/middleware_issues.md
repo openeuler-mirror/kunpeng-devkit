@@ -11,6 +11,7 @@
 | 二进制使用相对配置路径 `conf/nginx.conf` | systemd ExecStart 需带 `-p <deploy_dir>/` 指定 prefix 目录 |
 | `nginx -t` 验证报 `../../nginx/conf/nginx.conf` 失败 | 默认 prefix 为相对路径，验证命令需 `${DEPLOY_DIR}/sbin/nginx -t -p ${DEPLOY_DIR}/` |
 | 启动报 `module ... version ... instead of ...` 且 Service 反复 failed | 目标机 `/etc/nginx` 里的 `include /usr/share/nginx/modules/*.conf` 加载了系统自带 nginx 的动态模块，其编译版本与迁移目标 nginx 二进制版本不一致，`nginx -t` 失败导致 systemd 重启风暴。修复：注释掉 nginx.conf 中的 `include /usr/share/nginx/modules/*.conf;`（如确需第三方动态模块，应为目标版本重新编译并单独 `load_module`） |
+| 配置恢复从目标机 `/etc/nginx` 复制导致不兼容 | registry 已移除 nginx `config_dir`（原为 `/etc/nginx` 绝对路径），避免 `migrate_package.sh` 从目标机本地复制含系统模块 include 的旧配置。迁移后使用安装包自带默认 nginx.conf；如需恢复源端自定义配置（server 块、upstream 等），从采集包 `artifact_paths` 中的 nginx.conf 手动复制到 `${DEPLOY_DIR}/conf/` 并确认不含不兼容的 `include /usr/share/nginx/modules/*.conf` |
 
 ## Redis
 
@@ -30,7 +31,7 @@
 | JAVA_HOME 路径 | 更新 setenv.sh 配置 |
 | 内存泄漏检查 | 调整 JVM 参数 |
 | 验证阶段 HTTP 探测失败但服务实际正常 | Java 中间件启动较慢，start_service 通过 wait_service_ready 轮询服务状态与端口（最长 120s），就绪后才进入验证 |
-| 验证 `curl 127.0.0.1:8080` 失败但服务 active | 源端 server.xml 因端口被占用把 HTTP Connector 改为非 8080 端口（如 18080），恢复配置后服务监听该端口，与 registry 验证探测端口 8080 不一致。修复：将 `server.xml` 中 HTTP Connector 端口改回 8080（或调整验证命令），重启后探测通过 |
+| 验证 `curl 127.0.0.1:8080` 失败但服务 active | 源端 server.xml 因端口被占用把 HTTP Connector 改为非 8080 端口（如 18080），恢复配置后服务监听该端口，与 registry 验证探测端口 8080 不一致。registry 已修复：functional 验证命令从 server.xml 动态解析 Connector port，不再硬编码 8080 |
 
 ## Elasticsearch
 
@@ -47,7 +48,7 @@
 | Erlang 版本依赖 | 安装对应 aarch64 版本 Erlang（如 erlang-24.3.4.15） |
 | 队列持久化 | 检查 /var/lib/rabbitmq/ |
 | 镜像队列 | 重新配置策略 |
-| `require_env CURRENT_VERSION` 报缺少环境变量，脚本无法重装 | 计划 `route.middleware[].source.version` 为空（采集时未确认版本）时，`transform_plan.py` 生成 `current_version=""`，`migrate_package.sh` 首行 `require_env CURRENT_VERSION` 直接退出。批准后计划只读，脚本无法绕过。处理：执行发起计划变更补充 `source.version` 后重新迁移；或确认目标已有健康实例后接受现有实例 |
+| `require_env CURRENT_VERSION` 报缺少环境变量，脚本无法重装 | 计划 `route.middleware[].source.version` 为空（采集时未确认版本）时，`transform_plan.py` 已修复：空版本降级为 `unknown` 占位符，使 `require_env CURRENT_VERSION` 通过，不再硬退出。若目标已有健康实例可直接接受现有实例 |
 | rpm 已安装但迁移脚本报「安装来源全部失败」 | `source_type=OFFICIAL` 的 .rpm 被当归档解压（`rpm --prefix`），而该 rpm 实为系统包应 `rpm -ivh` 或 `yum install`。目标机 `rpm -q rabbitmq-server` 已装 3.9.29 时无需重装，直接 `systemctl enable --now rabbitmq-server` 并 `rabbitmqctl status` 验证 |
 | 配置恢复 | `/etc/rabbitmq/rabbitmq.conf` 需与采集品一致（listeners / management / log.dir 等） |
 
@@ -67,7 +68,7 @@
 | 数据库配置 | application.properties 中 DB 连接检查 |
 | 集群配置 | cluster.conf 中节点 IP 更新为目标主机 |
 | 端口冲突 | 8848/9848/9849 端口检查与防火墙 |
-| `require_env CURRENT_VERSION` 报缺少环境变量，脚本无法重装 | 计划 `source.version` 为空时 `migrate_javamiddleware.sh` 首行 `require_env ... CURRENT_VERSION ...` 直接退出，导致不安装。批准后计划只读。处理：发起计划变更补充 `source.version` 重迁移；或目标已有健康实例时接受现有实例 |
+| `require_env CURRENT_VERSION` 报缺少环境变量，脚本无法重装 | 计划 `source.version` 为空时 `transform_plan.py` 已修复：空版本降级为 `unknown` 占位符，使 `require_env` 通过。若目标已有健康实例可直接接受现有实例 |
 | 服务 203/EXEC 失败且 Restart 风暴 | systemd `ExecStart` 指向的 `bin/startup-foreground.sh` 不在官方 tar 包内（旧实例自建的目标机产物），重新解压重建目录后脚本缺失，`Type=simple` 立即 203/EXEC，`Restart=on-failure` 触发快速重试风暴。修复：按 nacos 官方 `startup.sh` 参数补回 `startup-foreground.sh`（standalone 前台以 `exec java ... -jar target/nacos-server.jar` 启动），`reset-failed` 后启动 |
 
 ## RocketMQ

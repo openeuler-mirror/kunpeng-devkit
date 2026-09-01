@@ -99,7 +99,7 @@ def main():
             'type': normalize_type(target.get('product') or source.get('product') or ''),
             'source_product': source.get('product', ''),
             'target_product': target.get('product', ''),
-            'current_version': source.get('version', ''),
+            'current_version': source.get('version', '') or 'unknown',
             'target_version': target.get('version', ''),
             'source_dir': source.get('location', ''),
             'artifact_base_dir': plan_base,

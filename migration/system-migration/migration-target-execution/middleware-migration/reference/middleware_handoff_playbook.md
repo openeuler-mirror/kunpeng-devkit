@@ -39,7 +39,21 @@
 | 当前服务状态 | `systemctl is-active/is-enabled <svc>` |
 | 端口监听 | `ss -ltn` / `nc -z <host> <port>` |
 
-## 单任务处理器脚本约定
+## 闭环路径约定
+
+闭环必须经 `run_handoff.sh`，二选一。两种模式都禁止"操作后不登记就跳过汇总"；闭环以 `middleware-agent-handoff-result.json` 为准。
+
+### 直接操作模式（推荐：单 item 或需多轮观察）
+
+- Agent 直接在目标机操作（边做边观察边修）
+- 每完成一项立即登记：
+  `run_handoff.sh record <handoff.json> <item-index> --exit-code <N> [--log <path>] [--note "<说明>"]`
+- 失败项 `--exit-code` 非零，成功返回 0，不得静默跳过
+- 建议把关键命令 `tee` 到 per-item 日志文件，作为 `--log` 引用以便审计
+- 全部登记完自动 finalize；也可显式 `run_handoff.sh finalize <handoff.json>`
+- `item-index` 可传数字（如 `0`）或规范名（如 `item-0000`），脚本自动归一化
+
+### 脚本载体模式（推荐：多 item / 批量同类 / 危险操作需可重放）
 
 - 每个接管项一个处理器分支
 - 脚本需 `chmod +x`

@@ -4,14 +4,15 @@
 
 ## 入口
 
-`run_migration.sh` 部署在 DevKit 工具包内（预检按 plan 的 `migration_tools` 下载解包到 `$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/`，DevKit 包内固定相对路径 `toolscript/migration-target-execution/middleware-migration/scripts/run_migration.sh`）。DevKit 包内 `middleware-migration/` 只携带 `.sh` 脚本与 `scripts/lib/common.sh`；`scripts/lib/*.py`、`config/`、`reference/` 维护在本仓库 `middleware-migration/` 下，不打包进 DevKit 包。
+`run_migration.sh` 部署在 DevKit 工具包内（预检按 plan 的 `migration_tools` 下载解包到 `$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/`，DevKit 包内固定相对路径 `toolscript/migration-target-execution/middleware-migration/scripts/run_migration.sh`）。DevKit 包内 `middleware-migration/` 自带 `.sh` 脚本与 `scripts/lib/common.sh`；`scripts/lib/*.py`、`config/`、`reference/`、`scripts/run_handoff.sh` 维护在本仓库 `middleware-migration/` 下，其中 `run_handoff.sh` 由本仓库权威源覆盖 DevKit 包内同名脚本，以支持直接操作模式（record/finalize 登记）。
 
-执行中间件迁移 skill 时，调用方先把本仓库的 `scripts/lib/*.py`、`config/`、`reference/` 复制到 DevKit 包 `middleware-migration/` 对应位置（使运行期结构完整，`run_migration.sh` 按 `BASH_SOURCE` 自定位 `SKILL_DIR` 后可同根直取），再调用：
+执行中间件迁移 skill 时，调用方先把本仓库的 `scripts/lib/*.py`、`config/`、`reference/`、`scripts/run_handoff.sh` 复制到 DevKit 包 `middleware-migration/` 对应位置（使运行期结构完整，`run_migration.sh` 按 `BASH_SOURCE` 自定位 `SKILL_DIR` 后可同根直取），再调用：
 
 ```bash
 MW_PKG_DIR="$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/toolscript/migration-target-execution/middleware-migration"
 REPO_MW_DIR="<本仓库>/migration/system-migration/migration-target-execution/middleware-migration"
 cp "$REPO_MW_DIR"/scripts/lib/*.py "$MW_PKG_DIR/scripts/lib/"
+cp "$REPO_MW_DIR"/scripts/run_handoff.sh "$MW_PKG_DIR/scripts/"
 cp -r "$REPO_MW_DIR"/config "$MW_PKG_DIR"/
 cp -r "$REPO_MW_DIR"/reference "$MW_PKG_DIR"/
 bash "$MW_PKG_DIR/scripts/run_migration.sh" "$MIGRATION_PLAN_PATH"
@@ -55,7 +56,7 @@ Java 中间件优先复用已迁移的目标 Java 运行时；未就绪时按 re
 
 Agent 接管**必须**遵守：不改动 `scripts/` 下脚本与 `config/` 下配置（迁移流程不修改、Agent 接管亦不修改），仅在目标机操作产物目录、systemd 服务与配置文件。
 
-Agent **必须**调用 DevKit 包内 `scripts/run_handoff.sh`（完整命令由 `run_migration.sh` 退出码 3 时在 stderr 的 `[NEXT]` 指令给出）逐项串行补完接管项并汇总结果（可先用 `--dry-run` 查看接管项摘要）。生成 `middleware-agent-handoff.json` 后，`run_migration.sh` 以退出码 3 退出并打印 `[NEXT]` 指令；agent 必须按指令执行 `run_handoff.sh`，不得将其视为可选步骤或自行手动处理接管项。
+Agent **必须**调用 `scripts/run_handoff.sh`（已由本仓库权威源覆盖 DevKit 包内同名脚本；完整命令由 `run_migration.sh` 退出码 3 时在 stderr 的 `[NEXT]` 指令给出）补完接管项并汇总结果（可先用 `--dry-run` 查看接管项摘要）。生成 `middleware-agent-handoff.json` 后，`run_migration.sh` 以退出码 3 退出并打印 `[NEXT]` 指令；agent 必须按指令执行 `run_handoff.sh`，不得将其视为可选步骤或自行手动处理接管项。`run_handoff.sh` 支持两种闭环模式，见下方第 4 条。
 
 #### Agent 接管项处理规则（硬性约束，必须逐条遵守）
 
@@ -66,7 +67,13 @@ Agent **必须**调用 DevKit 包内 `scripts/run_handoff.sh`（完整命令由 
 1. **只读 `middleware-agent-handoff.json` 的 `reason`、`exit_code`、`diagnostics` 定位根因**，按 `exit_code` 分流（诊断字段与分流动作详见 `reference/middleware_handoff_playbook.md`）。
 2. **恢复配置只从采集包取**：按清单 `source_dir` 对应组件的采集制品恢复到目标部署目录（目录取自清单 `deploy_dir` 字段，勿自行推断）。**禁止**用 `find`/`glob` 重新搜索同名文件，禁止用目标机已存在文件反推配置。
 3. **仅当第 1、2 步信息不足时才查目标机现状**，且只允许最小核对（系统包是否已装、服务状态、端口监听）。查完即修复并启动验证，不再追问无关信息。
-4. **必须产出单任务处理器脚本**并交给 `run_handoff.sh <handoff.json> <处理器脚本>` 执行。**禁止**在调用 `run_handoff.sh` 之前手工修改 systemd 服务、部署目录或配置文件来绕过汇总闭环。
+4. **闭环必须经 `run_handoff.sh`**，二选一：
+   - **直接操作模式**（推荐用于单 item 或需多轮观察的修复）：Agent 用自身能力在目标机操作（边做边观察边修），每完成一项立即调
+     `run_handoff.sh record <handoff.json> <item-index> --exit-code <N> [--log <操作日志路径>] [--note "<一句话说明>"]`
+     登记；全部登记完自动 finalize 生成 `middleware-agent-handoff-result.json`。操作日志建议把关键命令 `tee` 到 per-item 文件并作为 `--log` 引用，以便审计。
+   - **脚本载体模式**（推荐用于多 item、批量同类修复或需可重放审计的危险操作）：产出单任务处理器脚本交
+     `run_handoff.sh <handoff.json> <处理器脚本>` 执行，处理器脚本接收单项 JSON 路径为唯一参数，`exit 0` 视为成功。
+   两种模式都禁止"操作后不登记就跳过汇总"；闭环以 `middleware-agent-handoff-result.json` 为准。
 
 ## 输出
 
@@ -109,7 +116,7 @@ scripts/
 ├── migrate_besappserver.sh   # BES AppServer 迁移：专用安装、依赖 JDK、健康检查
 ├── migrate_package.sh        # 通用包迁移(Nginx/Redis/ES 等)：yum/apt/源码编译、配置恢复、systemd 注册
 ├── migrate_generic.sh        # 兜底通用迁移：未登记产品走此脚本，尽力安装与配置恢复
-├── run_handoff.sh            # Agent 接管清单调度器：逐项串行调用单任务处理器并汇总结果
+├── run_handoff.sh            # Agent 接管清单调度器：支持脚本载体模式（逐项串行调用处理器）与直接操作模式（record/finalize 登记）
 └── lib/
     ├── common.sh             # 公共函数：部署目录推导、依赖管理、服务启停、冲突处理、日志等
     ├── transform_plan.py     # 将 migration-plan.json 转换为内部统一格式，含产品名标准化
