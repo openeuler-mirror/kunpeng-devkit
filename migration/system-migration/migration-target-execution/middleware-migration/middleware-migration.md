@@ -4,15 +4,12 @@
 
 ## 入口
 
-`run_migration.sh` 部署在 DevKit 工具包内（预检按 plan 的 `migration_tools` 下载解包到 `$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/`，DevKit 包内固定相对路径 `toolscript/migration-target-execution/middleware-migration/scripts/run_migration.sh`）。DevKit 包内 `middleware-migration/` 自带 `.sh` 脚本与 `scripts/lib/common.sh`；`scripts/lib/*.py`、`config/`、`reference/`、`scripts/run_handoff.sh` 维护在本仓库 `middleware-migration/` 下，其中 `run_handoff.sh` 由本仓库权威源覆盖 DevKit 包内同名脚本，以支持直接操作模式（record/finalize 登记）。
-
-执行中间件迁移 skill 时，调用方先把本仓库的 `scripts/lib/*.py`、`config/`、`reference/`、`scripts/run_handoff.sh` 复制到 DevKit 包 `middleware-migration/` 对应位置（使运行期结构完整，`run_migration.sh` 按 `BASH_SOURCE` 自定位 `SKILL_DIR` 后可同根直取），再调用：
+`run_migration.sh` 等全部 `.sh` 脚本（含 `scripts/lib/common.sh`、`scripts/run_handoff.sh`）均部署在 DevKit 工具包内（预检按 plan 的 `migration_tools` 下载解包，完整路径见下方命令）；本仓库 `middleware-migration/` 只维护 `scripts/lib/*.py`、`config/`、`reference/`（见文末"本仓库维护文件"），运行前复制到包内对应位置：
 
 ```bash
 MW_PKG_DIR="$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/toolscript/migration-target-execution/middleware-migration"
 REPO_MW_DIR="<本仓库>/migration/system-migration/migration-target-execution/middleware-migration"
 cp "$REPO_MW_DIR"/scripts/lib/*.py "$MW_PKG_DIR/scripts/lib/"
-cp "$REPO_MW_DIR"/scripts/run_handoff.sh "$MW_PKG_DIR/scripts/"
 cp -r "$REPO_MW_DIR"/config "$MW_PKG_DIR"/
 cp -r "$REPO_MW_DIR"/reference "$MW_PKG_DIR"/
 bash "$MW_PKG_DIR/scripts/run_migration.sh" "$MIGRATION_PLAN_PATH"
@@ -29,7 +26,7 @@ bash "$MW_PKG_DIR/scripts/run_migration.sh" "$MIGRATION_PLAN_PATH"
 | 0 | 全部成功 | 流程结束 |
 | 1 | 存在失败项且无 handoff、无阻塞 | 读 `batch_migration_summary.json` 排查，按需重试 |
 | 2 | 冲突待确认或 License 阻塞 | 读 `middleware-action-required.json`，向用户确认后重跑 |
-| 3 | 有 Agent 接管项 | **必须**执行 `run_handoff.sh` 补完（见下方"未登记中间件与 Agent 接管"） |
+| 3 | 有 Agent 接管项 | **必须**执行 `run_handoff.sh` 补完（见下方"迁移失败与 Agent 接管"） |
 
 退出码 3 时 `run_migration.sh` 会在 stderr 打印 `[NEXT]` 指令与完整命令，直接照执行即可。生成 `middleware-agent-handoff.json` 不代表流程结束，只有 `run_handoff.sh` 产出的 `middleware-agent-handoff-result.json` 才标志闭环完成。
 
@@ -56,7 +53,7 @@ Java 中间件优先复用已迁移的目标 Java 运行时；未就绪时按 re
 
 Agent 接管**必须**遵守：不改动 `scripts/` 下脚本与 `config/` 下配置（迁移流程不修改、Agent 接管亦不修改），仅在目标机操作产物目录、systemd 服务与配置文件。
 
-Agent **必须**调用 `scripts/run_handoff.sh`（已由本仓库权威源覆盖 DevKit 包内同名脚本；完整命令由 `run_migration.sh` 退出码 3 时在 stderr 的 `[NEXT]` 指令给出）补完接管项并汇总结果（可先用 `--dry-run` 查看接管项摘要）。生成 `middleware-agent-handoff.json` 后，`run_migration.sh` 以退出码 3 退出并打印 `[NEXT]` 指令；agent 必须按指令执行 `run_handoff.sh`，不得将其视为可选步骤或自行手动处理接管项。`run_handoff.sh` 支持两种闭环模式，见下方第 4 条。
+Agent **必须**调用 `scripts/run_handoff.sh` 补完接管项并汇总结果（完整命令由 `run_migration.sh` 退出码 3 时在 stderr 的 `[NEXT]` 指令给出，可先用 `--dry-run` 查看接管项摘要），不得将其视为可选步骤或自行手动处理接管项。`run_handoff.sh` 支持两种闭环模式，见下方第 4 条。
 
 #### Agent 接管项处理规则（硬性约束，必须逐条遵守）
 
@@ -104,21 +101,16 @@ middleware/reports/middleware-agent-handoff-result.json
 
 单项失败不阻止其他可执行项，批次最终状态和退出码反映整体结果。
 
-## 脚本说明
+## 本仓库维护文件
 
 ```text
 scripts/
-├── run_migration.sh          # 批量迁移入口：解析 plan、排序(JDK优先)、逐项调度、冲突预检、汇总输出
-├── init_context.sh           # 初始化 SKILL_DIR/RUN_ID 等运行环境
-├── migrate_jdk.sh            # JDK/JRE 迁移：安装 Java 运行时，设置 JAVA_HOME
-├── migrate_javamiddleware.sh # 通用 Java 中间件迁移(Tomcat/Resin/Nacos/RocketMQ)：依赖 JDK、配置 systemd、恢复配置
-├── migrate_tongweb.sh        # TongWeb 迁移：专用安装、依赖 JDK、健康检查
-├── migrate_besappserver.sh   # BES AppServer 迁移：专用安装、依赖 JDK、健康检查
-├── migrate_package.sh        # 通用包迁移(Nginx/Redis/ES 等)：yum/apt/源码编译、配置恢复、systemd 注册
-├── migrate_generic.sh        # 兜底通用迁移：未登记产品走此脚本，尽力安装与配置恢复
-├── run_handoff.sh            # Agent 接管清单调度器：支持脚本载体模式（逐项串行调用处理器）与直接操作模式（record/finalize 登记）
 └── lib/
-    ├── common.sh             # 公共函数：部署目录推导、依赖管理、服务启停、冲突处理、日志等
     ├── transform_plan.py     # 将 migration-plan.json 转换为内部统一格式，含产品名标准化
     └── registry_query.py     # registry 查询工具，解析 middleware_registry.json
+config/
+└── middleware_registry.json  # 中间件登记与迁移策略
+reference/
+    ├── middleware_handoff_playbook.md  # Agent 接管项诊断与分流手册
+    └── middleware_issues.md            # 已知问题与排查
 ```
