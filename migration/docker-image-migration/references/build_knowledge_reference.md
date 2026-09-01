@@ -30,6 +30,7 @@
 - [18. C 扩展 / native 库降级](#18-c-扩展--native-库降级)
 - [19. Dockerfile 编写原则](#19-dockerfile-编写原则)
 - [20. 构建命令速查](#20-构建命令速查)
+- [20.1 容器 DNS 解析失败](#201-容器-dns-解析失败)
 - [21. 运行时测试分层策略](#21-运行时测试分层策略)
 - [22. 增量 patch 镜像（避免全量重建）](#22-增量-patch-镜像)
 - [23. 磁盘管理](#23-磁盘管理)
@@ -57,17 +58,18 @@
 ## 1. 快速失败判定
 
 > **STEP 0: 在应用以下快速失败规则前，必须先检索本文档其余章节**，确认报错条件是否有已知修复方案：
+>
 > - 例如：`ARCH_INCOMPATIBILITY` 触发时，检查 37（闭源替代方案）、38（版本升级）是否有对应映射
 > - 例如：`NO_ARM64_SUPPORT` 触发时，检查 37-38 是否有替代品或新版本
 > - 仅在确认所有已知修复路径均不适用后，再执行以下快速失败判定。
 
 以下情况**在 BUILD_KNOWLEDGE 无匹配修复方案时**标记 FAILED：
 
-| 条件 | failure_reason | 判断方式 |
-|------|----------------|----------|
-| 基础镜像无 ARM64 manifest | `NO_ARM64_SUPPORT` | `docker manifest inspect <img> \| grep -c "arm64"` 返回 0 |
-| Android 项目（aapt2/d8/R8 工具链） | `ARCH_INCOMPATIBILITY` | image_env 含 `ANDROID_HOME` 或 `build-tools/` |
-| Ruby 项目要求高版本 Ruby 但基础镜像版本低（如 2.6） | `VERSION_INCOMPATIBILITY` | 依赖分析 |
+| 条件                                                | failure_reason            | 判断方式                                                  |
+| --------------------------------------------------- | ------------------------- | --------------------------------------------------------- |
+| 基础镜像无 ARM64 manifest                           | `NO_ARM64_SUPPORT`        | `docker manifest inspect <img> \| grep -c "arm64"` 返回 0 |
+| Android 项目（aapt2/d8/R8 工具链）                  | `ARCH_INCOMPATIBILITY`    | image_env 含 `ANDROID_HOME` 或 `build-tools/`             |
+| Ruby 项目要求高版本 Ruby 但基础镜像版本低（如 2.6） | `VERSION_INCOMPATIBILITY` | 依赖分析                                                  |
 
 > 网络超时会让 `manifest inspect` 返回空，不能据此判定不支持。以下常见 Docker Hub 官方镜像族可进入最小构建探测，但最终仍需补充 manifest 或等价平台证据：
 > `python` / `node` / `ubuntu` / `debian` / `golang` / `rust` / `ruby` / `php` / `openjdk` /
@@ -94,16 +96,17 @@
 
 ### 2.2 操作系统 apt 源
 
-| OS | 必须替换为 |
-|----|----------|
-| Ubuntu 20.04 (focal) ARM | `mirrors.aliyun.com/ubuntu-ports` |
+| OS                       | 必须替换为                                                   |
+| ------------------------ | ------------------------------------------------------------ |
+| Ubuntu 20.04 (focal) ARM | `mirrors.aliyun.com/ubuntu-ports`                            |
 | Ubuntu 22.04 (jammy) ARM | `mirrors.aliyun.com/ubuntu-ports`（替换 `ports.ubuntu.com`） |
 | Ubuntu 24.04 (noble) ARM | `ports.ubuntu.com/ubuntu-ports` → `mirrors.aliyun.com/ubuntu-ports` |
-| Debian 12 (bookworm) | 清华源（DEB822 格式，见本节模板） |
-| Debian 11 (bullseye) | 清华源；**必须删除 security 行** `sed -i '/security/d' /etc/apt/sources.list` |
-| Debian 10 (buster) EOL | 阿里云归档源 + `Acquire::Check-Valid-Until false` |
+| Debian 12 (bookworm)     | 清华源（DEB822 格式，见本节模板）                            |
+| Debian 11 (bullseye)     | 清华源；**必须删除 security 行** `sed -i '/security/d' /etc/apt/sources.list` |
+| Debian 10 (buster) EOL   | 阿里云归档源 + `Acquire::Check-Valid-Until false`            |
 
 **Ubuntu ARM64 模板**：
+
 ```dockerfile
 RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu-ports|g' \
         /etc/apt/sources.list \
@@ -113,6 +116,7 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu-
 ```
 
 **Debian 12 bookworm DEB822 模板**：
+
 ```dockerfile
 # 正确：用 printf '%s\n' 确保每行正确输出（单引号中 \n 不会被 shell 解析）
 RUN printf '%s\n' \
@@ -131,6 +135,7 @@ RUN printf '%s\n' \
 ```
 
 **Debian 10 buster EOL 模板**：
+
 ```dockerfile
 RUN echo "deb https://mirrors.aliyun.com/debian-archive/debian buster main contrib non-free" > /etc/apt/sources.list \
     && echo "deb https://mirrors.aliyun.com/debian-archive/debian-security buster/updates main contrib non-free" >> /etc/apt/sources.list \
@@ -140,17 +145,18 @@ RUN echo "deb https://mirrors.aliyun.com/debian-archive/debian buster main contr
 
 ### 2.3 语言包源
 
-| 语言 | 镜像源 |
-|------|-------|
-| Python (pip) | `https://mirrors.aliyun.com/pypi/simple/` |
-| Node.js (npm) | `https://registry.npmmirror.com` |
-| Rust (cargo) | `sparse+https://rsproxy.cn/index/` |
-| PHP (Composer) | `https://mirrors.aliyun.com/composer/` |
-| Java (Maven) | 阿里云 central mirror（见本节模板） |
-| Ruby (gem) | `https://mirrors.aliyun.com/rubygems/` |
+| 语言                 | 镜像源                                                       |
+| -------------------- | ------------------------------------------------------------ |
+| Python (pip)         | `https://mirrors.aliyun.com/pypi/simple/`                    |
+| Node.js (npm)        | `https://registry.npmmirror.com`                             |
+| Rust (cargo)         | `sparse+https://rsproxy.cn/index/`                           |
+| PHP (Composer)       | `https://mirrors.aliyun.com/composer/`                       |
+| Java (Maven)         | 阿里云 central mirror（见本节模板）                          |
+| Ruby (gem)           | `https://mirrors.aliyun.com/rubygems/`                       |
 | DevKit RPM (Kunpeng) | `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/` |
 
 **cargo 镜像模板**：
+
 ```dockerfile
 RUN mkdir -p ~/.cargo && cat > ~/.cargo/config.toml << 'EOF'
 [source.crates-io]
@@ -163,6 +169,7 @@ EOF
 ```
 
 **Maven settings.xml 模板**：
+
 ```dockerfile
 RUN mkdir -p ~/.m2 && cat > ~/.m2/settings.xml << 'EOF'
 <settings>
@@ -183,10 +190,12 @@ EOF
 ## 3. apt / 系统包错误
 
 ### `E: Unable to locate package`
+
 - **原因**：包名含 `:amd64` 后缀，或使用了 x86_64 专属包名
 - **修复**：去掉 `:amd64` 后缀；`binutils-x86-64-linux-gnu` → `binutils`
 
 **必须删除的 amd64 特有后缀/包名**：
+
 ```text
 :amd64                    → 删除后缀（apt 自动选 arm64 变体）
 x86_64-linux-gnu          → 改为 aarch64-linux-gnu（或让 apt 自动选）
@@ -196,18 +205,22 @@ libasan5:amd64            → libasan8（或对应 arm 版本）
 ```
 
 ### `Release file does not have a Release` / `404 Not Found` (apt update)
+
 - **原因 A**：Debian buster EOL，默认源已下线
 - **修复 A**：换阿里云归档源 + `Acquire::Check-Valid-Until false`（见 2.1 模板）
 - **原因 B**：Debian bullseye security 源失效
 - **修复 B**：`sed -i '/security/d' /etc/apt/sources.list`
 
 ### `No system certificates available` (apt update HTTPS 源)
+
 - **原因**：容器初始无 ca-certificates，HTTPS 源不可用
 - **修复**：先用 `http://` 源安装 ca-certificates，再换 HTTPS
 
 ### apt 源被 nodesource 脚本重置
+
 - **原因**：安装 Node.js 时 nodesource 脚本重写 apt 源
 - **修复**：不用 nodesource 脚本，直接从 npmmirror 镜像站下载官方 arm64 tar 包（国内访问快）：
+
 ```dockerfile
 # Node.js 官方源 nodejs.org 国内极慢，改用 npmmirror 镜像加速
 ENV NODE_VERSION=20.18.0
@@ -219,8 +232,10 @@ RUN curl -fsSL --max-time 300 --retry 3 \
 ```
 
 ### Docker CE 安装 SSL 握手失败（`SSL handshake failed` / `GPG key fetch failed`）
+
 - **原因**：国内网络访问 `download.docker.com` 或 `get.docker.com` TLS 握手失败
 - **修复**：改用 `docker.io`（Ubuntu 官方 apt 源内置包），功能完全等价：
+
 ```dockerfile
 # 失败：download.docker.com SSL handshake failed
 RUN curl -fsSL https://get.docker.com | sh
@@ -235,31 +250,39 @@ RUN apt-get update && apt-get install -y docker.io docker-compose \
 ## 4. pip / Python 错误
 
 ### `error: externally-managed-environment`
+
 - **原因**：PEP 668，Debian bookworm 上系统 Python 受保护
 - **修复**：加 `--break-system-packages`；或改用 venv：
+
 ```dockerfile
 RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install ...
 ```
 
 ### `no such option: --break-system-packages`
+
 - **原因**：pip 版本 < 22.1
 - **修复**：去掉该选项；或先 `pip install --upgrade pip`
 
 ### `could not find a version that satisfies the requirement`
+
 - **原因**：pip 包无 ARM64 wheel
 - **修复**：`--no-binary :all:` 从源码构建；或降/升版本找有 aarch64 wheel 的版本
 
 ### `pip install -e .` 导致大依赖重新解析（耗时数十分钟）
+
 - **修复**：先单独安装大包，再用 `--no-deps` 只注册包：
+
 ```dockerfile
 RUN pip3 install "torch==2.6.0" ...   # 先单独安装
 RUN pip3 install -e . --no-deps       # 只注册，不重新解析
 ```
 
 ### `deadsnakes PPA` 不支持 ARM64（Python 3.7-3.12）
+
 - **原因**：`ppa:deadsnakes/ppa` 仅发布 x86_64 deb，ARM64 无法通过 apt 安装非系统默认版本
 - **修复方案 A**（推荐）：使用系统自带 Python 版本（Ubuntu 22.04 → python3.10，Ubuntu 24.04 → python3.12）
 - **修复方案 B**：从 python.org 源码编译（适用于必须使用特定版本如 3.8/3.9）：
+
 ```dockerfile
 ENV PYTHON_VERSION=3.8.20
 RUN wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
@@ -267,11 +290,14 @@ RUN wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[
     && cd /usr/src/python && ./configure --enable-optimizations --enable-shared --with-ensurepip \
     && make -j $(nproc) && make install && ldconfig && rm -rf /usr/src/python python.tar.xz
 ```
+
 > 源码编译耗时 **10-20 分钟**，仅在必须使用特定版本时采用
 
 ### Poetry / pip bootstrap 脚本超时（`install.python-poetry.org` / `bootstrap.pypa.io`）
+
 - **原因**：官方 bootstrap 脚本依赖特定 CDN，网络不稳定时易超时
 - **修复**：
+
 ```dockerfile
 # Poetry 改用 pip 安装
 RUN pip install poetry -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
@@ -286,9 +312,11 @@ RUN python3.7 -m ensurepip && python3.7 -m pip install --upgrade pip \
 ## 5. CUDA / GPU 包处理
 
 **默认鲲鹏 CPU 场景不使用 NVIDIA GPU，以下包按配置移除**：
+
 - 前缀匹配删除：`nvidia-`、`triton`、`cuda-`、`cudnn`、`nccl`
 
 **PyTorch CUDA 版 → CPU-only 版替换**：
+
 ```dockerfile
 # 删除 CUDA 版，安装 CPU-only 版
 RUN pip3 install \
@@ -299,17 +327,20 @@ RUN pip3 install \
 
 **常见 torch CUDA 版本映射**：
 
-| CUDA 版 | CPU-only 替代 |
-|---------|-------------|
-| `2.8.0+cu124` / `2.7.0+cu124` / `2.6.0+cu124` | `2.6.0` |
-| `2.5.0+cu121` / `2.4.0+cu121` | `2.4.1` |
-| `2.3.0+cu121` | `2.3.1` |
-| `2.2.0+cu121` | `2.2.2` |
-| `2.1.0+cu118` | `2.1.2` |
-| `2.0.0+cu118` | `2.0.1` |
-| 其他 `+cuXXX` 版本 | 去掉 `+cuXXX` 后缀，保留主版本号 |
+| CUDA 版                                       | CPU-only 替代                                                |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| `2.8.0+cu124` / `2.7.0+cu124` / `2.6.0+cu124` | `2.6.0`                                                      |
+| `2.5.0+cu121` / `2.4.0+cu121`                 | `2.4.1`                                                      |
+| `2.3.0+cu121`                                 | `2.3.1`                                                      |
+| `2.2.0+cu121`                                 | `2.2.2`                                                      |
+| `2.1.0+cu118`                                 | `2.1.2`                                                      |
+| `2.0.0+cu118`                                 | `2.0.1`                                                      |
+| 其他 `+cuXXX` 版本                            | 去掉 `+cuXXX` 后缀，保留主版本号；先验证 CPU-only 包是否存在 |
+
+> 完整映射配置见 [config_reference.md](references/config_reference.md) §6 `TORCH_VERSION_MAP`。
 
 **ENV 变量同步删除**：
+
 ```text
 CUDA_VERSION=*    → 删整行
 NVIDIA_*=*        → 删整行
@@ -335,15 +366,16 @@ E. 运行时报错：illegal instruction / SIGILL / UnsatisfiedLinkError
 
 **处理动作**——按 .so 类型分三类处理：
 
-| 类型 | 判断方式 | 处理策略 |
-|------|---------|----------|
-| **功能无关 / 可选插件**（如调试工具、性能分析 so） | 去掉后容器核心功能不受影响 | 注释掉 COPY/RUN 行，追加 `# [WARN-X86-NATIVE-SO]`，报告中记录 |
+| 类型                                                    | 判断方式                                   | 处理策略                                                     |
+| ------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------ |
+| **功能无关 / 可选插件**（如调试工具、性能分析 so）      | 去掉后容器核心功能不受影响                 | 注释掉 COPY/RUN 行，追加 `# [WARN-X86-NATIVE-SO]`，报告中记录 |
 | **功能相关 / 有公开替代版本**（如 LWJGL、sqlite、zstd） | 有已知 aarch64 release 或上游提供 arm64 包 | 替换为 aarch64 版本，追加 `# [FIXED-SO-REPLACED-AARCH64]`，报告中说明 |
-| **自研 so / 无公开来源**（闭源二进制、内部 SDK） | 无法找到 arm64 等价物 | **分情况处理**：<br>• 有源码 → 在 Dockerfile 中补充 `RUN make / cmake` 重新编译，追加 `# [WARN-CUSTOM-SO-RECOMPILED]`<br>• 无源码 → **标记迁移失败** `FAILED(PROPRIETARY_X86_SO)`，报告中注明该 so 路径和来源，不可自动处理 |
+| **自研 so / 无公开来源**（闭源二进制、内部 SDK）        | 无法找到 arm64 等价物                      | **分情况处理**：<br>• 有源码 → 在 Dockerfile 中补充 `RUN make / cmake` 重新编译，追加 `# [WARN-CUSTOM-SO-RECOMPILED]`<br>• 无源码 → **标记迁移失败** `FAILED(PROPRIETARY_X86_SO)`，报告中注明该 so 路径和来源，不可自动处理 |
 
 > **禁止将功能相关的 so 直接注释删除**——必须先评估影响，再按上表选择策略。
 
 **JAR 内 native .so 检查与替换（Java 项目）**：
+
 ```bash
 # 检查 JAR 内是否含 x86_64 native 库
 unzip -l <path>.jar | grep -E "\.so|\.dll|linux"
@@ -358,20 +390,25 @@ zip -j <jar_path> <aarch64_so_files>
 ## 7. Java / Maven / Gradle 错误
 
 ### `Source option 6 is no longer supported. Use 7 or later`
+
 - **原因**：pom.xml 中 `maven.compiler.source=1.6`，但 JDK 11+ 最低支持 Java 7
 - **修复**：`./mvnw install -Dmaven.compiler.source=8 -Dmaven.compiler.target=8 -DskipTests -q`
 
 ### `Detected Maven Version: 3.6.3 is not in the allowed range [3.9.0,)`
+
 - **原因**：apt 默认安装的 Maven 版本过旧
 - **修复**：从阿里云镜像手动下载 Maven 3.9.x：`mirrors.aliyun.com/apache/maven/maven-3/3.9.x/`
 
 ### `wget 404`（Maven 下载）
+
 - **原因**：阿里云 Apache Maven 镜像路径不对
 - **修复**：改用 `https://archive.apache.org/dist/maven/maven-3/...` 直接下载
 
 ### `java.lang.IllegalStateException: Cannot define class using reflection`
+
 - **原因**：Mockito 2.x 等老版本使用 `Unsafe.defineClass`，JDK 11+ 抛出异常
 - **修复**：安装 JDK 8 Temurin ARM64：
+
 ```dockerfile
 RUN curl -sL https://api.adoptium.net/v3/binary/latest/8/ga/linux/aarch64/jdk/hotspot/normal/eclipse \
     -o /tmp/jdk8.tar.gz \
@@ -382,20 +419,25 @@ ENV JAVA_HOME=/opt/java8
 ```
 
 ### `package com.sun.tools.javac does not exist` / `com.sun:tools` 依赖
+
 - **原因**：JDK 9+ 移除了 `tools.jar`
 - **修复**：同上，安装 JDK 8 Temurin ARM64（tools.jar 在 JDK 8 中可用）
 
 ### Android Build Tools（`aapt2`/`d8`/`R8`）host 架构不匹配
+
 - **原因**：项目锁定的 Build Tools 可能只提供与当前构建机不兼容的 host 二进制。
 - **处理**：先检查当前版本的实际制品、可升级版本和远程/原生构建方案；只有必需工具仍无可执行 ARM64 版本且无替代构建路径时，才使用 `status=FAILED, failure_reason=ARCH_INCOMPATIBILITY`。
 
 ### Gradle daemon OOM（`Build daemon disappeared unexpectedly`）
+
 - **原因**：大型 Gradle 项目，Docker VM 内存有限，Kotlin 编译进程 OOM
 - **修复**：减少并发 `--parallel --max-workers=2`；排除不需要的模块 `-x :module:test`
 
 ### 构建成功但实为 mvn 失败（`exit 0` 但测试未执行）
+
 - **原因**：使用了 `./mvnw install 2>&1 | tail -20`，管道吞掉退出码
 - **修复**：去掉管道，改用 `-q` 安静模式：
+
 ```dockerfile
 # 错误：管道吞掉退出码
 RUN ./mvnw install 2>&1 | tail -20
@@ -405,12 +447,15 @@ RUN ./mvnw install -DskipTests -T 2C -q
 ```
 
 ### `application not found`（dotnet restore）
+
 - **原因**：`global.json` 锁定的 SDK 在目标环境不可用。
 - **修复**：先安装匹配 SDK，或在项目允许时调整 `global.json` 的版本/rollForward 策略并保存 diff。删除 `global.json` 会改变 SDK 选择规则，禁止作为默认修复。
 
 ### Gradle / Maven 构建缓存清理（避免 ARM64 跨架构缓存污染）
+
 - **原因**：宿主机 x86 构建产生的 Gradle/Maven 缓存被 COPY 到镜像内，ARM64 构建时读取导致二进制不兼容
 - **修复**：在 Dockerfile 中清除跨架构缓存：
+
 ```dockerfile
 # Gradle 缓存清理（放在 gradle build 层之前）
 RUN find ~/.gradle/caches -name "*.lock" -delete \
@@ -422,8 +467,10 @@ RUN find ~/.m2/repository -name "_maven.repositories" -delete \
 ```
 
 ### Gradle Kotlin 编译器 `Failed to create Kotlin daemon`
+
 - **原因**：Kotlin daemon 在 ARM64 容器中 JVM 内存配置不足或守护进程超时
 - **修复**：
+
 ```dockerfile
 ENV GRADLE_OPTS="-Dorg.gradle.daemon=false -Dkotlin.daemon.jvm.options=-Xmx512m"
 RUN ./gradlew build -x test --no-daemon
@@ -434,17 +481,21 @@ RUN ./gradlew build -x test --no-daemon
 ## 8. Node.js / npm 错误
 
 ### nodesource 安装后 apt 源被重置
+
 - **修复**：绕过 nodesource，直接下载 arm64 tar 包（见 3 末尾模板）
 
 ### `deepEqual` 比较失败但数据"看起来完全相同"
+
 - **原因**：ARM64 与 x86 浮点计算精度不同，末位数字有微小差异
 - **修复**：使用 `REGEN=1` 重新生成测试预期值（见 9）
 
 ### `Snapshot mismatched`（esbuild / bundler 跨架构差异）
+
 - **原因**：esbuild 等工具在 ARM64 和 x86 上代码生成策略不同
 - **修复**：见 10
 
 ### `Test timed out in 30000ms`（ARM64 编译性能差异）
+
 - **原因**：ARM64 上 WASM 编译等操作比 x86 慢 2-3 倍
 - **修复**：见 11
 
@@ -470,8 +521,10 @@ RUN curl -fsSL --max-time 300 --retry 3 \
 ```
 
 ### `npm install -g yarn` 在 Node 12 ARM64 失败（exit 1）
+
 - **原因**：Node 12 EOL，npm 5/6 在 ARM64 下安装全局包存在 path 问题
 - **修复**：从 yarnpkg.com 直接下载 tar 包安装：
+
 ```dockerfile
 ENV YARN_VERSION=1.22.17
 RUN curl -L -o /tmp/yarn.tar.gz \
@@ -483,8 +536,10 @@ RUN curl -L -o /tmp/yarn.tar.gz \
 ```
 
 ### NVM 安装脚本（GitHub）在网络隔离环境下失败
+
 - **原因**：`raw.githubusercontent.com` 或 `github.com` 不可达，`curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/vX/install.sh | bash` 卡死
 - **修复**：绕过 NVM，直接解压 Node tar 包到 `$NVM_DIR/versions/node/v$VERSION/` 并设置软链：
+
 ```dockerfile
 ENV NVM_DIR=/home/<user>/.nvm
 ENV NODE_VERSION=<x.y.z>
@@ -496,6 +551,7 @@ RUN mkdir -p ${NVM_DIR}/versions/node/v${NODE_VERSION} \
     && mkdir -p ${NVM_DIR}/alias && echo "v${NODE_VERSION}" > ${NVM_DIR}/alias/default
 ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}
 ```
+
 > `nvm use` 命令仍然可用；`node`/`npm` 命令通过 `PATH` 直接指向已解压的 bin 目录。
 
 ---
@@ -516,6 +572,7 @@ ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}
 ### 修复方案（按语言）
 
 **Java（AssertJ）**：
+
 ```java
 // ARM64 上失败
 assertThat(result).isEqualTo(2.0);
@@ -526,6 +583,7 @@ assertThat(result).isCloseTo(2.0, offset(1e-10));
 ```
 
 **JavaScript / TypeScript（tape 框架）**：
+
 ```bash
 # 用 REGEN=1 重新生成测试预期值
 docker run --rm <image> bash -c "cd /path/to/project && REGEN=1 npm test"
@@ -533,6 +591,7 @@ docker run --rm <image> bash -c "cd /path/to/project && REGEN=1 npm test"
 ```
 
 **Python（pytest）**：
+
 ```python
 # 失败
 assert result == 2.0
@@ -610,12 +669,15 @@ RUN node -e "
 ## 12. Rust / Cargo 错误
 
 ### `error: failed to fetch` / 下载速度 < 10 bytes/sec
+
 - **原因**：crates.io 在国内访问慢
 - **修复**：配置 rsproxy 镜像（见 2.2 cargo 模板）
 
 ### Rust 安装极慢：`static.rust-lang.org` 连接超时
+
 - **原因**：`rustup-init` 默认从 `static.rust-lang.org` 下载工具链，国内访问极慢
 - **修复**：在 `curl | sh` **之前**设置镜像环境变量：
+
 ```dockerfile
 ENV RUSTUP_DIST_SERVER=https://rsproxy.cn
 ENV RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup
@@ -625,11 +687,14 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- \
     && . $HOME/.cargo/env \
     && rustup --version && cargo --version
 ```
+
 > 环境变量必须在 `curl | sh` 之前声明；rsproxy 镜像速度通常比默认源快百倍以上。
 
 ### `cargo fetch` 极慢：crates.io-index 下载卡死
+
 - **原因**：crates.io 默认使用 git 协议克隆索引（几百 MB），国内网络不稳定时极慢
 - **修复**：配置 sparse 索引（与 2.2 cargo 模板相同）：
+
 ```dockerfile
 RUN mkdir -p ~/.cargo && cat > ~/.cargo/config.toml << 'EOF'
 [source.crates-io]
@@ -640,14 +705,18 @@ registry = "sparse+https://rsproxy.cn/index/"
 git-fetch-with-cli = true
 EOF
 ```
+
 > **sparse 协议只下载所需的依赖元数据**，相比 git clone 全量索引快得多。
 
 ### `cargo test` 下载外部数据超时
+
 - **适用条件**：集成测试在运行时下载外部数据，且迁移验收允许先验证离线单元测试。
 - **修复**：仅运行 library 单元测试，跳过依赖网络的集成测试：
+
 ```dockerfile
 CMD ["cargo", "test", "--lib", "--", "--nocapture"]
 ```
+
 - **验证**：记录被跳过的测试范围；不得用该结果宣称完整测试通过。
 
 ---
@@ -655,19 +724,25 @@ CMD ["cargo", "test", "--lib", "--", "--nocapture"]
 ## 13. Ruby / Gem 错误
 
 ### `sqlite3 >= 1.6 requires ruby >= 2.7`
+
 - **处理**：优先升级 Ruby 或选择项目声明支持的 sqlite3 版本。`force_ruby_platform` 只改变制品选择，不能解决语言版本约束；不得默认删除 `Gemfile.lock`。所有支持组合均不可用时才使用 `status=FAILED, failure_reason=VERSION_INCOMPATIBILITY`。
 
 ### `ffi requires Ruby >= 3.0`
+
 - **处理**：读取 Gemfile/Gemfile.lock 和上游兼容矩阵，选择项目支持的 Ruby 升级或 ffi 版本。禁止用不解析语法的 `sed` 直接改依赖声明。
 
 ### Gemfile Ruby 版本约束不满足（如 `ruby '3.2.2'`）
+
 - **处理**：使用满足约束的 ARM64 Ruby 基础镜像；只有项目维护者确认约束过严时才修改声明。删除版本约束不是默认迁移修复。
 
 ### `prism` / `psych` native 扩展编译失败
+
 - **处理**：从错误日志确认缺失头文件或工具链，再安装对应开发包（例如 `libyaml-dev`）并用原 lockfile 重试。只有依赖解析本身需要变更时才评估更新 lockfile。
 
 ### `Gem::RemoteFetcher::FetchError`（rubygems.org 下载超时）
+
 - **修复**：配置国内 Gem 镜像：
+
 ```dockerfile
 RUN gem sources --add https://mirrors.aliyun.com/rubygems/ \
     --remove https://rubygems.org/ \
@@ -675,6 +750,7 @@ RUN gem sources --add https://mirrors.aliyun.com/rubygems/ \
 ```
 
 ### Bundler 版本不兼容（`Your Gemfile requires Bundler version x.x.x`）
+
 - **修复**：安装 lockfile 要求的精确 Bundler 版本并验证；不要在失败后静默安装任意最新版。
 
 ```dockerfile
@@ -685,6 +761,7 @@ RUN gem install bundler -v <locked_version> \
 删除 `Gemfile.lock` 会重解析全部依赖，属于依赖基线变更，只能在用户确认后执行并保存完整 diff。
 
 ### `cannot load such file -- atomic_reference`（Ruby C 扩展）
+
 - **原因**：依赖可能加载了与目标架构不兼容的预编译扩展。
 - **修复候选**：升级到提供 ARM64 制品的版本、从源码重编译，或在上游明确支持时启用纯 Ruby 实现。
 
@@ -701,8 +778,10 @@ RUN bundle exec ruby -e "require 'concurrent'" \
 ## 14. C++ / CMake 错误
 
 ### `CMake 3.23 or higher is required. You are running version 3.16.3`
+
 - **原因**：Ubuntu 20.04 apt 源 cmake 版本过旧
 - **修复**：从 Kitware 下载 ARM64 安装包：
+
 ```dockerfile
 RUN wget -q https://cmake.org/files/v3.28/cmake-3.28.6-linux-aarch64.sh \
     && chmod +x cmake-3.28.6-linux-aarch64.sh \
@@ -711,19 +790,23 @@ RUN wget -q https://cmake.org/files/v3.28/cmake-3.28.6-linux-aarch64.sh \
 ```
 
 ### `ambiguous template instantiation` / 符号冲突
+
 - **原因**：手动安装的子依赖版本与项目期望版本不匹配
 - **修复**：使用 `git clone --recursive`，让项目自管理子模块
 
 ### `fatal: could not read Username for 'https://github.com'`
+
 - **原因**：Docker BuildKit 网络隔离，旧基础镜像无法访问外网
-- **修复**：加 `--network=host`；仍失败则判定 FAILED
+- **修复**：加 `--network=host`（由 `${BUILD_NET_ARG}` 注入，见 §20.1）；仍失败则判定 FAILED
 
 ---
 
 ## 15. PHP / Composer 错误
 
 ### `ext-bcmath * is missing` / `ext-gd * is missing`
+
 - **修复**：
+
 ```dockerfile
 RUN apt-get install -y libgd-dev \
     && docker-php-ext-install bcmath gd
@@ -744,8 +827,10 @@ RUN add-apt-repository ppa:ondrej/php \
 > ondrej PPA 支持 Ubuntu 20.04/22.04 ARM64。查证：`apt-cache policy php7.4`
 
 ### `Composer: Do not run Composer as root/super user!`
+
 - **原因**：部分 Composer 版本在 root 用户下拒绝运行
 - **修复**：
+
 ```dockerfile
 ENV COMPOSER_ALLOW_SUPERUSER=1
 RUN composer install --no-interaction
@@ -756,19 +841,24 @@ RUN composer install --no-interaction
 ## 16. Docker / 环境错误
 
 ### `invalid character '#'`（config.json 警告）
+
 - **修复**：`~/.docker/config.json` 中删除以 `#` 开头的行
 
 ### `content at ... not found`（前缀方式镜像仓内容缺失）
+
 - **修复**：改用 `daemon.json` 的 `registry-mirrors` 配置
 
 ### `exit code 145`（SIGTERM）
+
 - **原因**：旧的 kill 或超时命令杀掉了进程
 - **修复**：等进程完全退出后再启动新构建；用 `kill -- -$pid` 杀整个进程树
 
 ### Docker daemon 无响应
+
 - **处理**：先保存当前构建/容器证据并检查 daemon 状态、磁盘和并发任务。重启 Docker 或终止 daemon 会影响其他工作负载，必须获得用户确认；禁止默认执行 `kill -9`。
 
 ### Chrome 在 root 用户下无法启动（`--no-sandbox` 缺失）
+
 ```dockerfile
 RUN node -e "
   const fs = require('fs');
@@ -840,7 +930,6 @@ JAR 本身通常由 JVM 执行，但其依赖的浏览器、driver、JNI 库和�
 - **可选工具**：仅在用户允许对应功能缺失时跳过，记录 `[WARN-OPTIONAL-TOOL-MISSING]` 并覆盖相关运行验证。
 - **禁止**：使用 `|| true` 隐藏必需工具安装失败，或生成无真实功能的成功 stub。
 
-
 ---
 
 ## 17. 系统工具缺失
@@ -883,6 +972,7 @@ RUN apt-get update -qq && apt-get install -y --no-install-recommends \
 ### 修复
 
 **Python**：
+
 ```dockerfile
 ENV PURE_PYTHON=1
 # 或卸载并重装无二进制版本
@@ -943,25 +1033,33 @@ RUN pip3 install "networkx>=2.6" --quiet
 
 **已知版本兼容性问题**：
 
-| 包 | 原版本问题 | 修复方案 |
-|-----|----------|----------|
-| `networkx` 2.2 | Python 3.10 移除 `collections.Mapping` | 升级到 `networkx>=2.6` |
-| `gym` ≤ 0.19.x | 与 setuptools≥60 元数据不兼容 | 升级到 `gym==0.26.2` |
-| `golang:1.25-bookworm` | Go 1.25 尚未发布，镜像不存在 | 改用 `golang:1.24-bookworm` |
+| 包                     | 原版本问题                             | 修复方案                    |
+| ---------------------- | -------------------------------------- | --------------------------- |
+| `networkx` 2.2         | Python 3.10 移除 `collections.Mapping` | 升级到 `networkx>=2.6`      |
+| `gym` ≤ 0.19.x         | 与 setuptools≥60 元数据不兼容          | 升级到 `gym==0.26.2`        |
+| `golang:1.25-bookworm` | Go 1.25 尚未发布，镜像不存在           | 改用 `golang:1.24-bookworm` |
 
 ---
 
 ## 20. 构建命令速查
 
+> **构建网络与代理**：`docker build` 的 `RUN` 步骤运行在独立容器网络命名空间，其 DNS 解析器（daemon.json 的 `dns`）在该命名空间未必可达——典型表现是 `docker pull` 正常但 `pip install` / `npm install` / `apt-get` 报 `Temporary failure in name resolution`。构建命令统一使用启动门禁生成的 `BUILD_NET_CTX`：
+>
+> - `${BUILD_NET_ARG}`：网络参数。`BUILD_NET_MODE=host` 时为 `--network=host`，`bridge` 时为空串。
+> - `${BUILD_PROXY_ARGS}`：代理 build-arg。`BUILD_PROXY` 非空时展开为 `--build-arg HTTP_PROXY=<url> --build-arg HTTPS_PROXY=<url> --build-arg NO_PROXY=<no_proxy>`，否则为空串。
+> - **不要在场景文件中重新探测或硬编码网络/代理**，一律取自 `BUILD_NET_CTX`。daemon.json 的 `http-proxy` 只作用于 docker daemon 拉镜像，不注入构建容器，故代理必须经 `--build-arg` 传入。
+
 ```bash
-# 标准构建
+# 标准构建（${BUILD_NET_ARG} / ${BUILD_PROXY_ARGS} 由 BUILD_NET_CTX 注入）
 docker build --platform linux/arm64 \
+  ${BUILD_NET_ARG} ${BUILD_PROXY_ARGS} \
   -t <image>:latest \
   -f <path>/Dockerfile \
   <build_context>
 
 # 强制无缓存构建
 docker build --no-cache --platform linux/arm64 \
+  ${BUILD_NET_ARG} ${BUILD_PROXY_ARGS} \
   -t <image>:latest \
   -f <path>/Dockerfile \
   <build_context>
@@ -978,6 +1076,50 @@ df -h / | awk 'NR==2 {print $5}'
 docker system df
 ```
 
+### Dockerfile 接收代理 build-arg 模板
+
+当 `${BUILD_PROXY_ARGS}` 非空时，Dockerfile 必须声明对应 `ARG` 才能让 `RUN` 步骤中的包管理器识别代理（pip/npm/curl/apt 均自动读取 `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` 环境变量）：
+
+```dockerfile
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+# 之后所有 RUN 中的 pip install / npm install / apt-get / curl 自动走代理
+```
+
+> 这些 `ARG` 仅在构建阶段生效，不会写入最终镜像的环境变量，无需担心泄漏到运行时。
+
+### 构建 `--network=host` 注意事项
+
+- `--network=host` 让构建容器共享宿主机网络栈，绕开默认 bridge 网络中 DNS 不可达的问题，是「`docker pull` 正常但构建 RUN 报 DNS 解析失败」的首选修复。
+- BuildKit/buildx 的 `docker build` 支持 `--network=host`；若使用极旧 Docker（如 18.09 的 legacy builder）不支持，退回到修复 daemon.json 的 `dns` 为容器网络路径可达的解析器（优先宿主机实际使用的内网 DNS，见下方条目），改后 `systemctl restart docker`。
+- `--network=host` 下构建容器与宿主机共享端口空间，多项目并发构建若 Dockerfile 内有监听固定端口的 `RUN`（罕见）可能冲突；优先排查此类步骤而非回退网络模式。
+
+---
+
+## 20.1 容器 DNS 解析失败
+
+### `Temporary failure in name resolution` / `Could not resolve host`（构建容器内）
+
+- **症状**：`docker build` 的 `RUN pip install` / `npm install` / `apt-get update` 报 `Errno -3 Temporary failure in name resolution` 或 `Could not resolve host`；但同一台机器 `docker pull` / `docker manifest inspect` 正常。
+
+- **原因**：`docker pull` 由宿主机上的 docker daemon 执行，用宿主机网络栈解析 DNS；而 `docker build` 的 `RUN` 步骤运行在独立的容器网络命名空间，使用 daemon.json 配置的 `dns`（如 `8.8.8.8` / `114.114.114.114` / `223.5.5.5`），这些 DNS 在容器网络路径上不可达（防火墙/路由限制）。daemon.json 的 `http-proxy` 只注入 daemon，不注入构建容器，故代理对构建 RUN 无效。
+
+- **修复方案 A（首选，已在门禁固化）**：构建命令用 `--network=host`，让构建容器共享宿主机网络栈。门禁阶段已生成 `BUILD_NET_CTX`，直接用 `${BUILD_NET_ARG}` 注入：
+
+  ```bash
+  docker build --platform linux/arm64 ${BUILD_NET_ARG} ${BUILD_PROXY_ARGS} \
+    -t <image>:latest -f <path>/Dockerfile <build_context>
+  ```
+
+- **修复方案 B（需出网代理时）**：宿主机只能经代理出网时，`--network=host` 之外再用 `${BUILD_PROXY_ARGS}` 注入代理 build-arg，并在 Dockerfile 中声明 `ARG HTTP_PROXY/HTTPS_PROXY/NO_PROXY`（模板见 §20）。代理地址须用户确认。
+
+- **修复方案 C（治本，改默认 bridge DNS）**：把 daemon.json 的 `dns` 换成容器网络路径可达的解析器——优先宿主机实际在用的内网 DNS（`cat /etc/resolv.conf` 的 nameserver），改后 `systemctl restart docker`。留用不可达的公网 DNS 只会拖慢解析。
+
+- **验证**：构建 RUN 中域名解析成功且包安装完成即修复生效；记录实际使用的方案到报告 `build_command`。
+
+- **适用条件**：仅当 `BUILD_NET_CTX.build_net_mode=bridge` 且构建报 DNS 失败时回退到 A；门禁已判定 `host` 的项目无需重复处理。
+
 ---
 
 ## 21. 运行时测试分层策略
@@ -987,7 +1129,6 @@ docker system df
 ```bash
 # 层次 0：真实 ENTRYPOINT/CMD 启动验证（不覆盖原始命令）
 #   目的：确认镜像用自身 ENTRYPOINT/CMD 能正常启动，而非用 echo 等替换命令绕过
-#   先查 inspect 确认 EntryAnchored/Cmd 内容，再以 --entrypoint "" 起一个短暂容器看进程是否立即退出
 docker inspect <IMAGE> --format '{{.Config.Entrypoint}} {{.Config.Cmd}}'
 
 #   后台启动，不覆盖任何命令，等待数秒后检查进程存活
@@ -1002,7 +1143,7 @@ else
 fi
 docker rm -f test-real-<project> 2>/dev/null
 
-# 层次 1：容器可启动（覆盖命令的基础探活）
+# 层次 1：容器可启动
 docker run --rm --platform linux/arm64 <IMAGE> echo "Container OK"
 
 # 层次 2：核心模块可 import（Python 项目）
@@ -1029,13 +1170,13 @@ done
 
 **常见运行时崩溃快速修复**：
 
-| 错误 | 修复方案 |
-|------|---------|
-| `AttributeError: 'Env' object has no attribute 'seed'` | 删除 `env.seed()` 调用，改用 `env.reset(seed=...)` |
-| `ValueError: not enough values to unpack (expected 5, got 4)` | gym 0.26 step 返回 5-tuple，加兼容层 |
-| `libGL.so.1: cannot open shared object file` | `apt-get install -y libgl1-mesa-dri libgl1` |
-| `cannot connect to X server :99` | 加 `sleep 3` 等 Xvfb 启动 |
-| `AttributeError: module 'collections' has no attribute 'Mapping'` | `pip install "networkx>=2.6"` |
+| 错误                                                         | 修复方案                                           |
+| ------------------------------------------------------------ | -------------------------------------------------- |
+| `AttributeError: 'Env' object has no attribute 'seed'`       | 删除 `env.seed()` 调用，改用 `env.reset(seed=...)` |
+| `ValueError: not enough values to unpack (expected 5, got 4)` | gym 0.26 step 返回 5-tuple，加兼容层               |
+| `libGL.so.1: cannot open shared object file`                 | `apt-get install -y libgl1-mesa-dri libgl1`        |
+| `cannot connect to X server :99`                             | 加 `sleep 3` 等 Xvfb 启动                          |
+| `AttributeError: module 'collections' has no attribute 'Mapping'` | `pip install "networkx>=2.6"`                      |
 
 **层次 0 启动崩溃处理流程**：
 
@@ -1090,11 +1231,11 @@ RUN sed -i '/env\.seed(req\.seed)/d' /workspace/server.py
 DISK_USAGE=$(df -h / | awk 'NR==2 {gsub(/%/,""); print $5}')
 ```
 
-| 使用率 | 动作 |
-|--------|------|
-| < 80% | 正常执行 |
-| 80%–90% | 先清理再构建 |
-| > 90% | 强制暂停构建任务，提示必须先清理 |
+| 使用率  | 动作                             |
+| ------- | -------------------------------- |
+| < 80%   | 正常执行                         |
+| 80%–90% | 先清理再构建                     |
+| > 90%   | 强制暂停构建任务，提示必须先清理 |
 
 ### 清理顺序
 
@@ -1103,7 +1244,6 @@ DISK_USAGE=$(df -h / | awk 'NR==2 {gsub(/%/,""); print $5}')
 3. BuildKit 缓存：`docker builder prune -f --filter "until=24h"`
 4. 已验证完成的当前批次镜像
 
-
 ---
 
 ## 24. 大文件下载失败 / 构建容器 OOM（exit code 8 / 137）
@@ -1111,6 +1251,7 @@ DISK_USAGE=$(df -h / | awk 'NR==2 {gsub(/%/,""); print $5}')
 ### `wget/curl exit code 8 (Server error)` 或 `exit code 137 (SIGKILL)`
 
 - **原因 A**：构建容器内 `wget`/`curl` 下载大文件（>100MB），网络不稳定导致超时或 OOM
+
 - **原因 B**：并发构建时内存竞争，docker 系统资源不足
 
 - **修复**：**预下载到构建上下文，改用 COPY**
@@ -1141,7 +1282,6 @@ RUN tar -xzf /opt/elasticsearch.tar.gz -C /opt/ \
     && chown -R esuser:root /opt/elasticsearch
 ```
 
-
 ## 25. ca-certificates 缺失 / apt HTTPS 源兜底
 
 ### `SSL certificate verify failed` 或 `The certificate is not trusted`
@@ -1160,7 +1300,6 @@ RUN echo "deb http://mirrors.aliyun.com/debian trixie main" > /etc/apt/sources.l
 - **修复方案 B（仅临时诊断且需用户明确授权）**：全程使用 HTTP。该方案缺少传输加密，不应用于正式构建或生产交付。
 
 > Alpine 基础镜像通常已包含 `ca-certificates-bundle`，无此问题。
-
 
 ## 26. apt 镜像源替换不成功（403 / 404 / 不可用）
 
@@ -1192,7 +1331,6 @@ RUN apt-get install -y gnupg    # 失败！apt lists 已清除
 RUN apt-get update && apt-get install -y curl gnupg \
     && rm -rf /var/lib/apt/lists/*
 ```
-
 
 ## 27. keyserver 不可达 / GPG 密钥获取失败
 
@@ -1230,7 +1368,6 @@ gpg --keyserver keyserver.ubuntu.com --recv-keys ABCD...
 
 - **症状**：密钥下载返回 `401/402/403` 或持续不可达。
 - **处理**：不要跳过 GPG 校验。改用发行版已签名软件包、可信内部镜像，或从供应方官方渠道获取并校验固定密钥；仍无法建立信任链时停止该安装路径。
-
 
 ## 28. Erlang / RabbitMQ 兼容性
 
@@ -1271,7 +1408,6 @@ RUN if getent group 999; then \
 
 > 或使用多阶段构建（Erlang 在 stage 1，不会污染最终镜像的 GID 空间）。
 
-
 ## 29. Docker 18.09 兼容性约束
 
 ### 旧版 builder 不支持 `COPY --chmod`
@@ -1290,8 +1426,7 @@ RUN chmod 555 /usr/local/bin/entrypoint.sh
 
 ### 原生 ARM64 环境中的 `FROM --platform`
 
-- **原则**：原生 ARM64 构建可能在不写 `--platform` 时得到 ARM64 镜像，但为了跨 CI 可复现和避免基础镜像选择歧义，本 Skill 仍保留显式目标平台；只有兼容旧 builder 且执行环境已固定时才评估省略。
-
+- **原则**：本 Skill 保留显式 `--platform=linux/arm64`；只有旧 builder 不支持且执行环境已固定时才评估省略。
 
 ## 30. 多阶段构建：替换架构依赖的 JDK / Erlang / 语言运行时
 
@@ -1318,10 +1453,10 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 ```
 
 > 实际案例：
+>
 > - **Jenkins**：`COPY --from=eclipse-temurin:17-jdk` 替换 x86_64 JDK
 > - **RabbitMQ**：`COPY --from=erlang:26 /usr/local/lib/erlang` 替换 x86_64 Erlang/OTP
 > - **Elasticsearch**：`COPY --from=elasticsearch:8.11.1-arm64 /usr/share/elasticsearch` 替换整个 x86 发行版
-
 
 ## 31. 业务二进制替换：使用官方 aarch64 发行版替换整个应用
 
@@ -1332,11 +1467,11 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 
 ### 策略
 
-| 策略 | 适用条件 | 示例 |
-|------|---------|------|
-| **整包替换** | 官方有 aarch64 tar.gz/zip 发行版 | ES k8.11.1、Grafana 13.1.0、SonarQube 26.6.0 |
-| **打包管理器** | apt 仓库原生支持 arm64 | MongoDB 7.0、PostgreSQL 16、MySQL 8.0 |
-| **apt 替代下载** | GitHub 下载失败，apt 有 arm64 版本 | gosu（重编为 arm64 或用 `apt install gosu` 替代）|
+| 策略             | 适用条件                           | 示例                                              |
+| ---------------- | ---------------------------------- | ------------------------------------------------- |
+| **整包替换**     | 官方有 aarch64 tar.gz/zip 发行版   | ES k8.11.1、Grafana 13.1.0、SonarQube 26.6.0      |
+| **打包管理器**   | apt 仓库原生支持 arm64             | MongoDB 7.0、PostgreSQL 16、MySQL 8.0             |
+| **apt 替代下载** | GitHub 下载失败，apt 有 arm64 版本 | gosu（重编为 arm64 或用 `apt install gosu` 替代） |
 
 ### 整包替换模式
 
@@ -1353,7 +1488,6 @@ RUN tar -xzf /opt/app-${VERSION}-linux-aarch64.tar.gz -C /opt/ \
 ```
 
 > aarch64 tar.gz 可能缺少特定的运行时目录（如 ES 的 `data/`），参考 24。
-
 
 ## 32. QEMU 模拟性能陷阱
 
@@ -1383,26 +1517,25 @@ RUN ldconfig
 
 ### 其他 QEMU 下已知慢操作
 
-| 操作 | 速度 | 建议 |
-|------|------|------|
-| `apt-get update` + `install` | 可接受 | 正常使用 |
-| `pip install` | 可接受 | 正常使用（纯 Python 无 C 扩展） |
-| `rpmdb` 操作 | 极慢 | **跳过**，用 COPY 替代 |
-| `git clone` | 较慢 | 预下载或 COPY |
-| Go 程序（如 git-lfs）运行时 | 偶发 crash | **不要信任 QEMU 下的 crash 日志**，以原生 ARM 运行为准 |
-
+| 操作                         | 速度       | 建议                                                   |
+| ---------------------------- | ---------- | ------------------------------------------------------ |
+| `apt-get update` + `install` | 可接受     | 正常使用                                               |
+| `pip install`                | 可接受     | 正常使用（纯 Python 无 C 扩展）                        |
+| `rpmdb` 操作                 | 极慢       | **跳过**，用 COPY 替代                                 |
+| `git clone`                  | 较慢       | 预下载或 COPY                                          |
+| Go 程序（如 git-lfs）运行时  | 偶发 crash | **不要信任 QEMU 下的 crash 日志**，以原生 ARM 运行为准 |
 
 ## 33. 网络隔离环境下的二进制获取
 
 ### GitHub / 外网不可达时
 
-| 缺失资源 | 获取方式 |
-|---------|---------|
-| `gosu` | 从官方 ARM64 镜像提取（`docker cp` from `gosu:arm64`）或 `apt install gosu` |
-| `js-yaml` | 从 npmmirror.com 下载（`https://npmmirror.com/mirrors/js-yaml/`） |
-| GPG 密钥 | 从 x86 镜像提取（`docker cp` `.gpg.asc` / `.asc` 文件） |
+| 缺失资源            | 获取方式                                                     |
+| ------------------- | ------------------------------------------------------------ |
+| `gosu`              | 从官方 ARM64 镜像提取（`docker cp` from `gosu:arm64`）或 `apt install gosu` |
+| `js-yaml`           | 从 npmmirror.com 下载（`https://npmmirror.com/mirrors/js-yaml/`） |
+| GPG 密钥            | 从 x86 镜像提取（`docker cp` `.gpg.asc` / `.asc` 文件）      |
 | 架构无关的脚本/配置 | 从 x86 镜像提取（`docker cp` entrypoint.sh / config.conf 等） |
-| Node.js / JDK | 通过 DaoCloud 镜像拉取官方 ARM64 镜像 |
+| Node.js / JDK       | 通过 DaoCloud 镜像拉取官方 ARM64 镜像                        |
 
 ### `gosu` 下载失败的兜底
 
@@ -1416,7 +1549,6 @@ RUN apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 COPY _build_context/gosu /usr/local/bin/gosu
 RUN chmod +x /usr/local/bin/gosu
 ```
-
 
 ## 34. multi-stage 构建模式：处理不透明 COPY 层的 JDK 依赖
 
@@ -1447,7 +1579,6 @@ COPY _build_context/jenkins.sh /usr/local/bin/jenkins.sh
 > - `jenkins-plugin-manager.jar` 同理
 > - JDK 是唯一的架构相关的大文件
 
-
 ## 35. 总结：IMAGE_RECONSTRUCTION 构建修复决策树
 
 ```text
@@ -1462,6 +1593,7 @@ COPY _build_context/jenkins.sh /usr/local/bin/jenkins.sh
 │  ├─ 应用二进制 x86 ELF     → 31 (官方 aarch64 发行版)
 │  └─ GPG key 获取失败       → 27 (从 x86 镜像提取或 skip)
 ├─ 网络/资源错误
+│  ├─ 容器内 DNS 解析失败     → 20.1 (--network=host / 代理 build-arg / 改 daemon.json dns)
 │  ├─ wget/curl 超时/OOM     → 24 (预下载到 build context)
 │  ├─ GitHub 不可达          → 33 (从镜像提取或 apt 安装)
 │  └─ gosu 下载失败          → 33 (apt install gosu 或 docker cp)
@@ -1470,7 +1602,6 @@ COPY _build_context/jenkins.sh /usr/local/bin/jenkins.sh
 └─ 运行时 ABI 不匹配
    └─ Erlang/OTP 版本        → 28 (多阶段构建 + 官方 erlang 镜像)
 ```
-
 
 ## 36. Dockerfile 语法陷阱
 
@@ -1491,37 +1622,36 @@ FROM --platform=linux/arm64 alpine:latest
 
 > 此规则同样适用于多阶段构建中的其他 `FROM` 指令及 `COPY --from=` 行。
 
-
 ## 37. 闭源软件 ARM64 替代方案模式
 
 > **通用原则**：当 x86_64-only 的闭源/商业软件在 ARM64 上无官方构建时，按以下优先级寻找替代。
 
 ### 37.1 替代策略优先级
 
-| 优先级 | 策略 | 示例 |
-|--------|------|------|
-| 1 | apt 官方源中同名或等价的 ARM64 包 | `google-chrome-stable` → `chromium` |
-| 2 | 社区 fork / 开源替代（有原生 ARM64 构建） | `Atom` → `Pulsar Edit`、`Spotify` → `spotifyd` |
-| 3 | pip/npm 等语言包管理器提供的 ARM64 wheel | `yubikey-neo-manager` → `pip install yubikey-manager` |
-| 4 | 标记 `status=FAILED, failure_reason=PROPRIETARY`，不能自动处理 | Skype、Slack、Zoom（纯闭源无替代） |
+| 优先级 | 策略                                                         | 示例                                                  |
+| ------ | ------------------------------------------------------------ | ----------------------------------------------------- |
+| 1      | apt 官方源中同名或等价的 ARM64 包                            | `google-chrome-stable` → `chromium`                   |
+| 2      | 社区 fork / 开源替代（有原生 ARM64 构建）                    | `Atom` → `Pulsar Edit`、`Spotify` → `spotifyd`        |
+| 3      | pip/npm 等语言包管理器提供的 ARM64 wheel                     | `yubikey-neo-manager` → `pip install yubikey-manager` |
+| 4      | 标记 `status=FAILED, failure_reason=PROPRIETARY`，不能自动处理 | Skype、Slack、Zoom（纯闭源无替代）                    |
 
 ### 37.2 常见闭源 → 开源/原生 ARM64 替代映射
 
-| x86_64 原软件 | ARM64 替代 | 安装方式 |
-|--------------|-----------|---------|
-| Google Chrome | Chromium | `apt-get install chromium` |
-| Spotify Client | spotifyd | GitHub ARM64 release tar.gz |
-| Atom Editor | Pulsar Edit | GitHub ARM64 `.deb` |
-| yubikey-neo-manager | yubikey-manager | `pip install yubikey-manager` |
-| Firefox (特定版本 tar) | firefox-esr | `apt-get install firefox-esr` |
+| x86_64 原软件          | ARM64 替代      | 安装方式                      |
+| ---------------------- | --------------- | ----------------------------- |
+| Google Chrome          | Chromium        | `apt-get install chromium`    |
+| Spotify Client         | spotifyd        | GitHub ARM64 release tar.gz   |
+| Atom Editor            | Pulsar Edit     | GitHub ARM64 `.deb`           |
+| yubikey-neo-manager    | yubikey-manager | `pip install yubikey-manager` |
+| Firefox (特定版本 tar) | firefox-esr     | `apt-get install firefox-esr` |
 
 ### 37.3 闭源软件的失败边界
 
 下列名称仅作为历史示例，供应商支持可能变化，Agent 必须检查本次指定版本和当前制品。确认没有 ARM64 版本、可接受替代或远程服务方案，且该功能为必需时，才标记 `status=FAILED, failure_reason=PROPRIETARY`：
+
 - 商业通讯软件：Skype、Slack、Zoom（仅发布 `_amd64.deb`）
 - 已停更的商业服务：Plex Home Theater（PPA 仅 amd64）
 - x86 虚拟化软件：VirtualBox（依赖 VT-x/AMD-V 硬件特性）
-
 
 ## 38. 版本升级解锁 ARM64 支持（Version Bump Strategy）
 
@@ -1538,14 +1668,13 @@ Step 4  有 → 升级到该版本；无 → 按 37 找替代方案或标记 FAI
 
 ### 38.2 已知可通过升级解锁 ARM64 的案例
 
-| 软件 | 旧版本（无 ARM） | 新版本（有 ARM） | 升级方式 |
-|------|----------------|-----------------|---------|
-| osquery | v4.3.0 (x86 toolchain) | v5.x (`linux_arm64.deb`) | GitHub Release .deb |
-| Tor Browser | v15.x (`linux64` only) | v16.0a8+ (`linux-aarch64`) | dist.torproject.org tar.xz |
-| Sublime Text | build 3126 (`_amd64.deb`) | build 4180+ (`_arm64.tar.xz`) | download.sublimetext.com |
+| 软件         | 旧版本（无 ARM）          | 新版本（有 ARM）              | 升级方式                   |
+| ------------ | ------------------------- | ----------------------------- | -------------------------- |
+| osquery      | v4.3.0 (x86 toolchain)    | v5.x (`linux_arm64.deb`)      | GitHub Release .deb        |
+| Tor Browser  | v15.x (`linux64` only)    | v16.0a8+ (`linux-aarch64`)    | dist.torproject.org tar.xz |
+| Sublime Text | build 3126 (`_amd64.deb`) | build 4180+ (`_arm64.tar.xz`) | download.sublimetext.com   |
 
 > alpha/beta 版本也可用于迁移，在 Dockerfile 中注释说明，待 stable 发布后只需改版本号。
-
 
 ## 39. Debian 发行版兼容性问题
 
@@ -1574,7 +1703,6 @@ RUN apt-get update && apt-get install -y gpgv=2.2.27-2+deb11u3 gnupg \
 
 - 详见 2.1 / 3 已有覆盖；此处作为发行版生命周期聚合索引
 
-
 ## 40. 构建策略优化
 
 ### 40.1 大体积 git clone → 优化克隆深度
@@ -1589,6 +1717,7 @@ RUN git clone --depth 1 --branch v5.4 https://git.kernel.org/pub/scm/linux/kerne
 > 适用于：Linux kernel、Chromium 源码、AOSP 等超大仓库。
 
 > 限制：`--depth 1` 只拉取分支尖端单个 commit。若 Dockerfile 后续需要 `git checkout <特定commit>` 切换到非尖端 commit，浅克隆会失败（commit 不在历史中）。此时按以下优先级处理：
+>
 > 1. 用 `--branch` 直接指定目标 commit hash：`git clone --depth 1 --branch <commit-hash> <repo>`（部分 Git 服务器支持）
 > 2. 增加 depth 使目标 commit 落在范围内：`git clone --depth 200 --branch <tag> <repo>`（当目标 commit 距 branch tip 不远时）
 > 3. 放弃浅克隆，做全量克隆并接受大体积（最后手段）
@@ -1630,31 +1759,32 @@ RUN apt-get install -y firefox-esr
 - **症状**：`ModuleNotFoundError: No module named 'PyQt5.QtWebKit'`
 - **原因**：QtWebKit 已从 Debian bullseye 及以上版本移除（上游停止维护）
 - **修复选项**：
-  1. 降级到 buster 基础镜像（有 QtWebKit 但已 EOL）— 慎用
-  2. 将代码迁移到 QtWebEngine — 改动大
-  3. 标记为 `BUILD_OK_RUNTIME_DEGRADED`，报告中记录为已知残缺功能
+    1. 降级到 buster 基础镜像（有 QtWebKit 但已 EOL）— 慎用
+    2. 将代码迁移到 QtWebEngine — 改动大
+    3. 标记为 `BUILD_OK_RUNTIME_DEGRADED`，报告中记录为已知残缺功能
 - **判断**：若为长期无人维护的废弃项目（如 scudcloud，2016 年停更），优先选方案 3
-
 
 ## 附录：failure_reason 枚举
 
-| 值 | 含义 |
-|----|------|
-| `NO_ARM64_SUPPORT` | 基础镜像无 ARM64 版本 |
-| `INTERNAL_IMAGE_UNAVAILABLE` | 内网镜像无可用 ARM64 tag，且拉取失败或用户未确认基础镜像来源 |
-| `ARCH_INCOMPATIBILITY` | native 库/工具链不兼容 ARM64（Android/Flutter/WebGL 等） |
-| `VERSION_INCOMPATIBILITY` | 语言/框架版本不兼容 |
-| `DEPENDENCY_CONFLICT` | 依赖冲突无法解决 |
-| `EXTERNAL_SERVICE` | 依赖外部服务（MySQL/Redis 等）或外网，容器内无法连接 |
-| `FLOAT_PRECISION` | ARM64 浮点精度导致测试不通过且修复代价过高 |
-| `TIMEOUT` | 构建或测试超时（超大项目或网络慢） |
-| `EXCEEDED_ATTEMPTS` | 超过 MAX_RETRY 次尝试（[config_reference.md](config_reference.md) 默认 5） |
-| `STALLED` | 超过 `WORKER_STALL_TIMEOUT_MIN` 仍无进展 |
-| `PROPRIETARY_X86_SO` | 自研 x86 native 库无 aarch64 版本，无法自动处理 |
-| `INSUFFICIENT_DISK_SPACE` | 磁盘空间不足且清理后仍不足 MIN_DISK_SPACE_GB |
-| `TEST_FAILURE` | 测试本身失败（无法快速归类） |
-| `REGISTRY_UNAUTHORIZED` | registry 认证失败且无法 login |
-| `DOCKER_UNAVAILABLE` | docker daemon 不可用（仅 DOCKERFILE_MIGRATION） |
-| `ARCH_BLOCKED` | 执行架构不支持跨架构构建（x86 无 BuildKit） |
-| `LAYER_NOT_COLLECTED` | ARM64 主机未提供可用的 x86_64 采集路径，且任务要求 layer 证据 |
-| `ERLANG_ABI_MISMATCH` | Erlang/OTP 版本与 RabbitMQ .beam 字节码不兼容 |
+| 值                           | 含义                                                         |
+| ---------------------------- | ------------------------------------------------------------ |
+| `NO_ARM64_SUPPORT`           | 基础镜像无 ARM64 版本                                        |
+| `INTERNAL_IMAGE_UNAVAILABLE` | 内网镜像无可用 ARM64 tag，且无法降级到公开镜像               |
+| `ARCH_INCOMPATIBILITY`       | native 库/工具链不兼容 ARM64（Android/Flutter/WebGL 等）     |
+| `VERSION_INCOMPATIBILITY`    | 语言/框架版本不兼容                                          |
+| `DEPENDENCY_CONFLICT`        | 依赖冲突无法解决                                             |
+| `EXTERNAL_SERVICE`           | 依赖外部服务（MySQL/Redis 等）或外网，容器内无法连接         |
+| `FLOAT_PRECISION`            | ARM64 浮点精度导致测试不通过且修复代价过高                   |
+| `TIMEOUT`                    | 构建或测试超时（超大项目或网络慢）                           |
+| `EXCEEDED_ATTEMPTS`          | 超过 MAX_RETRY 次尝试（[config_reference.md](references/config_reference.md) 默认 5） |
+| `STALLED`                    | 超过 `WORKER_STALL_TIMEOUT_MIN` 仍无进展                     |
+| `PROPRIETARY_X86_SO`         | 自研 x86 native 库无 aarch64 版本，无法自动处理              |
+| `PROPRIETARY`                | 闭源/商业软件无 ARM64 版本且无替代方案（如 Skype、Slack、Zoom） |
+| `INSUFFICIENT_DISK_SPACE`    | 磁盘空间不足且清理后仍不足 MIN_DISK_SPACE_GB                 |
+| `TEST_FAILURE`               | 测试本身失败（无法快速归类）                                 |
+| `REGISTRY_UNAUTHORIZED`      | registry 认证失败且无法 login                                |
+| `DOCKER_UNAVAILABLE`         | docker daemon 不可用（仅 IMAGE_MIG_SKILLSET 场景）           |
+| `ARCH_BLOCKED`               | 启动门禁判定当前环境不能执行 ARM64 构建；仅限门禁阶段使用    |
+| `LAYER_NOT_COLLECTED`        | ARM64 主机未提供可用的 x86_64 采集路径，且任务要求 layer 证据 |
+| `ERLANG_ABI_MISMATCH`        | Erlang/OTP 版本与 RabbitMQ .beam 字节码不兼容                |
+| `X86_ENV_FAILURE`            | x86_64 采集机环境不满足要求（SSH 不可达 / Docker 安装失败且用户放弃 / 磁盘空间不足且未指定替代路径 / 工具包定位失败）且无法继续远程采集 |

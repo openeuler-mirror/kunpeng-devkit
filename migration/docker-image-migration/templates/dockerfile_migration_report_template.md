@@ -8,14 +8,14 @@
 
 ### 状态不变量
 
-| 条件 | 必须满足 |
-|---|---|
-| `status=SUCCESS` | `build_status=success` 且 `test_status!=fail` 且 `startup_status=ok` |
-| `status=FAILED` | 必须填写 `failure_reason`；失败证据写入 `notes` |
-| 构建前失败 | `build_status=fail` 或在 `notes` 明确“未进入构建” |
-| `test_status=skip` | `notes` 说明未执行原因和剩余风险 |
-| 有 warning | `warnings` 保留证据、影响和后续动作，即使已缓解 |
-| native 标记 | 所有 `WARN-X86-NATIVE-SO` warning 与 `FIXED-SO-REPLACED-AARCH64` 变更条目均有非空 `evidence_source`；仅有文件名/路径关键词不构成证据 |
+| 条件                 | 必须满足                                                  |
+| ------------------ | ----------------------------------------------------- |
+| `status=SUCCESS`   | `build_status=success` 且 `test_status ∈ {pass, skip}` 且 `startup_status=ok` |
+| `status=FAILED`    | 必须填写 `failure_reason`；失败证据写入 `notes`                  |
+| 构建前失败              | `build_status=fail` 或在 `notes` 明确“未进入构建”              |
+| `test_status=skip` | `notes` 说明未执行原因和剩余风险                                  |
+| 有 warning          | `warnings` 保留证据、影响和后续动作，即使已缓解                         |
+| native 标记          | 所有 `WARN-X86-NATIVE-SO` warning 与 `FIXED-SO-REPLACED-AARCH64` 变更条目均有非空 `evidence_source`；仅有文件名/路径关键词不构成证据 |
 
 ## 2. 单项目报告
 
@@ -25,7 +25,7 @@
 {
   "project": "<project>",
   "status": "SUCCESS|FAILED",
-  "failure_reason": "<成功时省略；枚举见 build_knowledge_reference.md 附录>",
+  "failure_reason": "<成功时省略；枚举见 references/build_knowledge_reference.md 附录>",
   "image": "<OUTPUT_TAG_PREFIX>-<project>:latest",
   "build_status": "success|fail",
   "docker_version": "<docker --version 输出；不可用时说明>",
@@ -55,6 +55,22 @@
     }
   ],
   "notes": "<关键证据、未执行验证和剩余风险>",
+  "x86_env": {
+    "host": "<user>@<host> | null",
+    "ssh_ok": true,
+    "ai_migration_ok": true,
+    "ai_migration_dir": "<X86_AI_MIGRATION_DIR> | \"\"",
+    "docker_ok": true,
+    "docker_version": "2x.x.x | \"\"",
+    "docker_daemon_running": true,
+    "docker_run_ok": true,
+    "disk_free_mb": 4096,
+    "target_images_available": ["<image>:<tag>", "..."],
+    "target_images_missing": ["<image>:<tag>", "..."],
+    "check_passed": true,
+    "auto_fixed": ["<item>", "..."],
+    "warnings": ["disk_space_low", "..."]
+  },
   "timestamp": "<ISO8601>"
 }
 ```

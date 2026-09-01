@@ -1,8 +1,6 @@
 ## 有 Dockerfile 场景镜像迁移执行规范
 
-本文件定义有 Dockerfile 场景的标准迁移流程：先解析与归类 x86 Dockerfile 指令，再形成迁移决策表并生成 ARM64 Dockerfile，最后完成构建与运行验证。用于约束每一步的输入输出、变更标记和失败处理路径，确保迁移结果可复现、可审计；全局调度与重试规则由主 Skill 全局执行红线统一提供。
-
-本文件仅定义场景流程；调度/重试/失败判定以主 Skill 为准。
+本文件定义有 Dockerfile 场景的标准迁移流程：先解析与归类 x86 Dockerfile 指令，再形成迁移决策表并生成 ARM64 Dockerfile，最后完成构建与运行验证。用于约束每一步的输入输出、变更标记和失败处理路径，确保迁移结果可复现、可审计。调度/重试/失败判定以主 Skill 为准。
 
 ## 1. 场景执行说明
 
@@ -25,10 +23,6 @@
 阶段 4  构建验证
 阶段 5  运行测试与固化报告
 ```
-
-> `docker cp` 仅在 1.6 (2) 从 x86 镜像提取缺失资源时按需使用，不用于反推 Dockerfile。
-
-> **资源加载边界**：本场景阶段 2 的"迁移决策表"在本场景内生成，**不要读取 `asserts/decision_matrix.md`**——该模板仅供"无 Dockerfile（仅镜像迁移）场景"使用，避免过度读取。
 
 ---
 
@@ -56,8 +50,10 @@ A. 含 INTERNAL_REGISTRIES 域名（内网镜像）
        {repo}:{tag}-arm64  /  {repo}:{tag}_arm64  /  {repo}:{tag}-aarch64  /  {repo}-arm64:{tag}
    → 使用 manifest 检查逐个验证，不用 `docker pull` 代替存在性判断
    → 仅对验证通过的候选标记 [CHANGE-FROM-GUESS]，并记录候选、命中项和 manifest 证据
-   → 所有候选均无效（基础镜像不存在 ARM64 版本或为用户自研版本）：
-       执行"基础镜像优先迁移"流程（见 1.2.1），不得自动降级为公开基础镜像
+   → 所有候选均无效：
+       - 能从原镜像 metadata 和应用依赖确定等价公开基础镜像时，生成 [FALLBACK-TO-PUBLIC-BASE] 候选；
+         基础镜像语义可能变化时必须先获得用户确认
+       - 无法证明等价时标记 FAILED(INTERNAL_IMAGE_UNAVAILABLE)，由主 Agent 汇总待确认项
 
 B. 公开镜像（Docker Hub / 官方）
    → 先验证目标 tag 存在 `linux/arm64` manifest
@@ -65,54 +61,23 @@ B. 公开镜像（Docker Hub / 官方）
    → 验证失败：检索 `references/build_knowledge_reference.md` 的替代或升级方案；无方案时按主 Skill 全局执行红线失败
 ```
 
-### 1.2.1 基础镜像优先迁移
-
-当内网基础镜像不存在 ARM64 版本或为用户自研版本时，**不得自动降级为公开基础镜像**（会导致基础镜像组件缺失）。按以下顺序处理：
-
-```text
-1. 拉取 x86 基础镜像
-   docker pull --platform linux/amd64 <原基础镜像>
-   拉取失败 → 交互提示用户：
-     "无法拉取基础镜像 <image>，请确认基础镜像来源：
-      提供可拉取的镜像地址 / 提供基础镜像的 Dockerfile / 跳过本项目"
-   用户未确认前不得继续
-
-2. 优先迁移基础镜像
-   - 有基础镜像的 Dockerfile → 按本文件流程迁移基础镜像，生成 Dockerfile.arm64 并构建 ARM64 基础镜像
-   - 无基础镜像的 Dockerfile → 按 image_reconstruction.md 流程逆向重构基础镜像
-   - 基础镜像迁移成功后，获得 ARM64 基础镜像：<image>-arm64:latest
-
-3. 逐行验证 docker history
-   docker history --no-trunc --format "{{.CreatedBy}}" <image>-arm64:latest
-   逐层检查：
-     - 每个 RUN 层涉及的包/库在 ARM64 上可安装（apt 包有 arm64 版、pip 包有 aarch64 wheel）
-     - 无 x86_64/amd64 架构残留（ELF 文件、.so 库），必要时用 DevKit pkg-mig 扫描
-     - COPY/ADD 引入的文件无 x86 native 库
-   验证不通过 → 回到步骤 2 修复基础镜像迁移，不得进入业务镜像迁移
-
-4. 使用迁移后的 ARM64 基础镜像
-   Dockerfile.arm64 的 FROM 改为：
-     FROM --platform=linux/arm64 <image>-arm64:latest
-   标记 [CHANGE-FROM-BASE-MIGRATED]，记录原基础镜像名、迁移后镜像名、history 验证结论
-```
-
 ### 1.3 RUN 指令分类
 
-| 识别模式 | 动作 | 标记 |
-|----------|------|------|
-| `apt-get update/install` | 保持目标发行版的 ARM64 正确仓库；仅当主 Skill 启动门禁第 4 项（软件包源）证据要求时替换源 | `[FIX-APT-SOURCE]` |
-| 包名含 `:amd64` / `:x86_64` | 删除架构后缀 | `[FIX-APT-ARCH]` |
-| `pip install` + CUDA 版 torch | 仅默认 CPU 场景按 `TORCH_VERSION_MAP` 替换；GPU 场景按目标栈验证 | `[FIX-TORCH]` |
-| `pip install` + `nvidia-*` / `triton` / `cudnn` | 仅命中 `CUDA_PACKAGES_SKIP` 且目标为 CPU 场景时删除 | `[DELETE-CUDA-PKG]` |
-| `pip install` + 外网 pip 源 | `AIRGAP_MODE=true` 或主 Skill 启动门禁第 4 项（软件包源）判定不可达时，替换为已验证的 `PIP_INDEX_URL` | `[FIX-PIP-SOURCE]` |
-| `pip install` + `INTERNAL_PYPI_HOSTS` 内网源 | 保留；依赖是否可选必须由项目证据决定，禁止默认追加 `|| echo` 掩盖失败 | `[KEEP-PIP-INTERNAL]` |
-| `git clone` + `GIT_HOSTS` 域名 | 经主 Skill 启动门禁第 4 项（软件包源）/配置确认可达后保留 | `[KEEP-GIT-INTERNAL]` |
-| `git clone` + 外网 | `AIRGAP_MODE=true` 时禁止；否则经主 Skill 启动门禁第 4 项（软件包源）确认可达后保留 | `[KEEP-GIT-PUBLIC]` |
-| `npm install/ci` + 默认源不可达 | 使用主 Skill 启动门禁第 4 项（软件包源）已验证且在配置中声明的 `NPM_REGISTRY` | `[FIX-NPM-SOURCE]` |
-| `wget/curl` + `archive.apache.org` | 替换为 APACHE_MIRROR | `[FIX-APACHE-MIRROR]` |
-| `x86_64` / `amd64` / `i386` 关键词（非 pkg 后缀） | 仅在目标值唯一且可验证时替换架构关键词；否则保留 WARN | `[WARN-ARCH-KEYWORD]` |
-| `--platform=linux/amd64` | 改为 `linux/arm64` | `[FIX-PLATFORM]` |
-| COPY/ADD/wget 引入 `.so` / `.a` / ELF | 按 1.4 处理顺序与 1.7 三类策略处理 | `[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]` |
+| 识别模式                                          | 动作                                                         | 标记                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------ |
+| `apt-get update/install`                          | 保持目标发行版的 ARM64 正确仓库；仅当主 Skill 启动门禁第 4 项（软件包源）证据要求时替换源 | `[FIX-APT-SOURCE]`                                     |
+| 包名含 `:amd64` / `:x86_64`                       | 删除架构后缀                                                 | `[FIX-APT-ARCH]`                                       |
+| `pip install` + CUDA 版 torch                     | 仅默认 CPU 场景按 `TORCH_VERSION_MAP` 替换；GPU 场景按目标栈验证 | `[FIX-TORCH]`                                          |
+| `pip install` + `nvidia-*` / `triton` / `cudnn`   | 仅命中 `CUDA_PACKAGES_SKIP` 且目标为 CPU 场景时删除          | `[DELETE-CUDA-PKG]`                                    |
+| `pip install` + 外网 pip 源                       | `AIRGAP_MODE=true` 或主 Skill 启动门禁第 4 项（软件包源）判定不可达时，替换为已验证的 `PIP_INDEX_URL` | `[FIX-PIP-SOURCE]`                                     |
+| `pip install` + `INTERNAL_PYPI_HOSTS` 内网源      | 保留；依赖是否可选必须由项目证据决定，禁止默认追加 `\|\| echo` 掩盖失败 | `[KEEP-PIP-INTERNAL]`                                  |
+| `git clone` + `GIT_HOSTS` 域名                    | 经主 Skill 启动门禁第 4 项（软件包源）/配置确认可达后保留    | `[KEEP-GIT-INTERNAL]`                                  |
+| `git clone` + 外网                                | `AIRGAP_MODE=true` 时禁止；否则经主 Skill 启动门禁第 4 项（软件包源）确认可达后保留 | `[KEEP-GIT-PUBLIC]`                                    |
+| `npm install/ci` + 默认源不可达                   | 使用主 Skill 启动门禁第 4 项（软件包源）已验证且在配置中声明的 `NPM_REGISTRY` | `[FIX-NPM-SOURCE]`                                     |
+| `wget/curl` + `archive.apache.org`                | 替换为 APACHE_MIRROR                                         | `[FIX-APACHE-MIRROR]`                                  |
+| `x86_64` / `amd64` / `i386` 关键词（非 pkg 后缀） | 仅在目标值唯一且可验证时替换架构关键词；否则保留 WARN        | `[WARN-ARCH-KEYWORD]`                                  |
+| `--platform=linux/amd64`                          | 改为 `linux/arm64`                                           | `[FIX-PLATFORM]`                                       |
+| COPY/ADD/wget 引入 `.so` / `.a` / ELF             | 按 1.4 处理顺序与 1.7 三类策略处理                           | `[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]` |
 
 ### 1.4 native 文件候选识别与处理
 
@@ -129,7 +94,7 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 处理顺序：
 
 1. **松散文件**（未打包的 `.so` / `.a` / `.o` / ELF 二进制）：执行 `file`，其输出即为判定证据。
-2. **归档/JAR/RPM**：**必须**按 [references/devkit_pkg_mig_reference.md](../references/devkit_pkg_mig_reference.md) 第 1 节留档工具可用性结论后，执行第 2 节 `devkit porting pkg-mig ... -r json` 结构化扫描并保存 JSON；工具不可用时按第 3 节 fallback 执行（先解压、再对 ELF 逐个 `file`）并留档证据。
+2. **归档/JAR/RPM**：**必须**按 [references/devkit_pkg_mig_reference.md](references/devkit_pkg_mig_reference.md) 第 1 节留档工具可用性结论后，执行第 2 节 `devkit porting pkg-mig ... -r json` 结构化扫描并保存 JSON；工具不可用时按第 3 节 fallback 执行（先解压、再对 ELF 逐个 `file`）并留档证据。
 3. **未取得合法判定证据（pkg-mig JSON 或解压后 ELF 的 `file` 输出）前，不得对归档内文件给出兼容/不兼容结论，不得写 `[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]` 标记，也不得进入 1.7 分类。**
 4. 证据确认 x86_64 后，进入 1.7 的功能影响分类。
 5. 功能无关且有证据时可注释原命令，并记录 `[WARN-X86-NATIVE-SO]`。
@@ -138,9 +103,9 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 
 **合法判定依据只有两种**，任一缺失即视为未判定：
 
-| 判定依据 | 说明 |
-|---|---|
-| pkg-mig JSON 的 `is_aarch64` / `path_ext` 字段 | 按 `references/devkit_pkg_mig_reference.md` 第 4 节解读 |
+| 判定依据                                                 | 说明                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------ |
+| pkg-mig JSON 的 `is_aarch64` / `path_ext` 字段           | 按 `references/devkit_pkg_mig_reference.md` 第 4 节解读      |
 | 对**解压后**的 `.so` / `.a` / ELF 逐个执行 `file` 的输出 | `x86-64` / `x86_64` / `80386` → 不兼容；`ARM aarch64` → 架构一致，仍需构建运行验证 |
 
 > 仅凭 `unzip -l` / `tar -t` 列表或路径关键词（如 `linux/amd64/`、`deb/lib64/x86/`）得出结论属于违规判定：fat JAR 可能同时打包多平台 native，关键词会误判；无架构关键词的 native（如 JAR 内捆绑的 `cal` / `pwd` 等系统命令二进制）会被漏判。
@@ -168,6 +133,8 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 
 ### 1.6 COPY / ADD / wget 外部资源获取
 
+> 当当前机器为 ARM64 且需要从 x86 镜像提取资源时（下方路径 (2)），需先按 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 完成环境检查。`docker pull --platform linux/amd64` 和 `docker cp` 操作需在 x86_64 采集机上通过 SSH 远程执行。**`docker pull` 属于系统环境变更（可能占用大量磁盘空间），须按 SKILL.md「系统环境变更确认」原则请求用户确认后方可执行，不得自行静默拉取。**
+
 ```text
 待检查源：src 路径不在当前构建上下文，或 wget/curl 拉取非公开地址
 
@@ -176,6 +143,7 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
     操作：直接 git clone/wget/curl → 成功 [KEEP-RESOURCE-FROM-GIT] → 失败进入 (2)
 
 (2) 从 x86 镜像提取
+    # ⚠️ docker pull 须经用户确认后方可执行
     docker pull --platform linux/amd64 <原 FROM 镜像> || { echo "[ERROR] pull x86 image failed"; exit 1; }
     CID=$(docker create --platform linux/amd64 --name _x86_tmp_$(date +%s) <镜像>) \
         || { echo "[ERROR] docker create failed"; exit 1; }
@@ -194,7 +162,7 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 
 ### 1.7 资源原生库兼容性检查（进入决策表前必做）
 
-> **适用范围**：凡 1.4 命中的 native 候选——无论文件来自构建上下文（COPY/ADD 的 src）还是 1.6 的外部资源获取——进入阶段 2 决策表前都必须完成本节检查。使用 Kunpeng DevKit `pkg-mig` 工具进行结构化扫描，工具参考：[references/devkit_pkg_mig_reference.md](../references/devkit_pkg_mig_reference.md)。
+> **适用范围**：凡 1.4 命中的 native 候选——无论文件来自构建上下文（COPY/ADD 的 src）还是 1.6 的外部资源获取——进入阶段 2 决策表前都必须完成本节检查。使用 Kunpeng DevKit `pkg-mig` 工具进行结构化扫描，工具参考：[references/devkit_pkg_mig_reference.md](references/devkit_pkg_mig_reference.md)。
 
 **执行方式**：
 
@@ -205,11 +173,11 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 
 **判断**：出现 `x86-64` / `x86_64` / `80386` → 不兼容，按三类策略处理：
 
-| 情况 | 处理 |
-|------|------|
-| 功能无关 / 可选 | 删除 .so，追加 `# [WARN-X86-NATIVE-SO]` |
-| 功能相关 / 有 aarch64 替代 | 替换，追加 `# [FIXED-SO-REPLACED-AARCH64]` |
-| 自研 / 无替代 | 标记 `FAILED(PROPRIETARY_X86_SO)`，写失败报告，结束当前 target |
+| 情况                       | 处理                                                         |
+| -------------------------- | ------------------------------------------------------------ |
+| 功能无关 / 可选            | 删除 .so，追加 `# [WARN-X86-NATIVE-SO]`                      |
+| 功能相关 / 有 aarch64 替代 | 替换，追加 `# [FIXED-SO-REPLACED-AARCH64]`                   |
+| 自研 / 无替代              | 标记 `FAILED(PROPRIETARY_X86_SO)`，写失败报告，结束当前 target |
 
 ```bash
 # JAR 内替换 x86 so（示例）
@@ -239,13 +207,13 @@ zip -j <path>.jar <aarch64_libxxx.so>
 
 ### 2.2 warning 处理规则（按模式）
 
-| 场景 | 处理方式 |
-|---|---|
-| 并发模式（`WORKER_COUNT >= 2`） | 按主 Skill 全局执行红线处理；没有确定规则时写失败报告，不做泛化注释替换 |
-| 单任务模式（`WORKER_COUNT = 1`） | 汇总所有 `[WARN-*]` 后暂停，等待用户确认，再进入阶段 3 |
-| `[WARN-ARCH-KEYWORD]` | 仅当替换值唯一且验证通过时自动替换；否则等待确认或失败 |
-| `[WARN-MISSING-COPY-SRC]` | 直接写失败报告，跳过本项目 |
-| `[WARN-X86-NATIVE-SO]` | 先判定功能影响；功能相关或影响不明确时，不允许仅靠注释继续；标记必须附 1.4 的合法判定证据（`evidence_source`），仅有文件名/路径关键词时不得写入此标记 |
+| 场景                             | 处理方式                                                     |
+| -------------------------------- | ------------------------------------------------------------ |
+| 并发模式（`WORKER_COUNT >= 2`）  | 按主 Skill 全局执行红线处理；没有确定规则时写失败报告，不做泛化注释替换 |
+| 单任务模式（`WORKER_COUNT = 1`） | 汇总所有 `[WARN-*]` 后暂停，等待用户确认，再进入阶段 3       |
+| `[WARN-ARCH-KEYWORD]`            | 仅当替换值唯一且验证通过时自动替换；否则等待确认或失败       |
+| `[WARN-MISSING-COPY-SRC]`        | 直接写失败报告，跳过本项目                                   |
+| `[WARN-X86-NATIVE-SO]`           | 先判定功能影响；功能相关或影响不明确时，不允许仅靠注释继续；标记必须附 1.4 的合法判定证据（`evidence_source`），仅有文件名/路径关键词时不得写入此标记 |
 
 ### 2.3 决策表输出格式
 
@@ -305,7 +273,7 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu-
 
 ### 3.3 FORCE_VERSION_OVERRIDES 追加层
 
-若 [references/config_reference.md](../references/config_reference.md) 有配置，在 Dockerfile **末尾**追加：
+若 [references/config_reference.md](references/config_reference.md) 有配置，在 Dockerfile **末尾**追加：
 
 ```dockerfile
 # [FORCE-VERSION-OVERRIDES] 强制覆盖被依赖树拖回旧版本的包
@@ -325,24 +293,32 @@ arm_builds_<YYYYMMDD>/dockerfiles/<project>/Dockerfile.x86_orig ← 原文件备
 
 > 构建只使用主 Skill 全局执行红线已验证的软件源决策；不要在本阶段重新探测或硬编码替换。
 
+> **QEMU 模拟构建超时提示**：当 `ARCH_COMPAT=emulated` 时，ARM64 构建通过 QEMU 模拟执行，速度远低于原生构建。建议将 `BUILD_TIMEOUT_MIN` 调整为默认值的 2–3 倍（即 120–180 分钟），尤其是含编译步骤（C/C++/Rust）的镜像。若构建超时但无编译错误，先检查是否为 QEMU 性能瓶颈而非代码问题。
+
+> **构建网络模式**：`docker build` 的 `RUN` 步骤运行在独立容器网络命名空间，DNS 解析器在该命名空间未必可达（`docker pull` 正常但 `pip install` / `npm install` 报 `Temporary failure in name resolution`）。**不要在本阶段重新探测**，直接使用启动门禁生成的 `BUILD_NET_CTX`：`${BUILD_NET_ARG}` 为网络参数（`--network=host` 或空串），`${BUILD_PROXY_ARGS}` 为代理 build-arg（见 `build_knowledge_reference.md` §20 模板）。
+
 ```bash
 docker build --platform linux/arm64 \
+  ${BUILD_NET_ARG} \
+  ${BUILD_PROXY_ARGS} \
   -t <OUTPUT_TAG_PREFIX>-<project>:latest \
   -f arm_builds_<date>/dockerfiles/<project>/Dockerfile.arm64 \
   <build_context>
 ```
 
 **失败处理**：
+
 1. 出现失败或准备判定 `FAILED(...)` 前，必须先按 `failure_reason` 检索 `references/build_knowledge_reference.md` 对应章节，并记录命中章节号。
 2. 仅当“检索无可用方案”或“已按方案尝试仍失败”时，才允许写 `FAILED(...)` 结论。
 3. 每次失败结论必须在报告中最少记录：失败命令与退出码、关键日志、检索章节、已尝试修复动作。
 
 **本场景特有错误**：
 
-| 错误 | 原因 | 修复 |
-|------|------|------|
-| `manifest unknown` | 推断的 ARM64 tag 不存在 | 检查候选列表，询问用户正确 tag |
-| `fatal: unable to connect to git.xxx` | git clone 失败 | 确认构建环境网络、凭据和 `GIT_HOSTS` 配置 |
+| 错误                                                         | 原因                                                    | 修复                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------ |
+| `Temporary failure in name resolution` / `Could not resolve host` | 构建容器网络命名空间 DNS 不可达（`docker pull` 仍正常） | 确认 `BUILD_NET_CTX.build_net_mode`；切到 `--network=host`（`${BUILD_NET_ARG}`）；仍失败按 `build_knowledge_reference.md` §「容器 DNS 解析失败」处理 |
+| `manifest unknown`                                           | 推断的 ARM64 tag 不存在                                 | 检查候选列表，询问用户正确 tag                               |
+| `fatal: unable to connect to git.xxx`                        | git clone 失败                                          | 确认构建环境网络、凭据和 `GIT_HOSTS` 配置                    |
 
 ---
 
@@ -395,15 +371,17 @@ RUN find /app -name '*.pyc' -delete
 ```
 
 ```bash
-docker build --platform linux/arm64 -t <IMAGE>-patched:latest -f Dockerfile.patch .
+docker build --platform linux/arm64 \
+  ${BUILD_NET_ARG} ${BUILD_PROXY_ARGS} \
+  -t <IMAGE>-patched:latest -f Dockerfile.patch .
 ```
 
 ### 5.3 写报告
 
-> 报告 JSON 格式见 [templates/dockerfile_migration_report_template.md](../templates/dockerfile_migration_report_template.md)。本场景 `migration_mode = "IMAGE_MIG_SKILLSET"`，无 mode 特有字段。
+> 报告 JSON 格式见 [templates/dockerfile_migration_report_template.md](templates/dockerfile_migration_report_template.md)。本场景 `migration_mode = "IMAGE_MIG_SKILLSET"`，无 mode 特有字段。
 
 提交前自检：报告内所有 native 相关标记（`WARN-X86-NATIVE-SO` / `FIXED-SO-REPLACED-AARCH64`）的条目必须带非空 `evidence_source`；缺失任何一条即回到 1.4/1.7 补齐证据后重写，不得提交。
 
 ### 5.4 主 Agent 总览报告（`_summary.json`）
 
-> 格式见 [templates/dockerfile_migration_report_template.md](../templates/dockerfile_migration_report_template.md) 总览报告。
+> 格式见 [templates/dockerfile_migration_report_template.md](templates/dockerfile_migration_report_template.md) 总览报告。
