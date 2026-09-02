@@ -594,6 +594,39 @@ ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}
 
 - **适用条件**：仅当 `BUILD_PROXY` 非空且 npm 报 407 时适用；npm 直连镜像源无此问题。方案 A 中含 native 模块（如 `node-canvas`/`bcrypt`）的项目须在目标架构环境安装，否则二进制不兼容。
 
+### `npm ERR! code UNABLE_TO_VERIFY_LEAF_SIGNATURE` / `SELF_SIGNED_CERT_IN_CHAIN`（企业代理 TLS 证书）
+
+- **症状**：`docker build` 的 `RUN npm install` 报 `UNABLE_TO_VERIFY_LEAF_SIGNATURE` 或 `SELF_SIGNED_CERT_IN_CHAIN`，而 `pip` / `apt` / `curl` 经同一代理正常。
+
+- **原因**：企业内网代理（如自签名或中间人 TLS 解密网关）用自签名/私有 CA 重签出网流量；npm 默认严格校验 TLS 证书链，不信任系统 `ca-certificates` 之外的私有 CA，故校验失败。pip/curl 走系统证书包故正常。
+
+- **修复方案 A（首选，代理证书无法导入时）**：在 Dockerfile 内临时关闭 npm 的证书严格校验（仅限构建阶段，不写入运行时）：
+
+  ```dockerfile
+  RUN npm config set strict-ssl false \
+      && npm install --registry <NPM_REGISTRY> \
+      && npm config delete strict-ssl
+  ```
+
+  > `strict-ssl false` 会关闭 TLS 证书校验，存在中间人风险，**仅在企业内网受控代理环境且用户确认后使用**；安装完成后立即 `delete` 恢复默认，避免影响后续步骤。
+
+- **修复方案 B（治本，有私有 CA 证书时）**：将企业私有 CA 证书导入构建容器信任链，保持严格校验：
+
+  ```dockerfile
+  COPY _build_context/company-ca.crt /usr/local/share/ca-certificates/
+  RUN apt-get update && apt-get install -y ca-certificates \
+      && update-ca-certificates \
+      && npm install --registry <NPM_REGISTRY>
+  ```
+
+  > CA 证书需用户从代理管理员处获取并经确认；node 原生读取系统 CA 包（`update-ca-certificates` 生效后），无需额外配置 npm。
+
+- **修复方案 C（宿主机安装后 COPY）**：与 npm 407 方案 A 相同，在宿主机（已信任企业 CA）`npm install` 后 `COPY node_modules`，完全跳过容器内 npm 联网。
+
+- **验证**：`npm install` 不再报证书错误且依赖安装完成；方案 B 额外验证 `node -e "require('tls').createSecureContext()"` 不抛异常。
+
+- **适用条件**：仅当 `BUILD_PROXY` 非空（企业代理环境）且 npm 报 TLS 证书错误时适用；npm 直连公网镜像源无此问题。优先 B（保持校验），无 CA 证书时用 A，native 模块项目用 C。
+
 ---
 
 ## 9. 浮点精度差异
@@ -1628,6 +1661,7 @@ COPY _build_context/jenkins.sh /usr/local/bin/jenkins.sh
 │  ├─ mirror 403/404         → 26 (切换镜像源)
 │  ├─ apt-get update 缺失    → 26 (同一 RUN 层确保 update)
 │  ├─ npm 代理 407 认证失败  → 8 (宿主机装后 COPY node_modules)
+│  ├─ npm SSL 自签名证书     → 8 (strict-ssl false / 导入私有 CA)
 │  └─ microdnf 卡住          → 32 (QEMU 性能，COPY 替代)
 ├─ 二进制/库错误
 │  ├─ JDK/Erlang x86 ELF     → 30 (多阶段构建，COPY --from)
