@@ -314,11 +314,12 @@ docker build --platform linux/arm64 \
 
 **本场景特有错误**：
 
-| 错误                                                         | 原因                                                    | 修复                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------ |
-| `Temporary failure in name resolution` / `Could not resolve host` | 构建容器网络命名空间 DNS 不可达（`docker pull` 仍正常） | 确认 `BUILD_NET_CTX.build_net_mode`；切到 `--network=host`（`${BUILD_NET_ARG}`）；仍失败按 `build_knowledge_reference.md` §「容器 DNS 解析失败」处理 |
-| `manifest unknown`                                           | 推断的 ARM64 tag 不存在                                 | 检查候选列表，询问用户正确 tag                               |
-| `fatal: unable to connect to git.xxx`                        | git clone 失败                                          | 确认构建环境网络、凭据和 `GIT_HOSTS` 配置                    |
+| 错误                                                         | 原因                                                         | 修复                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `Temporary failure in name resolution` / `Could not resolve host` | 构建容器网络命名空间 DNS 不可达（`docker pull` 仍正常）      | 确认 `BUILD_NET_CTX.build_net_mode`；切到 `--network=host`（`${BUILD_NET_ARG}`）；仍失败按 `build_knowledge_reference.md` §「容器 DNS 解析失败」处理 |
+| `npm ERR! code E407` / `407 Proxy Authentication Required`   | npm 不读 `HTTP_PROXY` 环境变量做代理认证，`--build-arg` 注入的代理对 npm 无效 | 按 `build_knowledge_reference.md` §8「npm 代理 407」处理：宿主机 `npm install` 后 `COPY node_modules`，或 Dockerfile 内 `npm config set proxy` |
+| `manifest unknown`                                           | 推断的 ARM64 tag 不存在                                      | 检查候选列表，询问用户正确 tag                               |
+| `fatal: unable to connect to git.xxx`                        | git clone 失败                                               | 确认构建环境网络、凭据和 `GIT_HOSTS` 配置                    |
 
 ---
 
