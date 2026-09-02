@@ -554,6 +554,46 @@ ENV PATH=${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}
 
 > `nvm use` 命令仍然可用；`node`/`npm` 命令通过 `PATH` 直接指向已解压的 bin 目录。
 
+### `npm ERR! code E407` / `407 Proxy Authentication Required`（构建容器内 npm install）
+
+- **症状**：`docker build` 的 `RUN npm install` 经 `${BUILD_PROXY_ARGS}` 注入的代理访问 registry 时返回 `407 Proxy Authentication Required`，而同一代理对 `pip` / `apt` / `curl` 正常。
+
+- **原因**：npm 不读取 `HTTP_PROXY`/`HTTPS_PROXY` 环境变量做代理认证，且许多企业代理要求显式 `Proxy-Authorization` 头或 `user:pass@host` 形式凭据；`--build-arg` 注入的环境变量对 npm 无效或凭据无法传递，导致 407。npm 的代理走 `npm config set proxy / https-proxy`，与 pip/curl 机制不同。
+
+- **修复方案 A（首选，代理认证无法穿透时）**：在宿主机（网络可达、可完成代理认证）安装依赖，构建时 `COPY` 进镜像，完全跳过容器内 npm 联网：
+
+  ```bash
+  # 宿主机：在构建上下文中安装与目标架构/Node 版本匹配的 node_modules
+  cd <build_context>/<project>
+  npm install            # 宿主机完成代理认证与下载
+  # 若宿主机与目标架构不同，需在目标 ARM64 机或 QEMU 容器内安装含 native 模块的依赖
+  ```
+
+  ```dockerfile
+  # Dockerfile：直接 COPY 已安装的 node_modules，容器内不再 npm install
+  WORKDIR /<project>
+  COPY <project>/package*.json ./
+  COPY <project>/node_modules ./node_modules
+  # 若有构建步骤（如 tsc/webpack），在容器内执行，但依赖已就位无需联网
+  RUN npm run build --omit=dev || true
+  ```
+
+- **修复方案 B（代理支持无认证或凭据可配时）**：在 Dockerfile 内用 `npm config` 显式设置代理（凭据须用户确认）：
+
+  ```dockerfile
+  RUN npm config set proxy http://<user>:<pass>@<proxy_host>:<port> \
+      && npm config set https-proxy http://<user>:<pass>@<proxy_host>:<port> \
+      && npm install --registry <NPM_REGISTRY>
+  ```
+
+  > 凭据写入镜像层有泄漏风险，仅在临时构建且用户明确授权时使用；优先方案 A。
+
+- **修复方案 C（改用无认证镜像源）**：若 `NPM_REGISTRY`（默认 `https://registry.npmmirror.com`）在 `--network=host` 下可直连无需代理，在 npm 命令中显式指定 registry 并排除代理：`npm install --registry <NPM_REGISTRY> --noproxy '*'`。
+
+- **验证**：`docker run --rm <image> node -e "require('<main_module>')"` 成功加载即依赖就位。
+
+- **适用条件**：仅当 `BUILD_PROXY` 非空且 npm 报 407 时适用；npm 直连镜像源无此问题。方案 A 中含 native 模块（如 `node-canvas`/`bcrypt`）的项目须在目标架构环境安装，否则二进制不兼容。
+
 ---
 
 ## 9. 浮点精度差异
@@ -1587,6 +1627,7 @@ COPY _build_context/jenkins.sh /usr/local/bin/jenkins.sh
 │  ├─ SSL 错误               → 25 (ca-certificates)
 │  ├─ mirror 403/404         → 26 (切换镜像源)
 │  ├─ apt-get update 缺失    → 26 (同一 RUN 层确保 update)
+│  ├─ npm 代理 407 认证失败  → 8 (宿主机装后 COPY node_modules)
 │  └─ microdnf 卡住          → 32 (QEMU 性能，COPY 替代)
 ├─ 二进制/库错误
 │  ├─ JDK/Erlang x86 ELF     → 30 (多阶段构建，COPY --from)
@@ -1759,9 +1800,9 @@ RUN apt-get install -y firefox-esr
 - **症状**：`ModuleNotFoundError: No module named 'PyQt5.QtWebKit'`
 - **原因**：QtWebKit 已从 Debian bullseye 及以上版本移除（上游停止维护）
 - **修复选项**：
-    1. 降级到 buster 基础镜像（有 QtWebKit 但已 EOL）— 慎用
-    2. 将代码迁移到 QtWebEngine — 改动大
-    3. 标记为 `BUILD_OK_RUNTIME_DEGRADED`，报告中记录为已知残缺功能
+  1. 降级到 buster 基础镜像（有 QtWebKit 但已 EOL）— 慎用
+  2. 将代码迁移到 QtWebEngine — 改动大
+  3. 标记为 `BUILD_OK_RUNTIME_DEGRADED`，报告中记录为已知残缺功能
 - **判断**：若为长期无人维护的废弃项目（如 scudcloud，2016 年停更），优先选方案 3
 
 ## 附录：failure_reason 枚举

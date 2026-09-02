@@ -653,14 +653,15 @@ docker build --platform linux/arm64 \
 
 **本场景特有错误**：
 
-| 错误                                                         | 原因                                                    | 修复                                                         |
-| ------------------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------ |
-| `Temporary failure in name resolution` / `Could not resolve host` | 构建容器网络命名空间 DNS 不可达（`docker pull` 仍正常） | 确认 `BUILD_NET_CTX.build_net_mode`；若为 `bridge` 失败，切到 `--network=host`（`${BUILD_NET_ARG}`）；仍失败按 `build_knowledge_reference.md` §「容器 DNS 解析失败」处理 |
-| `COPY failed: file not found`                                | 阶段 3 未提取或路径有误                                 | 检查 阶段 2 decision_matrix，确认标记为 [NEED-DOCKER-CP] 的资源已在 阶段 3 提取；检查 docker cp 本地路径与 Dockerfile COPY 路径一致 |
-| `ImportError / ModuleNotFoundError`                          | 不透明层 pip 包未还原                                   | 查 layer.python.installed_packages，补充安装                 |
-| `dpkg: error: parsing file`                                  | 不透明层 apt 包未还原                                   | 查 layer.packages.list，补充安装                             |
-| 启动命令 `exec: not found`                                   | CMD 路径与原镜像不一致                                  | 比对 history 最后一层 CMD                                    |
-| 运行时缺少环境变量                                           | ENV 未完整还原                                          | 检查 layer.image_env（缺失时查 layout.env_vars），补全 ENV 层 |
+| 错误                                                         | 原因                                                         | 修复                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `Temporary failure in name resolution` / `Could not resolve host` | 构建容器网络命名空间 DNS 不可达（`docker pull` 仍正常）      | 确认 `BUILD_NET_CTX.build_net_mode`；若为 `bridge` 失败，切到 `--network=host`（`${BUILD_NET_ARG}`）；仍失败按 `build_knowledge_reference.md` §「容器 DNS 解析失败」处理 |
+| `npm ERR! code E407` / `407 Proxy Authentication Required`   | npm 不读 `HTTP_PROXY` 环境变量做代理认证，`--build-arg` 注入的代理对 npm 无效 | 按 `build_knowledge_reference.md` §8「npm 代理 407」处理：宿主机 `npm install` 后 `COPY node_modules`，或 Dockerfile 内 `npm config set proxy` |
+| `COPY failed: file not found`                                | 阶段 3 未提取或路径有误                                      | 检查 阶段 2 decision_matrix，确认标记为 [NEED-DOCKER-CP] 的资源已在 阶段 3 提取；检查 docker cp 本地路径与 Dockerfile COPY 路径一致 |
+| `ImportError / ModuleNotFoundError`                          | 不透明层 pip 包未还原                                        | 查 layer.python.installed_packages，补充安装                 |
+| `dpkg: error: parsing file`                                  | 不透明层 apt 包未还原                                        | 查 layer.packages.list，补充安装                             |
+| 启动命令 `exec: not found`                                   | CMD 路径与原镜像不一致                                       | 比对 history 最后一层 CMD                                    |
+| 运行时缺少环境变量                                           | ENV 未完整还原                                               | 检查 layer.image_env（缺失时查 layout.env_vars），补全 ENV 层 |
 
 ---
 
