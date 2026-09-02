@@ -108,25 +108,23 @@ bash $SKILL_DIR/source-migration-scan/scripts/devkit-report-summary.sh
 >
 > 失败时按退出码定位：检查目录与文件存在性（1/2）、表头兼容性（3）。
 >
-> **JSON 摘要生成工具自动降级**（脚本内部处理，无需手动干预）：
+> **JSON 摘要生成工具自动降级**（脚本内部处理，无需手动干预，纯 shell 实现不依赖 python）：
 >
 > | 优先级 | 工具 | 适用场景 |
 > |-------|------|----------|
 > | 1 | `jq` | 服务器标准工具（首选） |
-> | 2 | `python3` | 鲲鹏服务器通常自带（推荐预装） |
-> | 3 | `python2` | 旧系统兜底 |
-> | 4 | `awk` 手工拼接 | 极简环境最后兜底（语法未校验，标记 `_fallback: awk_manual_no_jq_no_python`） |
+> | 2 | `awk` 手工拼接 | jq 不可用时的兜底（语法未校验，标记 `_fallback: awk_manual_no_jq`） |
 >
-> 脚本按 jq → python3 → python2 → awk 顺序自动选择可用工具，**任何环境下均能生成可读取的 JSON 摘要**，但仅 jq 路径会做语法校验。降级路径下若需严格 JSON 校验，事后用 `python3 -m json.tool devkit_summary.json` 二次校验即可。
+> 脚本按 jq → awk 顺序自动选择可用工具，**任何环境下均能生成可读取的 JSON 摘要**，但仅 jq 路径会做语法校验。降级路径下若需严格 JSON 校验，事后用 `jq . devkit_summary.json` 或 `python3 -m json.tool devkit_summary.json` 二次校验即可。
 
 **读取 JSON 摘要供后续阶段使用：**
 
 ```bash
-# 后续阶段统一通过专用脚本读取摘要，三级工具（jq / python3 / awk）兜底已封装在脚本内
+# 后续阶段统一通过专用脚本读取摘要，二级工具（jq / awk）兜底已封装在脚本内
 bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
 ```
 
-> **脚本**：`source-migration-scan/scripts/devkit-summary-read.sh`，封装 jq → python3 → python2 → awk 降级路径，**任何环境下均可读取生成的 JSON 摘要**，无需 agent 自行判断工具可用性。
+> **脚本**：`source-migration-scan/scripts/devkit-summary-read.sh`，封装 jq → awk 降级路径（纯 shell 实现，不依赖 python），**任何环境下均可读取生成的 JSON 摘要**，无需 agent 自行判断工具可用性。
 >
 > **支持的字段**：
 >
@@ -149,7 +147,7 @@ bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
 > | 11 | `has_rule` 检查：Rule 类别列表为空 |
 > | 12 | `has <CATEGORY>` 检查：未找到该类别 |
 >
-> **后续阶段读取约定**：4.2.0-prelude、4.2.0、4.2.5 等章节统一通过 `bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>` 读取摘要，**不得**直接 `cat` 报告 CSV 文件或内联 `jq`/`python3`/`awk` 代码，避免上下文膨胀与工具可用性判断逻辑散落。
+> **后续阶段读取约定**：4.2.0-prelude、4.2.0、4.2.5 等章节统一通过 `bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>` 读取摘要，**不得**直接 `cat` 报告 CSV 文件或内联 `jq`/`awk` 代码，避免上下文膨胀与工具可用性判断逻辑散落。
 
 **理解报告中的问题修改级别：**
 

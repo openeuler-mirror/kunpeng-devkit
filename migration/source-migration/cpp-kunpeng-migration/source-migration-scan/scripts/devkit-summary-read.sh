@@ -3,7 +3,7 @@
 #
 # 用途：从 $WORK_DIR/reports/devkit_summary.json 中按字段读取内容，
 #       供 4.2.0-prelude / 4.2.0 / 4.2.5 等章节判定 Rule 类别是否触发。
-#       本脚本封装 jq → python3 → python2 → awk 降级路径，
+#       本脚本封装 jq → awk 降级路径（纯 shell/awk 实现，不依赖 python），
 #       任何环境下均可读取生成的 JSON 摘要，避免上下文加载整份 DevKit 报告。
 #
 # 用法：
@@ -51,14 +51,10 @@ fi
 
 # --- 1. 探测可用工具 ---
 HAS_JQ=0
-HAS_PY3=0
-HAS_PY2=0
-command -v jq       >/dev/null 2>&1 && HAS_JQ=1
-command -v python3  >/dev/null 2>&1 && HAS_PY3=1
-command -v python2  >/dev/null 2>&1 && HAS_PY2=1
+command -v jq >/dev/null 2>&1 && HAS_JQ=1
 
-if [[ $HAS_JQ -eq 0 && $HAS_PY3 -eq 0 && $HAS_PY2 -eq 0 ]]; then
-  log "jq / python3 / python2 均不可用，使用 awk 降级路径"
+if [[ $HAS_JQ -eq 0 ]]; then
+  log "jq 不可用，使用 awk 降级路径"
 fi
 
 # --- 2. 各字段读取函数（按工具优先级） ---
@@ -83,60 +79,16 @@ has_category_jq() {
   jq -e --arg c "$cat" '.rule_categories | index($c) != null' "$JSON_FILE" >/dev/null 2>&1
 }
 
-# 2.2 python 路径（python3 / python2 共用）
-read_with_python() {
-  local py_cmd="$1" field="$2" extra="$3"
-  "$py_cmd" - "$JSON_FILE" "$field" "$extra" <<'PYEOF'
-import json, sys
-fp, field, extra = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(fp, 'r', encoding='utf-8') as f:
-    d = json.load(f)
-
-if field == 'rule_categories':
-    for c in d.get('rule_categories') or []:
-        print(c)
-elif field == 'categories':
-    for c in d.get('categories') or []:
-        print(f"{c['category']}\t{c['total']}\t{c['rule']}")
-elif field == 'rule_detail_sample':
-    for s in d.get('rule_detail_sample') or []:
-        print(f"[{s['category']}] {s['location']}: {s['suggestion']}")
-elif field == 'has_rule':
-    rc = d.get('rule_categories') or []
-    if len(rc) > 0:
-        print('yes'); sys.exit(0)
-    else:
-        print('no'); sys.exit(11)
-elif field == 'has':
-    rc = d.get('rule_categories') or []
-    if extra in rc:
-        print('yes'); sys.exit(0)
-    else:
-        print('no'); sys.exit(12)
-elif field == 'all':
-    print('# rule_categories')
-    for c in d.get('rule_categories') or []:
-        print(c)
-    print()
-    print('# categories')
-    for c in d.get('categories') or []:
-        print(f"{c['category']}\t{c['total']}\t{c['rule']}")
-    print()
-    print('# rule_detail_sample')
-    for s in d.get('rule_detail_sample') or []:
-        print(f"[{s['category']}] {s['location']}: {s['suggestion']}")
-PYEOF
-}
-
-# 2.3 awk 降级路径（无 jq / python 时）
+# 2.2 awk 降级路径（无 jq 时，纯 shell/awk 实现）
 # 适用于 devkit-report-summary.sh 通过 awk_fallback 生成的 JSON，
-# 也兼容 jq/python 生成的合法 JSON。
+# 也兼容 jq 生成的合法 JSON。
 awk_extract_section() {
   # 提取以 "$1: [" 开头、以 "  ]," 或 "  ]" 结束（含嵌套花括号深度计数）
+  # 匹配到表头行时仅进入提取状态，不打印该行本身
   local header="$1"
   awk -v header="$header" '
     $0 ~ "^[[:space:]]*\"" header "\":[[:space:]]*\\[" {
-      flag = 1; depth = 0; print; next
+      flag = 1; depth = 0; next
     }
     flag {
       print
@@ -165,13 +117,21 @@ read_rule_categories_awk() {
 }
 
 read_categories_awk() {
+  # 兼容两种 JSON 格式：jq 多行对象 / awk_fallback 单行对象
+  # 先折叠换行、归一化冒号后空白，再逐对象提取 category/total/rule
   awk_extract_section categories \
-    | sed -nE 's/.*"category":"([^"]+)","total":([0-9]+),"rule":([0-9]+).*/\1\t\2\t\3/p'
+    | tr -d '\n' \
+    | sed -E 's/:[[:space:]]+/:/g' \
+    | grep -o '{[^}]*}' \
+    | sed -nE 's/.*"category":"([^"]*)".*"total":([0-9]+).*"rule":([0-9]+).*/\1\t\2\t\3/p'
 }
 
 read_detail_awk() {
   awk_extract_section rule_detail_sample \
-    | sed -nE 's/.*"category":"([^"]+)","location":"([^"]+)","suggestion":"([^"]+)".*/[\1] \2: \3/p'
+    | tr -d '\n' \
+    | sed -E 's/:[[:space:]]+/:/g' \
+    | grep -o '{[^}]*}' \
+    | sed -nE 's/.*"category":"([^"]*)".*"location":"([^"]*)".*"suggestion":"([^"]*)".*/[\1] \2: \3/p'
 }
 
 has_rule_awk() {
@@ -190,7 +150,7 @@ has_category_awk() {
 
 run_field() {
   local field="$1" extra="${2:-}"
-  # 优先级：jq > python3 > python2 > awk
+  # 优先级：jq > awk
   if [[ $HAS_JQ -eq 1 ]]; then
     case "$field" in
       rule_categories)    read_rule_categories_jq ;;
@@ -207,17 +167,7 @@ run_field() {
     return 0
   fi
 
-  if [[ $HAS_PY3 -eq 1 ]]; then
-    read_with_python python3 "$field" "$extra"
-    return $?
-  fi
-
-  if [[ $HAS_PY2 -eq 1 ]]; then
-    read_with_python python2 "$field" "$extra"
-    return $?
-  fi
-
-  # awk 降级
+  # awk 降级（纯 shell 实现）
   case "$field" in
     rule_categories)    read_rule_categories_awk ;;
     categories)         read_categories_awk ;;

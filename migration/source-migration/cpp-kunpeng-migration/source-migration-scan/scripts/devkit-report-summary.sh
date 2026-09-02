@@ -20,7 +20,7 @@
 #   1  环境校验失败（DEVKIT_REPORT_DIR 未设置或不存在）
 #   2  未找到任何 CSV/HTML 报告文件
 #   3  CSV 表头格式不符合预期（无 PortingCategory 列）
-#   4  JSON 输出失败（缺少 jq 或磁盘错误）
+#   4  JSON 输出失败（磁盘错误；无 jq 时自动使用 awk 生成）
 
 set -euo pipefail
 
@@ -304,8 +304,8 @@ awk -v cat_idx="$CAT_IDX" -v lvl_idx="$LVL_IDX" -v file_idx="$FILE_IDX" \
 log "摘要已写入：$SUMMARY_FILE"
 
 # --- 5. 写入机器可读 JSON 摘要 ---
-# 优先级：jq → python3 → python2 → awk 手工拼接
-# 服务器通常具备 python3；若均无，则仅生成 summary.txt，提示用户使用 awk 读取
+# 优先级：jq → awk 手工拼接（纯 shell 实现，不依赖 python）
+# 服务器通常具备 jq；若不可用，自动用 awk 手工拼接生成 JSON
 
 write_json_with_jq() {
   local categories_json rule_cats_json detail_json
@@ -338,47 +338,6 @@ EOF
   jq . "$JSON_FILE" >/dev/null 2>&1
 }
 
-write_json_with_python() {
-  local py_cmd="$1"
-  "$py_cmd" - "$JSON_FILE" "$DEVKIT_REPORT_DIR" "${#CSV_FILES[@]}" "$TOTAL_ROWS" \
-            "$TMP_DETAIL" "$TMP_RULE" "$TMP_SUGG" <<'PYEOF'
-import json, sys
-out_path, report_dir, csv_count, total = sys.argv[1:5]
-tmp_detail, tmp_rule, tmp_sugg = sys.argv[5:8]
-
-def load_lines(p):
-    try:
-        with open(p, 'r', encoding='utf-8') as f:
-            return [l.rstrip('\n') for l in f if l.strip()]
-    except FileNotFoundError:
-        return []
-
-categories = []
-for line in load_lines(tmp_detail)[1:]:  # skip header
-    parts = line.split('|')
-    if len(parts) >= 3:
-        categories.append({"category": parts[0], "total": int(parts[1]), "rule": int(parts[2])})
-
-rule_cats = load_lines(tmp_rule)
-detail = []
-for line in load_lines(tmp_sugg):
-    parts = line.split('|', 2)
-    if len(parts) >= 3:
-        detail.append({"category": parts[0], "location": parts[1], "suggestion": parts[2]})
-
-obj = {
-    "report_dir": report_dir,
-    "csv_count": int(csv_count),
-    "total_issues": int(total),
-    "rule_categories": rule_cats,
-    "categories": categories,
-    "rule_detail_sample": detail,
-}
-with open(out_path, 'w', encoding='utf-8') as f:
-    json.dump(obj, f, ensure_ascii=False, indent=2)
-PYEOF
-}
-
 write_json_with_awk_fallback() {
   # 手工拼接 JSON（不验证语法，仅供 agent 后续 grep/awk 读取）
   # 标记为降级输出
@@ -389,7 +348,7 @@ write_json_with_awk_fallback() {
 
   {
     echo "{"
-    echo "  \"_fallback\": \"awk_manual_no_jq_no_python\","
+    echo "  \"_fallback\": \"awk_manual_no_jq\","
     echo "  \"report_dir\": \"$DEVKIT_REPORT_DIR\","
     echo "  \"csv_count\": ${#CSV_FILES[@]},"
     echo "  \"total_issues\": $TOTAL_ROWS,"
@@ -416,7 +375,7 @@ write_json_with_awk_fallback() {
     echo "  ]"
     echo "}"
   } > "$JSON_FILE"
-  warn "已使用 awk 降级生成 JSON，语法未经严格校验，建议优先安装 jq 或 python3"
+  warn "已使用 awk 降级生成 JSON，语法未经严格校验，建议优先安装 jq"
 }
 
 JSON_GENERATED=0
@@ -425,28 +384,12 @@ if command -v jq >/dev/null 2>&1; then
   if write_json_with_jq; then
     JSON_GENERATED=1
   else
-    warn "jq 生成失败，尝试降级方案"
-  fi
-fi
-
-if [[ $JSON_GENERATED -eq 0 ]] && command -v python3 >/dev/null 2>&1; then
-  log "使用 python3 生成 JSON 摘要（jq 不可用时的首选降级）"
-  if write_json_with_python python3; then
-    JSON_GENERATED=1
-  else
-    warn "python3 生成失败，尝试 python2"
-  fi
-fi
-
-if [[ $JSON_GENERATED -eq 0 ]] && command -v python2 >/dev/null 2>&1; then
-  log "使用 python2 生成 JSON 摘要"
-  if write_json_with_python python2; then
-    JSON_GENERATED=1
+    warn "jq 生成失败，使用 awk 降级"
   fi
 fi
 
 if [[ $JSON_GENERATED -eq 0 ]]; then
-  warn "jq / python3 / python2 均不可用，使用 awk 降级生成 JSON 摘要"
+  warn "jq 不可用或生成失败，使用 awk 手工拼接生成 JSON 摘要"
   write_json_with_awk_fallback
   JSON_GENERATED=1
   log "JSON 摘要已写入（awk 降级）：$JSON_FILE"
