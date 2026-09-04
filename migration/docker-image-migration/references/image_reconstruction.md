@@ -118,10 +118,10 @@ manifest 或 history 缺失/不可解析 → 进入 1.2，重新运行采集以�
 ```text
 ARM64 主机无法运行 x86_64 容器，因此无法本地采集 layer。
 
-有远程 x86_64 采集机 → 环境 B：manifest/history/layer 全部在 x86_64 采集机上通过其工作目录中的工具包预编译二进制远程采集（collect-x86 采 manifest+history，env 采 layer），回传 ARM64 后只做 analyze。
+有远程 x86_64 采集机 → 环境 B：manifest/history/layer 全部在 x86_64 采集机上通过其工具包预编译二进制远程采集（collect-x86 采 manifest+history，env 采 layer），回传 ARM64 后只做 analyze。
             已获得远程信息时：
               1. 检查 x86_64 采集机前置条件（Docker 可用）；
-              2. 在 x86_64 采集机工作目录中定位 x86 工具包（无则下载或获取，见 references/x86_remote_setup_reference.md 步骤 2/2.1）；
+              2. 在 x86_64 采集机上定位 x86 工具包（优先 `/opt/huawei/devkit` 安装目录，无则工作目录，仍无则下载或获取，见 references/x86_remote_setup_reference.md 步骤 2/2.1）；
               3. 验证预编译二进制子命令可执行；
               4. 远程执行采集命令（collect-x86 采 manifest+history，env 采 layer）；
               5. 回传并校验采集产物；
@@ -137,7 +137,7 @@ ARM64 主机无法运行 x86_64 容器，因此无法本地采集 layer。
                               报告中记录 `LAYER_NOT_COLLECTED`。
 ```
 
-> 不在 x86_64 机器上执行系统级变更；需要运行 x86_64 容器的采集/扫描操作统一通过工作目录中工具包的预编译二进制经 SSH 远程调用（`${AI_MIGRATION_DIR}/ai-migration image-migration <subcommand>`）。python3 禁令同 1.1。
+> 不在 x86_64 机器上执行系统级变更；需要运行 x86_64 容器的采集/扫描操作统一通过工具包的预编译二进制经 SSH 远程调用（`${AI_MIGRATION_DIR}/ai-migration image-migration <subcommand>`），工具包优先复用 `/opt/huawei/devkit` 安装目录，无则工作目录。python3 禁令同 1.1。
 
 ### 1.4 执行采集
 
