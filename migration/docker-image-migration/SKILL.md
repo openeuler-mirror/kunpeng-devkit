@@ -1,5 +1,5 @@
 ---
-name: docker-image-migration
+name: docker-image-migration-new-double
 description: >-
   docker-image-migration Skill 主调度文件。用于将 x86_64 Docker 镜像迁移到 linux/arm64（鲲鹏）环境，覆盖有 Dockerfile 的直接迁移与无 Dockerfile 的镜像逆向重构两类场景。负责场景选择、启动门禁、受控并发、构建与运行验证、知识沉淀及中断恢复。不适用范围：Windows 容器迁移、非 Docker 场景（裸机或 VM）、仅需人工替换单行 `FROM` 的极简任务、history 完全不可读且镜像不可运行的场景。
 license: MulanPSL-2.0
@@ -192,7 +192,12 @@ curl -sS -x <proxy_url> -o /dev/null -w '%{http_code}' --max-time 10 https://mir
 ```
 
 - 探测到可用代理 → 记录 `BUILD_PROXY=<proxy_url>` 与 `BUILD_NO_PROXY`，构建时通过 `--build-arg HTTP_PROXY/HTTPS_PROXY/NO_PROXY` 注入；**代理地址必须经用户确认后方可使用**。
-- 无可用代理且断网 → 暂停并交互提示用户："构建容器无法出网（DNS 解析失败且宿主机网络/代理均不可用），请提供可达的代理或修复容器网络后继续。" 未确认前不得继续。
+- 无可用代理且断网 → 暂停并交互提示用户："构建容器无法出网（DNS 解析失败且宿主机网络/代理均不可用），请提供可达的代理或修复容器网络后继续；若无法修复网络，可选择离线依赖兜底（见下）。" 未确认前不得继续。
+- **离线依赖兜底（用户确认网络无法修复时启用）**：当所有网络模式与代理均不可达、且用户明确选择继续时，跳过构建容器内联网，改为在**网络可达的环境**（宿主机若可达，或具备网络的 x86_64/ARM64 机器）预下载全部依赖到构建上下文，构建时 `COPY` 注入：
+    - Python：在目标架构环境 `pip download -d <build_context>/wheels -r requirements.txt`（须带 `--platform aarch64 --only-binary=:all:` 或在原生 ARM64 机执行，确保 wheel 架构匹配），Dockerfile 改 `pip install --no-index --find-links=./wheels -r requirements.txt`。
+    - Node.js：在目标架构/Node 版本匹配的环境 `npm install`（见 `build_knowledge_reference.md` §8 npm 407 方案 A），`COPY node_modules` 注入。
+    - 系统包（apt/yum）：优先从官方 ARM64 镜像 `docker cp` 提取 `.deb`/`.rpm` 后 `dpkg -i`/`rpm -i`，或换用已含所需包的 ARM64 基础镜像。
+    - **必须标注 `WARN-OFFLINE-DEPS`**：`impact` 写明"构建容器无法出网，依赖以离线方式注入，未在构建时联网验证最新版本/完整性"，`action_required` 写明"生产部署前须在网络可达环境重新联网安装以获取最新安全补丁，或确认离线依赖版本经安全审核"。此为降级方案，不得标记为标准构建路径。
 
 生成 `BUILD_NET_CTX`，按下表取值：
 
@@ -225,7 +230,7 @@ BUILD_NET_CTX:
 
 > **所有采集/分析命令执行前必须完成本步**，否则命令将因找不到可执行文件而失败。
 
-定位 `ai-migration` 工具包目录，将 `AI_MIGRATION_DIR` 记录到 `TASK_CTX`。工具包优先在**工作目录**中定位；若不存在，按「工作目录 → 本机下载 → 从另一台机器下载后传输 → 请求用户上传或提供路径」的优先级获取（下载源 `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/`，按机器架构选取 ARM/x86 工具包）。ARM64 主控端和 x86_64 采集机均需完成工具包定位；两台机器网络均不可用且工作目录均无工具包时，必须暂停并交互式请求用户上传工具包或提供已有路径，未确认前不得继续执行。
+定位 `ai-migration` 工具包目录，将 `AI_MIGRATION_DIR` 记录到 `TASK_CTX`。工具包按「**DevKit 安装目录（`/opt/huawei/devkit`）→ 工作目录 → 本机下载 → 从另一台机器下载后传输 → 请求用户上传或提供路径**」的优先级定位与获取：先检查 DevKit 产品安装目录 `/opt/huawei/devkit` 下是否已存在工具包（经 RPM 安装的 DevKit 会把工具包解压到此），有则直接复用；无则在**工作目录**中定位；仍无则从 `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/` 下载对应架构工具包（ARM/x86）到工作目录。ARM64 主控端和 x86_64 采集机均需完成工具包定位；`/opt/huawei/devkit` 与工作目录均无工具包、且两台机器网络均不可用时，必须暂停并交互式请求用户上传工具包或提供已有路径，未确认前不得继续执行。
 
 > ⚠️ **所有机器禁止直接 `python3` 调用采集/分析脚本**：
 >
@@ -243,7 +248,7 @@ BUILD_NET_CTX:
 
 若当前机器为 x86_64，或无需远程采集，**跳过本节**。
 
-> x86_64 采集机需在工作目录中放置 x86 工具包（包含 `ai-migration` 可执行文件 + `x86_remote_collector/`），定位/获取并验证后所有操作通过 `${AI_MIGRATION_DIR}/ai-migration image-migration <subcommand>` 调用。
+> x86_64 采集机需定位 x86 工具包（包含 `ai-migration` 可执行文件 + `x86_remote_collector/`），优先复用 `/opt/huawei/devkit` 安装目录，无则工作目录，仍无则下载/获取并验证后所有操作通过 `${AI_MIGRATION_DIR}/ai-migration image-migration <subcommand>` 调用。
 >
 > 环境检查（SSH/Docker/磁盘/镜像存在性）、工具包定位与获取（工作目录定位 / 下载 / 跨机传输 / 请求用户）、验证的完整步骤见 `references/x86_remote_setup_reference.md`。
 >
