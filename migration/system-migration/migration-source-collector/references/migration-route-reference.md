@@ -43,7 +43,7 @@
 
 | 源产品 | 源版本 | 目标产品 | 目标版本 | License | URL 模板 | 备注 |
 |---|---|---|---|---|---|---|
-| RabbitMQ | 1.x–3.x | RabbitMQ | 3.9.28 | 否 | `{PACKAGE_BASE_URL}/rabbitmq-server-generic-unix-3.9.28.tar.xz` | 同产品迁移 |
+| RabbitMQ | 1.x–3.x | RabbitMQ | 3.9.29 | 否 | `{PACKAGE_BASE_URL}/rabbitmq-server-3.9.29-1.el8.noarch.rpm` | 同产品迁移，el8 rpm（noarch），Erlang 依赖可用同目录 `erlang-*.aarch64.rpm` |
 | Redis | 2.x | Redis | 2.8.24 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/redis-2.8.24.tar.gz` | 同产品迁移 |
 | Redis | 3.x | Redis | 3.2.13 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/redis-3.2.13.tar.gz` | 同产品迁移 |
 | Redis | 4.x | Redis | 4.0.14 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/redis-4.0.14.tar.gz` | 同产品迁移 |
@@ -61,8 +61,8 @@
 | Tomcat | 8.0 | Tomcat | 8.0.53 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/apache-tomcat-8.0.53.tar.gz` | 保持主版本 |
 | Tomcat | 8.5 | Tomcat | 8.5.100 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/apache-tomcat-8.5.100.tar.gz` | 保持主版本 |
 | Tomcat | 9.0 | Tomcat | 9.0.65 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/apache-tomcat-9.0.65.tar.gz` | 保持主版本 |
-| Tomcat | 3.x–9.x | 金蝶AAS | 9 | 否 | `{PACKAGE_BASE_URL}/AAS-9-linux-aarch64.*` | 国产化候选 |
-| Tomcat | 3.x–9.x | 金蝶AAS | 10 | 否 | `{PACKAGE_BASE_URL}/AAS-10-linux-aarch64.*` | 国产化候选 |
+| Tomcat | 3.x–9.x | 金蝶AAS | 9 | 是 | — | 国产化候选，商业软件无公开下载，需联系金蝶天燕获取安装包后走 MANUAL 上传 |
+| Tomcat | 3.x–9.x | 金蝶AAS | 10 | 是 | — | 国产化候选，商业软件无公开下载，需联系金蝶天燕获取安装包后走 MANUAL 上传 |
 | Tomcat | 6.x–8.x | 东方通TongWeb | 7.0.4.9_M3 | 是 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/TongWeb7.0.4.9_M3_Enterprise_with_tool.tar.gz` | 国产化候选 |
 | Tomcat | 7.x–9.x | BES AppServer Standard | 9.5.5.7266 | 是 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/BES-AppServer-Standard-With-Tool-devkit-ver-9.5.5.7266.tar.gz` | 国产化候选 |
 | JDK / JRE | Java 6、7、8 | OpenJDK | 1.8.0 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/OpenJDK8U-jdk_aarch64_linux_hotspot_8u422b05.tar.gz` | 保持 Java 8 兼容级别 |
@@ -83,9 +83,9 @@
 | Elasticsearch | 7.7.x–7.17.x、8.0.x–8.14.x（规则已列版本） | Elasticsearch | 与源版本一致 | 否 | `https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{version}-linux-aarch64.tar.gz` | 仅匹配规则已列版本 |
 | Elasticsearch | 版本未知 | Elasticsearch | — | 否 | — | 先补充源版本，不得默认升级 |
 | Docker | 1.13、18、20 | Docker | 26.1.3 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/docker.tar.gz` | 检查 Dockerfile、Compose、镜像和参数兼容性 |
-| Resin | 4.x | Resin | 4.0.58 | 否 | `{PACKAGE_BASE_URL}/resin-4.0.58.tar.gz` | `mapping_rules.json` 未配置，需确认包来源 |
-| Nacos | 2.4.x | Nacos | 2.4.0 | 否 | `{PACKAGE_BASE_URL}/nacos-server-2.4.0.tar.gz` | 同产品迁移 |
-| RocketMQ | 5.2.x | RocketMQ | 5.2.0 | 否 | `{PACKAGE_BASE_URL}/rocketmq-all-5.2.0-bin-release.zip` | 同产品迁移 |
+| Resin | 4.x | Resin | 4.0.58 | 否 | `https://www.caucho.com/download/resin-4.0.58.tar.gz` | GPL 版官方包，Java 包跨架构通用 |
+| Nacos | 2.4.x | Nacos | 2.4.0 | 否 | `https://github.com/alibaba/nacos/releases/download/2.4.0/nacos-server-2.4.0.tar.gz` | 官方 GitHub Release，Java 包跨架构通用 |
+| RocketMQ | 5.2.x | RocketMQ | 5.2.0 | 否 | `https://archive.apache.org/dist/rocketmq/5.2.0/rocketmq-all-5.2.0-bin-release.zip` | Apache 官方归档，Java 包跨架构通用 |
 | Nacos / RocketMQ | 版本未知或未命中 | 原产品 | — | 否 | — | 先向用户确认源版本，不得生成虚假待选版本 |
 | CustomDirectory / JavaMiddleware | 0 | 原产品 | 0 | 待确认 | — | 占位映射，不代表已有兼容路线 |
 
