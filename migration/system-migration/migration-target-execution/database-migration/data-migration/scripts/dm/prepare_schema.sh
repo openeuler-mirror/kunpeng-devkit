@@ -1,18 +1,15 @@
 #!/bin/bash
 # 在目标 DM 中预创建目标 schema（如不存在）
-# 背景：DTS 不会自动创建 schema，目标 schema 必须预先存在，否则所有 CREATE_TABLE 任务会因
-#       "无效的模式名[X]" 失败。本脚本在 run_migration.sh 之前执行，确保 schema 就绪。
 #
-# 用法: prepare_schema.sh --conf=FILE [--dm-home=PATH]
+# DTS 不会自动创建 schema，目标 schema 必须预先存在，否则 CREATE_TABLE 任务会因
+# "无效的模式名[X]" 失败。本脚本在 run_migration.sh 之前执行，确保 schema 就绪。
+# 非密码字段经 --conf（600 临时文件，source 后即删）传入；DST_PWD 禁止落盘，由调用方 export
+# （见 data-migration.md「密码处理」）。
 #
-# 命令行参数：
-#   --conf=FILE      必填，临时配置文件路径（KEY='VALUE' 格式，权限 600，含密码，用后即删）
-#                    支持 KEY：
-#                      DST_HOST  DST_PORT  DST_USER  DST_PWD  DST_SCHEMA（均必填）
-#   --dm-home=PATH   可选，达梦安装根目录，默认 /opt/dmdbms
-#
-# 安全: conf 文件含明文密码，脚本 source 后立即删除，并在 EXIT 时兜底清理。
-#       仅传入临时文件路径，不要传入需要保留的文件。
+# 参数：
+#   --conf=FILE    600 临时 conf，仅含 DST_HOST DST_PORT DST_USER DST_SCHEMA
+#   --dm-home=PATH 可选，达梦安装根目录，默认 /opt/dmdbms
+# 环境变量：DST_PWD (由调用方 export)
 set -euo pipefail
 
 CONF_FILE=""
@@ -22,15 +19,9 @@ DM_HOME="/opt/dmdbms"
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
 usage() { cat <<EOF
-用法: $(basename "$0") --conf=FILE [--dm-home=PATH]
-
-必选:
-  --conf=FILE      临时配置文件路径（KEY='VALUE' 格式，权限 600）
-                   含 DST_HOST/DST_PORT/DST_USER/DST_PWD/DST_SCHEMA，脚本读取后自动删除该文件。
-                   仅传入临时文件，不要传入需要保留的文件。
-
-可选:
-  --dm-home=PATH   达梦安装根目录，默认 /opt/dmdbms
+用法: $(basename "$0") --conf=FILE [--dm-home=PATH]  （须先 export DST_PWD）
+  --conf=FILE    600 临时 conf，仅含 DST_HOST/DST_PORT/DST_USER/DST_SCHEMA，读取后删除
+  --dm-home=PATH 可选，默认 /opt/dmdbms
 EOF
 exit 0; }
 
@@ -45,15 +36,13 @@ parse_args() {
     done
 }
 
-#==================== 清理临时配置（含密码，用后即焚） ====================
+#==================== 清理临时 conf ====================
 cleanup_conf() {
-    if [ -n "${CONF_FILE:-}" ] && [ -f "${CONF_FILE:-}" ]; then
-        rm -f "${CONF_FILE}" 2>/dev/null || true
-    fi
+    [ -n "${CONF_FILE:-}" ] && [ -f "${CONF_FILE:-}" ] && rm -f "${CONF_FILE}" 2>/dev/null || true
 }
 trap cleanup_conf EXIT
 
-#==================== 加载配置（source 后立即删除） ====================
+#==================== 加载配置（conf source 后删除；DST_PWD 从环境变量） ====================
 load_conf() {
     [ -n "$CONF_FILE" ] || die "必须指定 --conf=FILE"
     [ -f "$CONF_FILE" ] || die "配置文件不存在: $CONF_FILE"
@@ -69,7 +58,7 @@ load_conf() {
     : "${DST_HOST:?DST_HOST required}"
     : "${DST_PORT:?DST_PORT required}"
     : "${DST_USER:?DST_USER required}"
-    : "${DST_PWD:?DST_PWD required}"
+    : "${DST_PWD:?DST_PWD required (export)}"
     : "${DST_SCHEMA:?DST_SCHEMA required}"
 }
 

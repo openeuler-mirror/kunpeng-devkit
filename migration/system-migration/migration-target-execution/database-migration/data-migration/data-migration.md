@@ -49,14 +49,13 @@
 | 1 | 源端主机 `SRC_HOST` | **默认取迁移来源主机**（默认为 `migration-plan.json` 记录的源端 IP）；用户可直接确认沿用，或改为其他主机。| 源 MySQL 所在主机 IP / 域名 |
 | 2 | 源端端口 `SRC_PORT` | **默认 MySQL 标准端口 `3306`**（可改为其他值） | 源 MySQL 监听端口 |
 | 3 | 源端用户 `SRC_USER` | 需用户输入（通常是 `root`，可列为候选） | 源 MySQL 登录账号 |
-| 4 | 源端密码 `SRC_PWD` | **仅用户输入选项**（无默认值，敏感，仅写入 600 权限的临时 conf 文件，不公示） | 源 MySQL 登录密码 |
+| 4 | 源端密码 `SRC_PWD` | **仅用户输入**（无默认值，敏感） | 源 MySQL 登录密码，传递规则见「密码处理」 |
 | 5 | 源端库名 `SRC_SCHEMA` | **可填写指定库名，也可选「全部」** | 待迁移的源业务数据库 (schema) |
-
-> `SRC_PWD` 为源端密码，参见下方「密码处理」定义其通行与展示规则。
 
 #### 密码处理
 
-1. **通行与展示**：所有敏感密码（源端数据库密码、目标端 DM 密码）一律通过 600 权限的临时 conf 文件跨脚本传递；展示、报告、日志、命令文本中只呈现密码文件的引用路径，不呈现明文。
+1. **通行与展示**：所有敏感密码（源端数据库密码、目标端 DM 密码）在我方可控的全部传输与留存环节（临时 conf、日志、报告、命令文本等）**一律禁止写入文件**，仅由 agent 在当前 shell 内存中持有，并通过环境变量（export）直接传递给编排脚本及其内部子脚本；展示、报告、日志、命令文本中不得呈现明文。
+   **唯一例外**：DTS 工具 `dts_cmd_run.sh` 仅接受含密码的 runtime XML 文件作为输入（`DESCRYPT_PASSWORD=0`，无环境变量/密码学接口），该 XML 由 `gen_xml.sh` 在脚本内部经环境变量取值生成，`chmod 600`，迁移完成后由编排脚本 `trap EXIT` 立即删除，属工具必需输入而非密码留存，生命周期受控。除此之外任何脚本与 agent 交互均不得以文件承载密码。
 2. **源端数据库密码由用户即时提供**：源端 MySQL 的密码是与源机器系统登录密码不同的独立凭据，须由用户即时输入（阶段1 `SRC_PWD` 仅用户输入、无默认值）。不要从既有产物（`migration-plan.json`、`install_env.conf`、SSH/密钥、历史部署文件等）获取或尝试任何机器密码来充当它。
 3. **目标端 DM 密码按交付产物提取**：目标端为本机达梦，其管理员密码（install_env.conf 的 `SYSDBA_PWD`，管理员固定为 `SYSDBA`）属已审计的设备密码，按交付产物提取即可。
 
@@ -81,11 +80,11 @@
    - `UNKNOWN_PLUGIN` / `caching_sha2_password can not be loaded` → 说明「阶段 0」未生效（客户端认证插件仍缺失），按该章节正向补齐插件，而非当作密码错误。属软风险，补齐插件后重测即可。
    - 连接拒绝/超时（网络或端口不通）→ 软预检 **FAIL**，先解决源端可达性再继续。
 
-> 连通测试的连接信息同样仅经 600 临时 conf 或进程内即时参数传递，不写入日志/报告明文。
+> 连通测试的密码传递规则同「密码处理」。
 
 ### 阶段2 生成数据迁移详细配置
 
-从流水线产物(`migration-plan.json`, `install_env.conf`,`deploy_summary_*.json`, 表清单 CSV)中提取**除用户交互的信息以及源端数据库密码外**的其余数据库连接信息。**源端数据库密码永远不从此类产物提取**（见上方「密码处理」），必须由用户即时输入。以下提取规则仅适用于目标端 DM 与其余非密码字段：
+从流水线产物(`migration-plan.json`, `install_env.conf`,`deploy_summary_*.json`, 表清单 CSV)中提取目标端 DM 与其余非密码字段的连接信息。源端密码不由此处提取（见「密码处理」第 2 条）。以下提取规则仅适用于目标端 DM 与其余非密码字段：
 
 
 #### 提取规则
@@ -100,10 +99,10 @@
    
    目标端 schema `DST_SCHEMA` 缺省等于 `DST_USER`。**不存在的键名**（`DB_PORT`、`SYSDBA_USER`、`SYSDBA_PASSWORD_FILE`、`ADMIN_PASSWORD`）不属于 install_env.conf，不要使用。
 3. **多来源并存**：由 AI 判断哪个最权威（通常 `migration-plan.json` > 用户输入 > `install_env.conf`），取首个非空值。
-4. **目标端 DM 密码**：取 install_env.conf 的 `SYSDBA_PWD`（管理员固定 `SYSDBA`）。此为设备已审计密码，不适用于源端。源端数据库密码一律见上方「密码处理」，由用户即时输入。
+4. **目标端 DM 密码**：取 install_env.conf 的 `SYSDBA_PWD`（管理员固定 `SYSDBA`），属已审计设备密码。
 5. **表清单**：优先级：用户提供 > 表清单CSV > `migration-plan.json` 中记录的迁移对象。
 
-> AI 提取完成后，将值写入临时 conf 文件（`chmod 600`、用后即删，规则见「密码处理」）传给 `gen_xml.sh` / `prepare_schema.sh`。conf 文件格式见下方「模板占位符」章节。
+> AI 提取完成后，将非密码字段写入临时 conf（`chmod 600`、用后即删），密码字段按「密码处理」经环境变量传递。conf 文件格式见下方「模板占位符」。
 
 #### 模板占位符
 
@@ -142,23 +141,22 @@ TABLE_LIST="db1.t1 db2.t2"             # 跨 schema
 
 ### 阶段3 调用编排脚本（唯一入口）
 
-**本阶段是整个数据迁移的强制执行入口**：直接调用编排脚本 `run_data_migration.sh`，由它内部依次执行 `gen_xml → prepare_schema → run_migration → verify_migration → 清理`。安全模式与各子脚本一致（600 临时 conf、source 后即删、`trap EXIT` 兜底清理），并负责补全 `MIGRATION_WORK_DIR` 环境与各步骤衔接；**不得绕过编排脚本单独调用其内部子脚本**。需要独立验证目标端时用 `disql` 直接查询即可。AI 把阶段1的源端字段、阶段2提取的目标 DM 字段与 `TABLE_LIST` 一次性写入 600 临时 conf 后调用编排脚本即可。
+**本阶段是整个数据迁移的强制执行入口**：直接调用编排脚本 `run_data_migration.sh`，由它内部依次执行 `gen_xml → prepare_schema → run_migration → verify_migration → 清理`，并负责补全 `MIGRATION_WORK_DIR` 环境与各步骤衔接；**不得绕过编排脚本单独调用其内部子脚本**。需要独立验证目标端时用 `disql` 直接查询即可。AI 将非密码字段写入 600 临时 conf、密码字段按「密码处理」export 后调用编排脚本。
 
 ```bash
-# 前置（agent inline 执行，幂等）：客户端正向准备已完成（见「阶段 0 源端 MySQL 客户端准备」，首次安装即补齐认证插件）
-# AI 已完成：1.逐项交互拿源端 MySQL 连接（阶段1）；
-#            2.从流水线产物提取目标 DM 字段（阶段2）；
-#            3.确定 TABLE_LIST（优先级见阶段2「提取规则」第5条）
-# 若用户明确表示跳过本流程，则结束，不进入后续步骤。
+# 前置（agent inline 执行，幂等）：客户端正向准备已完成（见「阶段 0」，首次安装即补齐认证插件）
+# AI 已完成：1.逐项交互拿源端 MySQL 连接（阶段1）；2.提取目标 DM 字段（阶段2）；3.确定 TABLE_LIST
+# 若用户明确表示跳过本流程，则结束。
 
-# 把全部字段一次性写入 600 临时 conf（含密码，不 export、不入日志），调编排脚本：
+# 密码 export（见「密码处理」），非密码字段写 600 临时 conf：
+export SRC_PWD="$SRC_PWD" DST_PWD="$DST_PWD"
 CONF="$MIGRATION_WORK_DIR/database/dts_work/.run_conf.$$"
 {
   echo "SRC_HOST='$SRC_HOST'";  echo "SRC_PORT='$SRC_PORT'"
-  echo "SRC_USER='$SRC_USER'"; echo "SRC_PWD='$SRC_PWD'"
+  echo "SRC_USER='$SRC_USER'"
   echo "SRC_SCHEMA='$SRC_SCHEMA'"
   echo "DST_HOST='$DST_HOST'";  echo "DST_PORT='$DST_PORT'"
-  echo "DST_USER='$DST_USER'"; echo "DST_PWD='$DST_PWD'"
+  echo "DST_USER='$DST_USER'"
   echo "DST_SCHEMA='$DST_SCHEMA'"
   echo "TABLE_LIST='$TABLE_LIST'"
   # 以下可选，省略时编排脚本走默认值
@@ -186,9 +184,12 @@ EOF
 
 ## 安全性流程
 
-- runtime XML 含明文密码，生成后 `chmod 600`，迁移完成后删除。
-- 执行采用 `DESCRYPT_PASSWORD=0` 配合明文 XML。
-- 密码通行与展示规则见上方「密码处理」；此处补充其跨脚本实现：由编排脚本 `run_data_migration.sh` 统一封装为 600 临时 conf（source 后即删 + `trap EXIT` 兜底清理），AI 编排器仅在当前 shell 上下文持有密码变量、不 export，避免经 `/proc/<pid>/environ` 泄露。
+密码通行规则统一见「密码处理」，此处仅补充跨脚本实现与端到端流向：
+
+- **流向**：用户输入 `SRC_PWD` / 读取 `install_env.conf` 的 `DST_PWD` → agent export → `run_data_migration.sh` 继承并 export → 子脚本经环境变量读取。全程不落盘。
+- **runtime XML 是唯一落盘例外**（DTS 工具 `dts_cmd_run.sh` 仅接受文件输入，`DESCRYPT_PASSWORD=0`，无环境变量/加密接口）：`gen_xml.sh` 渲染后 `chmod 600`，迁移完成由编排脚本 `trap EXIT` 立即删除。
+- 非密码字段走 600 临时 conf（source 后即删 + `trap EXIT` 兜底清理）。
+- 环境变量仅在进程生命周期内可见，进程退出即消亡，相比落盘文件（即使 rm 仍可被文件系统恢复）风险更低。
 
 ## 故障排查
 

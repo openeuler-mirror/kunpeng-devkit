@@ -1,28 +1,17 @@
 #!/bin/bash
 # 生成 DTS 迁移 runtime XML（纯模板渲染器）
 #
-# 职责：读取模板，替换占位符，输出 runtime XML。
-# 数据提取由调用方（AI）完成，通过 --conf 指定的临时配置文件传入。
+# 读取模板，替换占位符，输出 runtime XML。非密码字段经 --conf（600 临时文件，source 后即删）传入；
+# 密码字段（SRC_PWD、DST_PWD）禁止落盘，由调用方 export（见 data-migration.md「密码处理」）。
 #
-# 命令行参数：
-#   --conf=FILE      必填，临时配置文件路径（KEY='VALUE' 格式，权限 600，含密码，用后即删）
-#                    支持 KEY：
-#                      SRC_HOST  SRC_PORT  SRC_USER  SRC_PWD  SRC_SCHEMA
-#                      DST_HOST  DST_PORT  DST_USER  DST_PWD  DST_SCHEMA
-#                      TASK_NAME     (可选，默认 source2dm)
-#                      THREAD_COUNT  (可选，默认 2)
-#                      TO_UPPER      (可选，默认 true)
-#                      TABLE_LIST    (空格分隔的表名，如 "orders users"；纯表名 schema 缺省取 SRC_SCHEMA)
-#   --output=PATH    必填，输出 runtime XML 路径
-#   --template=PATH  可选，DTS runtime XML 模板路径
-#                    默认：<脚本目录>/../../assets/dm/dts_runtime_template.xml
-#
-# 用法:
-#   gen_xml.sh --conf=conn.conf --output=/path/to/runtime.xml
-#   gen_xml.sh --conf=conn.conf --output=/path/to/runtime.xml --template=/custom/template.xml
-#
-# 安全: conf 文件含明文密码，脚本 source 后立即删除，并在 EXIT 时兜底清理。
-#       仅传入临时文件路径，不要传入需要保留的文件。
+# 参数：
+#   --conf=FILE     600 临时 conf，KEY='VALUE' 格式，仅含非密码字段：
+#                    SRC_HOST SRC_PORT SRC_USER SRC_SCHEMA
+#                    DST_HOST DST_PORT DST_USER DST_SCHEMA
+#                    TABLE_LIST TASK_NAME THREAD_COUNT TO_UPPER (后4项可选)
+#   --output=PATH   输出 runtime XML 路径
+#   --template=PATH 可选，默认 <脚本目录>/../../assets/dm/dts_runtime_template.xml
+# 环境变量：SRC_PWD DST_PWD (由调用方 export)
 set -euo pipefail
 
 CONF_FILE=""
@@ -33,17 +22,10 @@ TEMPLATE="$(cd "$(dirname "$0")/../../assets/dm" && pwd)/dts_runtime_template.xm
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
 usage() { cat <<EOF
-用法: $(basename "$0") --conf=FILE --output=PATH [--template=PATH]
-
-必选:
-  --conf=FILE      临时配置文件路径（KEY='VALUE' 格式，权限 600）
-                   含源/目标连接信息与 TABLE_LIST，脚本读取后自动删除该文件。
-                   仅传入临时文件，不要传入需要保留的文件。
-  --output=PATH    输出 runtime XML 路径
-
-可选:
-  --template=PATH  DTS runtime XML 模板路径
-                   默认 <脚本目录>/../../assets/dm/dts_runtime_template.xml
+用法: $(basename "$0") --conf=FILE --output=PATH [--template=PATH]  （须先 export SRC_PWD DST_PWD）
+  --conf=FILE     600 临时 conf，仅含非密码字段，读取后删除
+  --output=PATH   输出 runtime XML 路径
+  --template=PATH 可选，默认 <脚本目录>/../../assets/dm/dts_runtime_template.xml
 EOF
 exit 0; }
 
@@ -59,15 +41,13 @@ parse_args() {
     done
 }
 
-#==================== 清理临时配置（含密码，用后即焚） ====================
+#==================== 清理临时 conf ====================
 cleanup_conf() {
-    if [ -n "${CONF_FILE:-}" ] && [ -f "${CONF_FILE:-}" ]; then
-        rm -f "${CONF_FILE}" 2>/dev/null || true
-    fi
+    [ -n "${CONF_FILE:-}" ] && [ -f "${CONF_FILE:-}" ] && rm -f "${CONF_FILE}" 2>/dev/null || true
 }
 trap cleanup_conf EXIT
 
-#==================== 加载配置（source 后立即删除） ====================
+#==================== 加载配置（conf source 后删除；密码从环境变量） ====================
 load_conf() {
     [ -n "$CONF_FILE" ] || die "必须指定 --conf=FILE"
     [ -f "$CONF_FILE" ] || die "配置文件不存在: $CONF_FILE"
@@ -80,7 +60,6 @@ load_conf() {
     rm -f "$CONF_FILE"
     CONF_FILE=""
 
-    # 缺省值（与原环境变量行为等价）
     : "${TASK_NAME:=source2dm}"
     : "${THREAD_COUNT:=2}"
     : "${TO_UPPER:=true}"
@@ -91,6 +70,8 @@ load_conf() {
     : "${DST_USER:=SYSDBA}"
     : "${DST_SCHEMA:=$DST_USER}"
     : "${TABLE_LIST:=}"
+    : "${SRC_PWD:?SRC_PWD required (export)}"
+    : "${DST_PWD:?DST_PWD required (export)}"
 }
 
 #==================== 主流程 ====================
@@ -142,10 +123,7 @@ fi
 OUT_DIR=$(dirname "$OUT")
 mkdir -p "$OUT_DIR"
 
-# 用 awk 一次性完成模板读取、占位符替换、写出
-# - 通过 -v 把变量值传入 awk（含密码，conf 文件已删除，仅 awk 子进程内短暂存在）
-# - 用 index() + substr() 做纯字符串查找替换，避免正则元字符问题（密码含 &/| 等也安全）
-# - {TRANSFORM_ITEMS} 多行字符串通过 -v 传入，awk 保留换行符
+# awk 模板渲染：-v 传变量，index()+substr() 纯字符串替换（避免正则元字符问题），{TRANSFORM_ITEMS} 多行经 -v 传入
 awk -v TASK_NAME="$TASK_NAME" \
     -v SRC_HOST="$SRC_HOST" \
     -v SRC_PORT="$SRC_PORT" \

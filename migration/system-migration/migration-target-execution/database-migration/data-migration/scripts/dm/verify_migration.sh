@@ -1,25 +1,17 @@
 #!/bin/bash
 # 校验迁移结果
 #
-# 硬校验（任一失败则退出非 0）：
-#   1. DTS 进程退出码 = 0
-#   2. 日志含 "迁移完成" 关键字
-#   3. 日志无致命错误（No enum constant / NumberFormatException / ClassNotFoundException）
-#   4. 日志进度行 "出错:N" 中 N = 0
+# 硬校验（任一失败则退出非 0）：DTS 退出码=0、日志含"迁移完成"、无致命错误、进度行"出错:N"=0
+# 软校验（best-effort）：源 MySQL 与目标 DM 各表行数对齐，不可达则 warn 跳过。
+# 非密码字段经 --conf（600 临时文件，source 后即删）传入；SRC_PWD/DST_PWD 禁止落盘，
+# 由调用方 export（见 data-migration.md「密码处理」），缺失则跳过软校验。
 #
-# 软校验（best-effort，源/目标可达时执行，对齐失败则判失败；不可达则 warn 跳过）：
-#   5. 源端 MySQL 与目标端 DM 各表行数对齐（连接信息从 --conf 指定的临时文件读取）
-#
-# 用法: verify_migration.sh --conf=FILE
-#
-# 配置文件 FILE（shell source 兼容的 KEY=VALUE 格式，权限必须 600）：
-#   SRC_HOST SRC_PORT SRC_USER SRC_PWD SRC_SCHEMA   (软校验源端，缺失则跳过软校验)
-#   DST_HOST DST_PORT DST_USER DST_PWD DST_SCHEMA   (软校验目标端，缺失则跳过软校验)
-#   TABLE_LIST  (空格分隔的表名，缺失则跳过软校验)
-#   DM_HOME     (可选，默认 /opt/dmdbms)
-#
-# 安全: FILE 含明文密码，脚本 source 后立即删除，并在 EXIT 时兜底清理。
-#       仅传入临时文件路径，不要传入需要保留的文件。
+# 参数：
+#   --conf=FILE  600 临时 conf，仅含非密码字段：
+#                SRC_HOST SRC_PORT SRC_USER SRC_SCHEMA  (软校验源端)
+#                DST_HOST DST_PORT DST_USER DST_SCHEMA  (软校验目标端)
+#                TABLE_LIST DM_HOME  (缺失则跳过软校验 / 默认 /opt/dmdbms)
+# 环境变量：SRC_PWD DST_PWD (由调用方 export，缺失则跳过软校验)
 set -euo pipefail
 
 DM_HOME="/opt/dmdbms"
@@ -29,12 +21,8 @@ VERIFY_CONF=""
 die() { echo "[ERROR] $*" >&2; exit 1; }
 
 usage() { cat <<EOF
-用法: $(basename "$0") --conf=FILE
-
-必选:
-  --conf=FILE  临时配置文件路径（KEY=VALUE 格式，权限 600）
-               含源/目标连接信息与 TABLE_LIST，脚本读取后自动删除该文件。
-               仅传入临时文件，不要传入需要保留的文件。
+用法: $(basename "$0") --conf=FILE  （须先 export SRC_PWD DST_PWD）
+  --conf=FILE  600 临时 conf，仅含非密码字段，读取后删除
 EOF
 exit 0; }
 
@@ -48,15 +36,13 @@ parse_args() {
     done
 }
 
-#==================== 清理临时配置（含密码，用后即焚） ====================
+#==================== 清理临时 conf ====================
 cleanup_conf() {
-    if [ -n "${VERIFY_CONF:-}" ] && [ -f "${VERIFY_CONF:-}" ]; then
-        rm -f "${VERIFY_CONF}" 2>/dev/null || true
-    fi
+    [ -n "${VERIFY_CONF:-}" ] && [ -f "${VERIFY_CONF:-}" ] && rm -f "${VERIFY_CONF}" 2>/dev/null || true
 }
 trap cleanup_conf EXIT
 
-#==================== 加载配置（source 后立即删除） ====================
+#==================== 加载配置（conf source 后删除；密码从环境变量，缺失则跳过软校验） ====================
 load_conf() {
     [ -n "$VERIFY_CONF" ] || die "必须指定 --conf=FILE"
     [ -f "$VERIFY_CONF" ] || die "配置文件不存在: $VERIFY_CONF"
@@ -79,6 +65,8 @@ load_conf() {
     DST_SCHEMA="${DST_SCHEMA}"
     TABLE_LIST="${TABLE_LIST}"
     DM_HOME="${DM_HOME:-/opt/dmdbms}"
+    : "${SRC_PWD:=}"
+    : "${DST_PWD:=}"
 }
 
 #==================== 主流程 ====================
