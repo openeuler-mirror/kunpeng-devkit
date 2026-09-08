@@ -6,26 +6,28 @@
 
 ### 配置摘要
 
-| 配置                       | 类型         | 默认值                                    | 必填条件              | 说明                                                         |
-| -------------------------- | ------------ | ----------------------------------------- | --------------------- | ------------------------------------------------------------ |
-| `WORKER_COUNT`             | integer      | `3`                                       | 否                    | 并发执行单元数，取值 1-5；1=单任务模式，2-5=并发模式         |
-| `WORKER_STALL_TIMEOUT_MIN` | integer      | `20`                                      | 否                    | 子 Agent 无进展等待时间（分钟），建议为 `BUILD_TIMEOUT_MIN` 的 1/3 |
-| `OUTPUT_TAG_PREFIX`        | string       | `arm64`                                   | 否                    | 生成镜像的 tag 前缀，格式 `<prefix>-<project>:latest`        |
-| `OUTPUT_DOCKERFILE_DIR`    | string       | `arm_builds_{date}/dockerfiles/{project}` | 否                    | 生成 Dockerfile 的存储目录，`{date}`/`{project}` 自动替换    |
-| `REPORT_DIR`               | string       | `arm_builds_{date}/build_reports`         | 否                    | 构建报告输出目录，`{date}` 自动替换                          |
-| `MAX_RETRY`                | integer      | `5`                                       | 否                    | 单次构建最大重试次数，超出标记 `FAILED(EXCEEDED_ATTEMPTS)`   |
-| `BUILD_TIMEOUT_MIN`        | integer      | `60`                                      | 否                    | 单次构建超时时间（分钟），超出标记 `FAILED(TIMEOUT)`         |
-| `GIT_HOSTS`                | list[string] | 无                                        | 是                    | ARM 执行机可直连的内网 Git 域名                              |
-| `INTERNAL_REGISTRIES`      | list[string] | 无                                        | 是                    | ARM 执行机可直连的内网 Docker 镜像仓库域名                   |
-| `INTERNAL_PYPI_HOSTS`      | list[string] | `[]`                                      | `AIRGAP_MODE=true` 时 | ARM 执行机可直连的内网 PyPI 地址；无则设 `[]`                |
-| `AIRGAP_MODE`              | boolean      | `false`                                   | 否                    | `true` 时所有依赖必须走内网，公网域名标注 `[WARN-PUBLIC-URL]` |
-| `PIP_INDEX_URL`            | string       | 阿里云 PyPI                               | 否                    | pip 镜像源 URL，仅 `AIRGAP_MODE=false` 时生效                |
-| `PIP_TRUSTED_HOST`         | string       | 与 index 主机一致                         | 否                    | pip 信任的域名，需与 `PIP_INDEX_URL` 主机名一致              |
-| `CUDA_PACKAGES_SKIP`       | list[string] | 见 6                                      | 否                    | 按前缀匹配删除 CUDA 相关包                                   |
-| `TORCH_VERSION_MAP`        | map          | 见 6                                      | 否                    | CUDA 版 torch → CPU-only 版本映射                            |
-| `FORCE_VERSION_OVERRIDES`  | map          | `networkx>=2.6`                           | 否                    | 在 Dockerfile 末尾追加 `pip install` 覆盖指定包版本          |
-| `X86_AI_MIGRATION_DIR`     | string       | 无                                        | 远程采集时必填        | x86_64 采集机上 ai-migration 工具包目录的绝对路径（优先 `/opt/huawei/devkit` 安装目录，无则工作目录） |
-| `X86_HOST`                 | string       | 无                                        | 远程采集时必填        | x86_64 采集机 SSH 地址，格式 `<user>@<host>`                 |
+| 配置                              | 类型         | 默认值                                                       | 必填条件              | 说明                                                         |
+| --------------------------------- | ------------ | ------------------------------------------------------------ | --------------------- | ------------------------------------------------------------ |
+| `WORKER_COUNT`                    | integer      | `3`                                                          | 否                    | 并发执行单元数，取值 1-5；1=单任务模式，2-5=并发模式         |
+| `WORKER_STALL_TIMEOUT_MIN`        | integer      | `20`                                                         | 否                    | 子 Agent 无进展等待时间（分钟），建议为 `BUILD_TIMEOUT_MIN` 的 1/3 |
+| `OUTPUT_TAG_PREFIX`               | string       | `arm64`                                                      | 否                    | 生成镜像的 tag 前缀，格式 `<prefix>-<project>:latest`        |
+| `OUTPUT_DOCKERFILE_DIR`           | string       | `arm_builds_{date}/dockerfiles/{project}`                    | 否                    | 生成 Dockerfile 的存储目录，`{date}`/`{project}` 自动替换    |
+| `REPORT_DIR`                      | string       | `arm_builds_{date}/build_reports`                            | 否                    | 构建报告输出目录，`{date}` 自动替换                          |
+| `MAX_RETRY`                       | integer      | `5`                                                          | 否                    | 单次构建最大重试次数，超出标记 `FAILED(EXCEEDED_ATTEMPTS)`   |
+| `BUILD_TIMEOUT_MIN`               | integer      | `60`                                                         | 否                    | 单次构建超时时间（分钟），超出标记 `FAILED(TIMEOUT)`         |
+| `GIT_HOSTS`                       | list[string] | 无                                                           | 是                    | ARM 执行机可直连的内网 Git 域名                              |
+| `INTERNAL_REGISTRIES`             | list[string] | 无                                                           | 是                    | ARM 执行机可直连的内网 Docker 镜像仓库域名                   |
+| `INTERNAL_PYPI_HOSTS`             | list[string] | `[]`                                                         | `AIRGAP_MODE=true` 时 | ARM 执行机可直连的内网 PyPI 地址；无则设 `[]`                |
+| `AIRGAP_MODE`                     | boolean      | `false`                                                      | 否                    | `true` 时所有依赖必须走内网，公网域名标注 `[WARN-PUBLIC-URL]` |
+| `PIP_INDEX_URL`                   | string       | 阿里云 PyPI                                                  | 否                    | pip 镜像源 URL，仅 `AIRGAP_MODE=false` 时生效                |
+| `PIP_TRUSTED_HOST`                | string       | 与 index 主机一致                                            | 否                    | pip 信任的域名，需与 `PIP_INDEX_URL` 主机名一致              |
+| `CUDA_PACKAGES_SKIP`              | list[string] | 见 6                                                         | 否                    | 按前缀匹配删除 CUDA 相关包                                   |
+| `TORCH_VERSION_MAP`               | map          | 见 6                                                         | 否                    | CUDA 版 torch → CPU-only 版本映射                            |
+| `FORCE_VERSION_OVERRIDES`         | map          | `networkx>=2.6`                                              | 否                    | 在 Dockerfile 末尾追加 `pip install` 覆盖指定包版本          |
+| `X86_AI_MIGRATION_DIR`            | string       | 无                                                           | 远程采集时必填        | x86_64 采集机上 ai-migration 工具包目录的绝对路径（优先 `/opt/huawei/devkit` 安装目录，无则工作目录） |
+| `X86_HOST`                        | string       | 无                                                           | 远程采集时必填        | x86_64 采集机 SSH 地址，格式 `<user>@<host>`                 |
+| `AI_MIGRATION_TOOL_VERSION`       | string       | `26.0.0`                                                     | 否                    | ai-migration 工具包版本号，仅用于拼装下载 URL；定位步骤用 `*` 通配，不受此值约束 |
+| `AI_MIGRATION_TOOL_DOWNLOAD_BASE` | string       | `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit` | 否                    | 工具包下载基址，拼装下载 URL 时追加 `/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-<arch>.tar.gz` |
 
 ## 目录
 
@@ -37,7 +39,8 @@
 - [6. CUDA / GPU 包处理](#6-cuda--gpu-包处理)
 - [7. 版本强制覆盖](#7-版本强制覆盖)
 - [8. x86_64 远程采集配置](#8-x86_64-远程采集配置)
-- [9. 默认常量（不可配）](#9-默认常量不可配)
+- [9. 工具包版本与下载](#9-工具包版本与下载)
+- [10. 默认常量（不可配）](#10-默认常量不可配)
 
 ---
 
@@ -139,14 +142,37 @@
 
 ```bash
 X86_HOST=user@192.168.1.100
-X86_AI_MIGRATION_DIR=/home/user/arm_builds_20260831/DevKit-AI-Migration-Tool-26.0.0-Linux-x86-64
+X86_AI_MIGRATION_DIR=/home/user/arm_builds_20260831/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64
 ```
 
 > x86_64 采集机上的所有操作通过 `${X86_AI_MIGRATION_DIR}/ai-migration image-migration <subcommand>` 调用。
 
 ---
 
-## 9. 默认常量（不可配）
+## 9. 工具包版本与下载
+
+> 工具包版本号与下载基址在此集中维护。**定位步骤一律用 `*` 通配**（`ls /opt/huawei/devkit/DevKit-AI-Migration-Tool-*/ai-migration`、`ls <工作目录>/DevKit-AI-Migration-Tool-*/ai-migration`），匹配任意已安装版本，**不依赖本节版本号**；本节版本号仅用于拼装下载 URL。
+
+| 配置                              | 默认值                                                       | 说明                                                         |
+| --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `AI_MIGRATION_TOOL_VERSION`       | `26.0.0`                                                     | ai-migration 工具包版本号，下游下载步骤经 `${AI_MIGRATION_TOOL_VERSION}` 引用 |
+| `AI_MIGRATION_TOOL_DOWNLOAD_BASE` | `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit` | 工具包下载基址。下载 URL = `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-<arch>.tar.gz`（ARM64 用 `Kunpeng`，x86_64 用 `x86-64`） |
+
+**使用示例**：
+
+```bash
+# 下载 URL 拼装（ARM64 主控端）
+curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-Kunpeng.tar.gz
+
+# 下载 URL 拼装（x86_64 采集机）
+curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz
+```
+
+> 定位与获取的完整优先级（`/opt/huawei/devkit` → 工作目录 → 下载 → 跨机传输 → 请求用户）见 SKILL.md「工具定位」与 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 步骤 2/2.1。下载属系统环境变更，执行前须按 SKILL.md「系统环境变更确认」请求用户确认。
+
+---
+
+## 10. 默认常量（不可配）
 
 以下常量在流程中硬编码使用，不在配置文件中直接修改，但可在特殊需求时参考。
 

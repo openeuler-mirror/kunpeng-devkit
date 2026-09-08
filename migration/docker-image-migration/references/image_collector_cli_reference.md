@@ -41,7 +41,7 @@ ls <工作目录>/DevKit-AI-Migration-Tool-*/ai-migration
 
 定位成功后，将 `AI_MIGRATION_DIR` 记录到 `TASK_CTX`（工具包目录的绝对路径），后续所有命令中的 `./ai-migration` 替换为 `${AI_MIGRATION_DIR}/ai-migration`。`/opt/huawei/devkit` 与工作目录均无工具包时，按以下优先级获取工具包到工作目录：
 
-1. **本机下载**：本机网络正常时，从 `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/` 下载对应架构工具包（ARM64 用 `*-Linux-Kunpeng`，x86_64 用 `*-Linux-x86-64`）并解压到工作目录；
+1. **本机下载**：本机网络正常时，从 `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}` 下载对应架构工具包（ARM64 用 `DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-Kunpeng`，x86_64 用 `...-Linux-x86-64`）并解压到工作目录。版本号与下载基址在 `config_reference.md` §9 集中维护；
 2. **从另一台机器下载后传输**：本机网络不可用时，由网络正常的另一台机器下载后 scp 传到本机工作目录；
 3. **请求用户上传或提供路径**：两台机器网络均不可用、且 `/opt/huawei/devkit` 与工作目录均无工具包时，**暂停并交互式请求用户**上传工具包或提供已有路径，未确认前不得继续执行。
 
