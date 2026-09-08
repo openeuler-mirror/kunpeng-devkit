@@ -94,13 +94,13 @@ ssh <user>@<host> "ls <工作目录>/DevKit-AI-Migration-Tool-*-Linux-x86-64/ai-
 
 获取优先级依次为：
 
-1. **本机下载**：x86_64 采集机网络正常时，从华为云镜像下载并解压到工作目录
+1. **本机下载**：x86_64 采集机网络正常时，从华为云镜像下载并解压到工作目录（版本号 `${AI_MIGRATION_TOOL_VERSION}`、下载基址 `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}` 在 `config_reference.md` §9 集中维护）
 
    ```bash
-   # 下载地址（在该目录下找到 x86 工具包，文件名形如 DevKit-AI-Migration-Tool-<version>-Linux-x86-64.tar.gz）
+   # 下载地址（文件名形如 DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz）
    ssh <user>@<host> "cd <工作目录> && \
-     curl -LO https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/DevKit-AI-Migration-Tool-<version>-Linux-x86-64.tar.gz && \
-     tar -xzf DevKit-AI-Migration-Tool-<version>-Linux-x86-64.tar.gz"
+     curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz && \
+     tar -xzf DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz"
    ```
 
 2. **从另一台机器下载后传输**：x86_64 采集机网络不可用时，由网络正常的 **ARM64 主控端**（或反之）下载 x86 工具包，再 scp 传到 x86_64 采集机工作目录
@@ -108,10 +108,10 @@ ssh <user>@<host> "ls <工作目录>/DevKit-AI-Migration-Tool-*-Linux-x86-64/ai-
    ```bash
    # 在网络正常的机器（如 ARM64 主控端）下载
    cd <ARM64 工作目录>
-   curl -LO https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/DevKit-AI-Migration-Tool-<version>-Linux-x86-64.tar.gz
+   curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz
    # 传输到 x86_64 采集机并解压
-   scp DevKit-AI-Migration-Tool-<version>-Linux-x86-64.tar.gz <user>@<host>:<工作目录>/
-   ssh <user>@<host> "cd <工作目录> && tar -xzf DevKit-AI-Migration-Tool-<version>-Linux-x86-64.tar.gz"
+   scp DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz <user>@<host>:<工作目录>/
+   ssh <user>@<host> "cd <工作目录> && tar -xzf DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz"
    ```
 
 3. **请求用户上传或提供路径**：两台机器网络均不可用、且 `/opt/huawei/devkit` 与工作目录下均无工具包时，**必须暂停并交互式请求用户**二选一：
@@ -121,7 +121,7 @@ ssh <user>@<host> "ls <工作目录>/DevKit-AI-Migration-Tool-*-Linux-x86-64/ai-
 
    未得到用户确认前不得继续执行。
 
-> 下载时需先列出 `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/` 目录内容，按当前机器架构选取对应工具包：x86_64 采集机用 `*-Linux-x86-64`，ARM64 主控端用 `*-Linux-Kunpeng`。版本号 `<version>` 取该目录下最新可用版本，并在任务记录中留存实际下载的文件名与版本。
+> 默认按 `${AI_MIGRATION_TOOL_VERSION}`（见 `config_reference.md` §9）下载；若该版本在 `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}` 下不存在，先列出该目录内容，按当前机器架构选取对应工具包（x86_64 采集机用 `*-Linux-x86-64`，ARM64 主控端用 `*-Linux-Kunpeng`）的最新可用版本，并在任务记录中留存实际下载的文件名与版本。
 
 获取完成后回到步骤 2 重新定位。
 
@@ -263,17 +263,17 @@ ssh <user>@<host> "${AI_MIGRATION_DIR}/ai-migration image-migration env --help"
 
 ```yaml
 x86_env:
-  ssh_ok: true | false
-  ai_migration_ok: true | false
-  ai_migration_dir: "<AI_MIGRATION_DIR>"  # x86_64 采集机上工具包安装目录，不可用时为 ""
-  docker_ok: true | false
-  docker_version: "<version>"  # 如 "24.0.7"，不可用时为 ""
-  docker_daemon_running: true | false
-  docker_run_ok: true | false   # docker run --rm hello-world 是否成功
-  disk_free_mb: <int>           # /tmp 可用空间 MB
-  target_images_available: ["<image>:<tag>", ...]  # 本地已存在的目标镜像
-  target_images_missing: ["<image>:<tag>", ...]    # 本地不存在的目标镜像
-  check_passed: true | false    # 所有阻断性检查是否通过（允许有非阻断性警告）；true 表示可继续执行远程采集
-  auto_fixed: ["<item>", ...]   # 经自动修复后通过的项目，如 ["docker_daemon"]
-  warnings: ["<item>", ...]    # 非阻断性警告，如 ["disk_space_low"]
+   ssh_ok: true | false
+   ai_migration_ok: true | false
+   ai_migration_dir: "<AI_MIGRATION_DIR>"  # x86_64 采集机上工具包安装目录，不可用时为 ""
+   docker_ok: true | false
+   docker_version: "<version>"  # 如 "24.0.7"，不可用时为 ""
+   docker_daemon_running: true | false
+   docker_run_ok: true | false   # docker run --rm hello-world 是否成功
+   disk_free_mb: <int>           # /tmp 可用空间 MB
+   target_images_available: ["<image>:<tag>", ...]  # 本地已存在的目标镜像
+   target_images_missing: ["<image>:<tag>", ...]    # 本地不存在的目标镜像
+   check_passed: true | false    # 所有阻断性检查是否通过（允许有非阻断性警告）；true 表示可继续执行远程采集
+   auto_fixed: ["<item>", ...]   # 经自动修复后通过的项目，如 ["docker_daemon"]
+   warnings: ["<item>", ...]    # 非阻断性警告，如 ["disk_space_low"]
 ```

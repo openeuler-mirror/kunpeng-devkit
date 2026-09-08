@@ -230,7 +230,7 @@ BUILD_NET_CTX:
 
 > **所有采集/分析命令执行前必须完成本步**，否则命令将因找不到可执行文件而失败。
 
-定位 `ai-migration` 工具包目录，将 `AI_MIGRATION_DIR` 记录到 `TASK_CTX`。工具包按「**DevKit 安装目录（`/opt/huawei/devkit`）→ 工作目录 → 本机下载 → 从另一台机器下载后传输 → 请求用户上传或提供路径**」的优先级定位与获取：先检查 DevKit 产品安装目录 `/opt/huawei/devkit` 下是否已存在工具包（经 RPM 安装的 DevKit 会把工具包解压到此），有则直接复用；无则在**工作目录**中定位；仍无则从 `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit/` 下载对应架构工具包（ARM/x86）到工作目录。ARM64 主控端和 x86_64 采集机均需完成工具包定位；`/opt/huawei/devkit` 与工作目录均无工具包、且两台机器网络均不可用时，必须暂停并交互式请求用户上传工具包或提供已有路径，未确认前不得继续执行。
+定位 `ai-migration` 工具包目录，将 `AI_MIGRATION_DIR` 记录到 `TASK_CTX`。工具包按「**DevKit 安装目录（`/opt/huawei/devkit`）→ 工作目录 → 本机下载 → 从另一台机器下载后传输 → 请求用户上传或提供路径**」的优先级定位与获取：先检查 DevKit 产品安装目录 `/opt/huawei/devkit` 下是否已存在工具包（经 RPM 安装的 DevKit 会把工具包解压到此），有则直接复用；无则在**工作目录**中定位；仍无则从 `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}` 下载对应架构工具包（ARM/x86，版本号取 `${AI_MIGRATION_TOOL_VERSION}`）到工作目录。版本号与下载基址在 `references/config_reference.md` §9 集中维护。ARM64 主控端和 x86_64 采集机均需完成工具包定位；`/opt/huawei/devkit` 与工作目录均无工具包、且两台机器网络均不可用时，必须暂停并交互式请求用户上传工具包或提供已有路径，未确认前不得继续执行。
 
 > ⚠️ **所有机器禁止直接 `python3` 调用采集/分析脚本**：
 >
