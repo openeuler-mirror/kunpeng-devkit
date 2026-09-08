@@ -651,7 +651,7 @@ def _download_ai_migration(download_url: str, work_dir: Path) -> Path:
     downloaded = download_dir / filename
     partial = downloaded.with_suffix(downloaded.suffix + ".part")
     try:
-        request = urllib.request.Request(download_url, headers={"User-Agent": "java-arm-migration-skill/2.5.0-csv2"})
+        request = urllib.request.Request(download_url)
         with urllib.request.urlopen(request, timeout=120) as response, partial.open("wb") as out:
             shutil.copyfileobj(response, out)
         partial.replace(downloaded)

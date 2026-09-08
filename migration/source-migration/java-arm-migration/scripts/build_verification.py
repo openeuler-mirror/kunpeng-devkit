@@ -7,11 +7,6 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-ROOT_SCRIPTS = SCRIPT_DIR.parent.parent / "scripts"
-if str(ROOT_SCRIPTS) not in __import__("sys").path:
-    __import__("sys").path.insert(0, str(ROOT_SCRIPTS))
-
 from migration_common import (
     EXIT_FAILED, EXIT_NEEDS_FIX, EXIT_OK, EXIT_WAITING, MigrationError,
     build_environment, cleanup_untracked_build_outputs,

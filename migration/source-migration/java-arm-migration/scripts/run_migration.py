@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Top-level controller for Java source ARM64 migration.
-
-The controller keeps one durable workflow and delegates implementation to two
-sub-Skills:
-- java-source-migration: prepare/inspect/baseline/compatibility/sql
-- java-build-verification: build/package_scan/verify
-"""
+"""Top-level controller for Java source ARM64 migration."""
 from __future__ import annotations
 
 import argparse
@@ -16,11 +10,6 @@ from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
-SOURCE_SCRIPTS = SKILL_DIR / "java-source-migration" / "scripts"
-BUILD_SCRIPTS = SKILL_DIR / "java-build-verification" / "scripts"
-for path in (SCRIPT_DIR, SOURCE_SCRIPTS, BUILD_SCRIPTS):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
 
 from migration_common import (
     EXIT_FAILED, EXIT_NEEDS_FIX, EXIT_OK, MigrationError,
@@ -107,7 +96,7 @@ def save_workflow(
     write_json(result_path, result)
     return result
 
-def resolve_paths(source_value: str) -> tuple[Path, Path, Path, Path, dict[str, Any]]:
+def resolve_paths(source_value: str) -> tuple[Path, Path, Path, dict[str, Any]]:
     metadata = prepare(source_value, emit=False)
     source = Path(str(metadata["source"])).resolve()
     work_dir = Path(str(metadata["work_dir"])).resolve()
@@ -118,7 +107,7 @@ def resolve_paths(source_value: str) -> tuple[Path, Path, Path, Path, dict[str, 
     else:
         result = base_result(source, work_dir, work_source)
         write_json(result_path, result)
-    return source, work_dir, work_source, result_path, result
+    return work_dir, work_source, result_path, result
 def update_config(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
     """Persist only SQL-migration inputs exposed by the top-level Skill."""
     config = load_config(work_dir)
@@ -151,7 +140,6 @@ def update_config(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
     return config
 def run_stage(
     stage: str,
-    source: Path,
     work_dir: Path,
     work_source: Path,
     result_path: Path,
@@ -228,6 +216,29 @@ def run_stage(
         )
     return code
 
+def print_result(result_path: Path, *, final: bool = False) -> None:
+    result = load_json(result_path)
+    payload = {
+        "status": result.get("status"),
+        "stage": result.get("stage"),
+        "reason_code": result.get("reason_code"),
+        "result_file": str(result_path),
+        "workflow": result.get("workflow") or {},
+        "action_required": result.get("action_required"),
+    }
+    if result.get("sql_skill") is not None:
+        payload["sql_skill"] = result.get("sql_skill")
+    if final:
+        payload.update({
+            "artifacts": result.get("artifacts") or [],
+            "verification": result.get("verification") or {},
+            "completion_actions": result.get("completion_actions") or [],
+            "patches": result.get("patches") or {},
+            "result_summary": result.get("result_summary") or {},
+        })
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
 def infer_resume_stage(result: dict[str, Any]) -> str:
     state = workflow(result)
     candidate = str(state.get("next_stage") or "").strip().lower()
@@ -237,7 +248,6 @@ def infer_resume_stage(result: dict[str, Any]) -> str:
         return ""
     return "prepare"
 def run_auto(
-    source: Path,
     work_dir: Path,
     work_source: Path,
     result_path: Path,
@@ -250,61 +260,32 @@ def run_auto(
     result = load_json(result_path)
     stage = infer_resume_stage(result)
     if not stage:
-        print(json.dumps({
-            "status": result.get("status"),
-            "stage": result.get("stage"),
-            "result_file": str(result_path),
-            "workflow": result.get("workflow") or {},
-        }, ensure_ascii=False, indent=2))
+        print_result(result_path, final=True)
         return EXIT_OK
     while stage:
-        code = run_stage(stage, source, work_dir, work_source, result_path, config)
+        code = run_stage(stage, work_dir, work_source, result_path, config)
         result = load_json(result_path)
         if code != EXIT_OK:
-            print(json.dumps({
-                "status": result.get("status"),
-                "stage": result.get("stage"),
-                "reason_code": result.get("reason_code"),
-                "result_file": str(result_path),
-                "workflow": result.get("workflow") or {},
-                "action_required": result.get("action_required"),
-                "sql_skill": result.get("sql_skill"),
-            }, ensure_ascii=False, indent=2))
+            print_result(result_path)
             return code
         if stage == "verify":
             break
         stage = infer_resume_stage(result)
-    result = load_json(result_path)
-    print(json.dumps({
-        "status": result.get("status"),
-        "stage": result.get("stage"),
-        "result_file": str(result_path),
-        "workflow": result.get("workflow") or {},
-        "artifacts": result.get("artifacts") or [],
-        "verification": result.get("verification") or {},
-        "completion_actions": result.get("completion_actions") or [],
-        "action_required": result.get("action_required"),
-        "patches": result.get("patches") or {},
-        "result_summary": result.get("result_summary") or {},
-    }, ensure_ascii=False, indent=2))
+    print_result(result_path, final=True)
     return EXIT_OK
-def _print_stop_result(result_path: Path) -> None:
-    result = load_json(result_path)
-    print(json.dumps({
-        "status": result.get("status"),
-        "stage": result.get("stage"),
-        "reason_code": result.get("reason_code"),
-        "result_file": str(result_path),
-        "workflow": result.get("workflow") or {},
-        "action_required": result.get("action_required"),
-        "sql_skill": result.get("sql_skill"),
-        "sql_migration": result.get("sql_migration") or {},
-    }, ensure_ascii=False, indent=2))
 
 
 def _require_stage_prerequisite(condition: bool, code: str, message: str) -> None:
     if not condition:
         raise MigrationError(code, message, status="BLOCKED")
+
+
+COMPATIBILITY_PASS_STATUSES = {"SUCCESS", "SUCCESS_WITH_SUGGESTIONS"}
+
+
+def compatibility_stage_passed(compatibility: dict[str, Any]) -> bool:
+    """Whether compatibility has no mandatory rule fixes."""
+    return str(compatibility.get("status") or "").upper() in COMPATIBILITY_PASS_STATUSES
 
 
 def validate_explicit_stage_entry(stage: str, work_dir: Path, result: dict[str, Any], config: dict[str, Any]) -> None:
@@ -338,7 +319,7 @@ def validate_explicit_stage_entry(stage: str, work_dir: Path, result: dict[str, 
 
     if stage in {"sql", "build", "package_scan", "verify"}:
         _require_stage_prerequisite(
-            str(compatibility.get("status") or "").upper() == "SUCCESS",
+            compatibility_stage_passed(compatibility),
             "STAGE_COMPATIBILITY_NOT_READY",
             "--stage %s requires source compatibility scanning to have passed first." % stage,
         )
@@ -362,7 +343,6 @@ def validate_explicit_stage_entry(stage: str, work_dir: Path, result: dict[str, 
 
 def run_from_stage(
     start_stage: str,
-    source: Path,
     work_dir: Path,
     work_source: Path,
     result_path: Path,
@@ -386,40 +366,29 @@ def run_from_stage(
             "message": str(exc),
         })
         write_json(result_path, result)
-        _print_stop_result(result_path)
+        print_result(result_path)
         return EXIT_FAILED
 
     # BUILD is a common resume point after the independent SQL Skill.  Re-enter
     # the SQL stage once as an idempotent handoff gate before actually building.
     if start_stage == "build":
-        code = run_stage("sql", source, work_dir, work_source, result_path, config)
+        code = run_stage("sql", work_dir, work_source, result_path, config)
         if code != EXIT_OK:
-            _print_stop_result(result_path)
+            print_result(result_path)
             return code
 
     stage = start_stage
     while stage:
-        code = run_stage(stage, source, work_dir, work_source, result_path, config)
+        code = run_stage(stage, work_dir, work_source, result_path, config)
         result = load_json(result_path)
         if code != EXIT_OK:
-            _print_stop_result(result_path)
+            print_result(result_path)
             return code
         if stage == "verify":
             break
         stage = infer_resume_stage(result)
 
-    result = load_json(result_path)
-    print(json.dumps({
-        "status": result.get("status"),
-        "stage": result.get("stage"),
-        "result_file": str(result_path),
-        "workflow": result.get("workflow") or {},
-        "artifacts": result.get("artifacts") or [],
-        "verification": result.get("verification") or {},
-        "completion_actions": result.get("completion_actions") or [],
-        "patches": result.get("patches") or {},
-        "result_summary": result.get("result_summary") or {},
-    }, ensure_ascii=False, indent=2))
+    print_result(result_path, final=True)
     return EXIT_OK
 
 def main() -> int:
@@ -440,11 +409,11 @@ def main() -> int:
     if args.skip_sql and args.enable_sql:
         parser.error("--skip-sql and --enable-sql cannot be used together")
 
-    source, work_dir, work_source, result_path, _result = resolve_paths(args.source)
+    work_dir, work_source, result_path, _result = resolve_paths(args.source)
     config = update_config(work_dir, args)
     if args.stage != AUTO_STAGE:
-        return run_from_stage(args.stage, source, work_dir, work_source, result_path, config)
-    return run_auto(source, work_dir, work_source, result_path, config)
+        return run_from_stage(args.stage, work_dir, work_source, result_path, config)
+    return run_auto(work_dir, work_source, result_path, config)
 
 if __name__ == "__main__":
     sys.exit(main())
