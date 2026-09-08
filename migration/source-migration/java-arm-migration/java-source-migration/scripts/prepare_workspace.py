@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -52,11 +51,8 @@ def project_id(source: Path) -> str:
     return f"{safe_name(source)}-{digest}"
 
 
-def resolve_work_base(value: str | None) -> Path:
-    configured = value or os.environ.get("JAVA_ARM_MIGRATION_WORK_BASE")
-    base = Path(configured).expanduser().resolve() if configured else (
-        Path.home() / ".java-arm-migration" / "work"
-    ).resolve()
+def resolve_work_base() -> Path:
+    base = (Path.home() / ".java-arm-migration" / "work").resolve()
     if base == Path("/").resolve():
         fail("Work base must not be the filesystem root")
     return base
@@ -139,9 +135,9 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
-def prepare(source_value: str, work_base_value: str | None, emit: bool = True) -> dict[str, Any]:
+def prepare(source_value: str, emit: bool = True) -> dict[str, Any]:
     source = validate_source(source_value)
-    work_base = resolve_work_base(work_base_value)
+    work_base = resolve_work_base()
     work_dir = (work_base / project_id(source)).resolve()
     try:
         work_dir.relative_to(work_base)
@@ -170,15 +166,15 @@ def prepare(source_value: str, work_base_value: str | None, emit: bool = True) -
     if work_dir.exists() and any(work_dir.iterdir()):
         fail(
             f"Work directory exists without a complete workspace: {work_dir}. "
-            "Choose another --work-base or inspect it manually."
+            "Inspect or remove the conflicting workspace manually."
         )
 
     validate_symlinks(source)
     for relative in (
         "workspace",
         "logs",
-        "reports/devkit-source",
-        "reports/devkit-package",
+        "reports/ai-migration-source",
+        "reports/ai-migration-package",
         "output",
         "cache/maven/repository",
         "cache/gradle",
@@ -213,12 +209,8 @@ def main() -> int:
         description="Create an isolated source copy and Git baseline for Java ARM migration."
     )
     parser.add_argument("--source", required=True, help="Local Java project directory")
-    parser.add_argument(
-        "--work-base",
-        help="Workspace root; defaults to JAVA_ARM_MIGRATION_WORK_BASE or ~/.java-arm-migration/work",
-    )
     args = parser.parse_args()
-    prepare(args.source, args.work_base)
+    prepare(args.source)
     return 0
 
 

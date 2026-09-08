@@ -9,6 +9,8 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -19,22 +21,35 @@ if str(ROOT_SCRIPTS) not in __import__("sys").path:
 
 from migration_common import (
     EXIT_FAILED, EXIT_NEEDS_FIX, EXIT_OK, EXIT_WAITING, MigrationError,
-    analyze_devkit_reports, build_environment, cleanup_untracked_build_outputs,
+    build_environment, cleanup_untracked_build_outputs,
     clear_current_error, config_path, database_route,
-    json_reports, load_json, now_iso, require_baseline_build_command, resolve_devkit,
-    run_command, run_shell, sha256_file, write_json,
+    inspect_ai_migration_source_csv_reports, load_json, now_iso, require_baseline_build_command, resolve_ai_migration, zh_csv_reports,
+    git_worktree_tree, run_command, run_shell, sha256_file, write_git_patch_from_tree, write_json,
 )
 
-TEXT_HOTSPOT_SUFFIXES = {
-    ".java", ".xml", ".gradle", ".kts", ".properties", ".yml", ".yaml",
-    ".sh", ".bash", ".bat", ".cmd", ".conf", ".ini", ".toml",
+AI_MIGRATION_SOURCE_SUFFIXES = {
+    ".java": "java",
+    ".py": "python",
+    ".scala": "scala",
 }
-HOTSPOT_PATTERN = re.compile(
-    r"x86_64|amd64|(?<![A-Za-z0-9_])x86(?![A-Za-z0-9_])|aarch64|arm64|"
-    r"os\.arch|System\.load(?:Library)?|\bJNI\b|\bJNA\b",
-    re.I,
-)
-NATIVE_SUFFIXES = {".so", ".a", ".dll", ".dylib"}
+
+def detect_ai_migration_source_types(work_source: Path) -> list[str]:
+    """Detect only source language switches supported by this Java migration skill."""
+    detected: set[str] = set()
+    skipped_dirs = {".git", "target", "build", "dist", "out", ".gradle", "node_modules"}
+    for root, dirs, files in os.walk(str(work_source)):
+        dirs[:] = [name for name in dirs if name not in skipped_dirs]
+        for name in files:
+            source_type = AI_MIGRATION_SOURCE_SUFFIXES.get(Path(name).suffix.lower())
+            if source_type:
+                detected.add(source_type)
+        if len(detected) == len(set(AI_MIGRATION_SOURCE_SUFFIXES.values())):
+            break
+    # This skill requires a Java source project. Keep java as a defensive default
+    # so the scanner receives an explicit language even for unusual source layouts.
+    if not detected:
+        detected.add("java")
+    return [item for item in ("java", "python", "scala") if item in detected]
 def detect_build_command(work_source: Path) -> tuple[str, str]:
     mvnw = work_source / "mvnw"
     gradlew = work_source / "gradlew"
@@ -90,71 +105,6 @@ def command_exists(command: str, cwd: Path) -> bool:
             path = cwd / path
         return path.is_file()
     return shutil.which(executable) is not None
-
-def scan_architecture_hotspots(work_source: Path, limit: int = 300) -> dict[str, Any]:
-    text_hits = []
-    native_files = []
-    skipped_dirs = {".git", "target", "build", "dist", "out", ".gradle", "node_modules"}
-    for root, dirs, files in os.walk(str(work_source)):
-        dirs[:] = [name for name in dirs if name not in skipped_dirs]
-        root_path = Path(root)
-        for name in files:
-            path = root_path / name
-            suffix = path.suffix.lower()
-            try:
-                relative = str(path.relative_to(work_source))
-            except ValueError:
-                continue
-            if suffix in NATIVE_SUFFIXES:
-                if len(native_files) < limit:
-                    native_files.append(relative)
-                continue
-            if suffix not in TEXT_HOTSPOT_SUFFIXES and name not in {"pom.xml", "Dockerfile"}:
-                continue
-            try:
-                if path.stat().st_size > 2 * 1024 * 1024:
-                    continue
-                with path.open("r", encoding="utf-8", errors="replace") as fh:
-                    for line_number, line in enumerate(fh, 1):
-                        if HOTSPOT_PATTERN.search(line):
-                            text_hits.append({
-                                "path": relative,
-                                "line": line_number,
-                                "text": line.strip()[:500],
-                            })
-                            if len(text_hits) >= limit:
-                                break
-            except OSError:
-                continue
-            if len(text_hits) >= limit:
-                break
-        if len(text_hits) >= limit:
-            break
-    return {
-        "text_hits": text_hits,
-        "native_files": native_files,
-        "truncated": len(text_hits) >= limit or len(native_files) >= limit,
-    }
-
-def compatibility_review_hash(reports: list[Path], hotspots: dict[str, Any]) -> str:
-    payload = {
-        "reports": sorted(sha256_file(path) for path in reports),
-        "hotspots": hotspots,
-    }
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-def compatibility_review_decision(work_dir: Path, review_sha256: str) -> str:
-    path = work_dir / "compatibility-review.json"
-    if not path.is_file():
-        return ""
-    try:
-        data = load_json(path)
-    except MigrationError:
-        return ""
-    if str(data.get("review_sha256") or "") != review_sha256:
-        return ""
-    return "PASS_REVIEW" if str(data.get("decision") or "").upper() == "PASS_REVIEW" else ""
 
 def git_worktree_fingerprint(work_source: Path) -> str:
     """Fingerprint tracked diffs plus non-ignored untracked files."""
@@ -232,7 +182,7 @@ def apply_sql_patch(work_dir: Path, work_source: Path, result_file: Path, patch_
         write_json(state_path, state)
         return state
     check_proc = run_command(
-        ["git", "apply", "--check", str(patch_file)],
+        ["git", "apply", "--check", "--ignore-space-change", "--ignore-whitespace", str(patch_file)],
         cwd=work_source,
         log_path=work_dir / "logs" / "sql-patch.log",
         check=False,
@@ -240,7 +190,7 @@ def apply_sql_patch(work_dir: Path, work_source: Path, result_file: Path, patch_
     if check_proc.returncode != 0:
         raise MigrationError("SQL_PATCH_CONFLICT", "SQL patch does not apply cleanly; see logs/sql-patch.log", status="NEEDS_AGENT_FIX")
     apply_proc = run_command(
-        ["git", "apply", str(patch_file)],
+        ["git", "apply", "--ignore-space-change", "--ignore-whitespace", str(patch_file)],
         cwd=work_source,
         log_path=work_dir / "logs" / "sql-patch.log",
         check=False,
@@ -270,6 +220,245 @@ def valid_sql_decision(work_dir: Path, request: dict[str, Any]) -> bool:
         and decision.get("source_patch_sha256") == request.get("source_patch_sha256")
     )
 
+
+def ensure_sql_continue_decision(work_dir: Path, request: dict[str, Any], task_id: str) -> dict[str, Any]:
+    """Apply the fixed Java-side policy for SQL COMPLETED_WITH_ACTIONS.
+
+    Pending/manual-review SQL items remain visible in the final completion
+    actions, but they do not require a second user wake-up before Java build.
+    The decision is bound to the exact SQL result and source patch hashes.
+    """
+    path = work_dir / "sql-migration-decision.json"
+    if valid_sql_decision(work_dir, request):
+        decision = load_json(path)
+        decision.setdefault("task_id", task_id)
+        decision.setdefault("decision_origin", "EXISTING_VALID_DECISION")
+        return decision
+    decision = {
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "decision": "CONTINUE_WITH_PENDING",
+        "decision_origin": "AUTO_POLICY",
+        "sql_result_sha256": request.get("sql_result_sha256") or "",
+        "source_patch_sha256": request.get("source_patch_sha256") or "",
+        "decided_at": now_iso(),
+    }
+    write_json(path, decision)
+    return decision
+
+
+def sql_handoff_path(work_dir: Path) -> Path:
+    return work_dir / "sql-handoff.json"
+
+
+def _sql_controller_alive(pid: int, handoff_path: Path) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    proc_cmdline = Path("/proc") / str(pid) / "cmdline"
+    if proc_cmdline.is_file():
+        try:
+            cmdline = proc_cmdline.read_bytes().decode("utf-8", errors="ignore").replace("\x00", " ")
+            return "sql_resume_controller.py" in cmdline and str(handoff_path) in cmdline
+        except OSError:
+            return True
+    return True
+
+
+def start_sql_resume_controller(work_dir: Path, handoff: dict[str, Any]) -> dict[str, Any]:
+    """Start one detached SQL-result watcher for this Java migration task."""
+    if os.environ.get("JAVA_ARM_MIGRATION_DISABLE_SQL_CONTROLLER") == "1":
+        handoff["controller"] = {
+            "status": "DISABLED_BY_ENV",
+            "updated_at": now_iso(),
+        }
+        write_json(sql_handoff_path(work_dir), handoff)
+        return handoff
+    path = sql_handoff_path(work_dir)
+    controller = handoff.get("controller") if isinstance(handoff.get("controller"), dict) else {}
+    try:
+        pid = int(controller.get("pid") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    if _sql_controller_alive(pid, path):
+        return handoff
+    script = ROOT_SCRIPTS / "sql_resume_controller.py"
+    log_path = work_dir / "logs" / "sql-resume-controller.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_fh = log_path.open("ab")
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, str(script), "--handoff", str(path)],
+            cwd=str(ROOT_SCRIPTS.parent),
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            close_fds=True,
+        )
+    finally:
+        log_fh.close()
+    handoff["controller"] = {
+        "status": "WATCHING",
+        "pid": proc.pid,
+        "script": str(script),
+        "log": str(log_path),
+        "started_at": now_iso(),
+    }
+    handoff["updated_at"] = now_iso()
+    write_json(path, handoff)
+    return handoff
+
+
+def _new_sql_task_id() -> str:
+    return "sql-%s" % uuid.uuid4().hex[:16]
+
+
+def load_or_create_sql_handoff(
+    work_dir: Path,
+    work_source: Path,
+    source_db: str,
+    target_db: str,
+) -> dict[str, Any]:
+    """Create/reuse a task-scoped SQL handoff.
+
+    Each task gets its own SQL WORK_DIR, so a result from an older migration
+    cannot accidentally wake a newer Java migration for the same project.
+    """
+    path = sql_handoff_path(work_dir)
+    if path.is_file():
+        try:
+            existing = load_json(path)
+        except MigrationError:
+            existing = {}
+        same_route = (
+            str(existing.get("source_db") or "") == source_db
+            and str(existing.get("target_db") or "") == target_db
+            and str(existing.get("work_source") or "") == str(work_source)
+        )
+        task_id = str(existing.get("task_id") or "")
+        if same_route and task_id:
+            return existing
+
+    workspace = load_json(work_dir / "workspace.json")
+    source = str(workspace.get("source") or "")
+    project_id = str(workspace.get("project_id") or work_dir.name)
+    task_id = _new_sql_task_id()
+    sql_work = work_dir / "sql-migration" / task_id
+    report_file = sql_work / "reports" / "sql-migration-result.json"
+    patch_file = sql_work / "reports" / "source_code.patch"
+    resume_command = [
+        sys.executable,
+        str(ROOT_SCRIPTS / "run_migration.py"),
+        "--source", source,
+        "--source-db", source_db,
+        "--target-db", target_db,
+        "--stage", "build",
+    ]
+    handoff = {
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "parent_migration_id": project_id,
+        "status": "WAITING_FOR_SQL",
+        "source": source,
+        "work_source": str(work_source),
+        "source_db": source_db,
+        "target_db": target_db,
+        "sql_result_policy": "CONTINUE_WITH_PENDING",
+        "sql_work_dir": str(sql_work),
+        "result_file": str(report_file),
+        "patch_file": str(patch_file),
+        "resume_stage": "build",
+        "resume_command": resume_command,
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    write_json(path, handoff)
+    sql_work.mkdir(parents=True, exist_ok=True)
+    write_json(sql_work / "sql-task.json", {
+        "schema_version": "1.0",
+        "task_id": task_id,
+        "parent_migration_id": project_id,
+        "source_db": source_db,
+        "target_db": target_db,
+        "project_path": str(work_source),
+        "handoff_file": str(path),
+        "resume_stage": "build",
+        "resume_command": resume_command,
+        "created_at": handoff["created_at"],
+    })
+    return handoff
+
+
+def update_sql_handoff(work_dir: Path, **changes: Any) -> dict[str, Any]:
+    path = sql_handoff_path(work_dir)
+    handoff = load_json(path) if path.is_file() else {}
+    handoff.update(changes)
+    handoff["updated_at"] = now_iso()
+    write_json(path, handoff)
+    return handoff
+
+
+def reconcile_sql_handoff(work_dir: Path, result_path: Path) -> dict[str, Any] | None:
+    """Reconcile a completed SQL result into Java's durable workflow state.
+
+    This is the fallback when the detached watcher was lost.  It does not apply
+    the patch itself; it makes the SQL stage resumable on the next controller
+    iteration, where normal stage_sql validation remains authoritative.
+    """
+    path = sql_handoff_path(work_dir)
+    if not path.is_file():
+        return None
+    handoff = load_json(path)
+    report_file = Path(str(handoff.get("result_file") or ""))
+    if not report_file.is_file():
+        return handoff
+    try:
+        sql_result = load_json(report_file)
+    except MigrationError:
+        return handoff
+    status = str(sql_result.get("status") or "").upper()
+    if status not in {"SUCCESS", "COMPLETED_WITH_ACTIONS"}:
+        return handoff
+    if str(handoff.get("status") or "") not in {"SQL_APPLIED", "JAVA_RESUME_COMPLETED"}:
+        handoff = update_sql_handoff(
+            work_dir,
+            status="SQL_COMPLETED",
+            sql_status=status,
+            sql_completed_at=now_iso(),
+        )
+    if result_path.is_file():
+        result = load_json(result_path)
+        state = result.get("workflow") if isinstance(result.get("workflow"), dict) else {}
+        if str(result.get("stage") or "").upper() == "SQL" or str(result.get("status") or "").upper() == "WAITING_FOR_SQL":
+            state["current_stage"] = "SQL"
+            state["next_stage"] = "sql"
+            state["waiting_for"] = ""
+            result["workflow"] = state
+            result["status"] = "IN_PROGRESS"
+            result["reason_code"] = ""
+            result["message"] = "SQL migration completed; Java migration is ready to resume."
+            write_json(result_path, result)
+    return handoff
+
+
+def capture_source_compatibility_patch(work_dir: Path, work_source: Path, base_tree: str) -> dict[str, Any]:
+    patch_path = work_dir / "reports" / "source-compatibility.patch"
+    # Preserve the pre-SQL compatibility patch after SQL changes have already
+    # been applied to the same worktree.
+    sql_patch_state = work_dir / "sql-patch-state.json"
+    if patch_path.is_file() and sql_patch_state.is_file():
+        return {
+            "path": str(patch_path),
+            "sha256": sha256_file(patch_path),
+            "size": patch_path.stat().st_size,
+            "changed_files": [],
+            "base_tree": base_tree,
+        }
+    return write_git_patch_from_tree(work_source, base_tree, patch_path)
+
 def stage_prepare(work_dir: Path, work_source: Path, result_path: Path, result: dict[str, Any]) -> int:
     metadata = load_json(work_dir / "workspace.json")
     clear_current_error(result)
@@ -283,7 +472,7 @@ def stage_prepare(work_dir: Path, work_source: Path, result_path: Path, result: 
 
 def stage_inspect(work_dir: Path, work_source: Path, result_path: Path, result: dict[str, Any], config: dict[str, Any]) -> int:
     build_command = str(config.get("build_command") or "").strip()
-    detected_kind = "configured"
+    detected_kind = str(config.get("build_command_source") or "detected").strip() or "detected"
     if not build_command:
         build_command, detected_kind = detect_build_command(work_source)
         if build_command:
@@ -293,25 +482,25 @@ def stage_inspect(work_dir: Path, work_source: Path, result_path: Path, result: 
             write_json(config_path(work_dir), config)
     if not build_command:
         result.update({
-            "status": "WAITING_FOR_USER",
+            "status": "BLOCKED",
             "stage": "INSPECT",
-            "reason_code": "BUILD_COMMAND_REQUIRED",
-            "message": "Build command is required.",
+            "reason_code": "BUILD_COMMAND_NOT_DETECTED",
+            "message": "Unable to detect a supported Maven, Gradle, or Ant build entry from the project.",
             "action_required": {
-                "type": "PROVIDE_BUILD_COMMAND",
+                "type": "FIX_OR_STANDARDIZE_BUILD_ENTRY",
                 "work_source": str(work_source),
-                "resume": "python3 scripts/run_migration.py --source <project> --stage auto --build-command '<command>'",
+                "supported_builds": ["Maven", "Gradle", "Ant"],
             },
         })
         write_json(result_path, result)
-        return EXIT_WAITING
+        return EXIT_FAILED
     if not command_exists(build_command, work_source):
         first = shlex.split(build_command)[0]
         result.update({
             "status": "BLOCKED",
             "stage": "INSPECT",
             "reason_code": "BUILD_TOOL_NOT_FOUND",
-            "message": "Build command is configured but its executable is unavailable: %s" % first,
+            "message": "Detected build executable is unavailable: %s" % first,
         })
         write_json(result_path, result)
         return EXIT_FAILED
@@ -324,7 +513,7 @@ def stage_inspect(work_dir: Path, work_source: Path, result_path: Path, result: 
 def stage_baseline(work_dir: Path, work_source: Path, result_path: Path, result: dict[str, Any], config: dict[str, Any]) -> int:
     build_command = str(config.get("build_command") or "").strip()
     if not build_command:
-        raise MigrationError("BUILD_COMMAND_REQUIRED", "Inspect stage did not resolve build command")
+        raise MigrationError("BUILD_COMMAND_STATE_MISSING", "Inspect stage did not persist an auto-detected build command")
 
     existing = result.get("baseline") if isinstance(result.get("baseline"), dict) else {}
     attempt = int(existing.get("attempt") or 0) + 1
@@ -362,109 +551,229 @@ def stage_baseline(work_dir: Path, work_source: Path, result_path: Path, result:
 
 def stage_compatibility(work_dir: Path, work_source: Path, result_path: Path, result: dict[str, Any], config: dict[str, Any]) -> int:
     compatibility = result.get("compatibility") if isinstance(result.get("compatibility"), dict) else {}
-    prior_review_hash = str(compatibility.get("review_sha256") or "")
-    prior_source_state = str(compatibility.get("source_state_sha256") or "")
-    current_source_state = git_worktree_fingerprint(work_source)
-    if prior_review_hash and prior_source_state == current_source_state:
-        prior_decision = compatibility_review_decision(work_dir, prior_review_hash)
-        prior_findings = compatibility.get("findings") if isinstance(compatibility.get("findings"), list) else []
-        if prior_decision == "PASS_REVIEW" and not prior_findings:
-            compatibility["status"] = "SUCCESS"
-            compatibility["review_decision"] = prior_decision
-            result["compatibility"] = compatibility
-            clear_current_error(result)
-            result.update({"status": "IN_PROGRESS", "stage": "COMPATIBILITY"})
-            write_json(result_path, result)
-            return EXIT_OK
-    devkit = resolve_devkit(config)
-    build_command = require_baseline_build_command(result, config)
+    ai_migration = resolve_ai_migration(work_dir)
+    # Build validation is performed by baseline/final build stages.  The DevKit
+    # source scan itself only receives dynamically detected source languages.
+    require_baseline_build_command(result, config)
+    compatibility_base_tree = str(compatibility.get("baseline_tree") or "").strip()
+    if not compatibility_base_tree:
+        compatibility_base_tree = git_worktree_tree(work_source)
+        compatibility["baseline_tree"] = compatibility_base_tree
+        result["compatibility"] = compatibility
+        write_json(result_path, result)
     attempt = int(compatibility.get("attempt") or 0) + 1
-    report_dir = work_dir / "reports" / "devkit-source" / ("attempt-%03d" % attempt)
+    report_dir = work_dir / "reports" / "ai-migration-source" / ("attempt-%03d" % attempt)
     report_dir.mkdir(parents=True, exist_ok=True)
-    log_path = work_dir / "logs" / "devkit-source.log"
-    source_types = ["java", "python", "scala"]
-    interpreted_only = all(t in {"java", "python", "scala"} for t in source_types)
-    command = devkit + ["porting", "src-mig", "-i", str(work_source)]
+    log_path = work_dir / "logs" / "ai-migration-source.log"
+    source_types = detect_ai_migration_source_types(work_source)
+    command = ai_migration + ["porting", "src-mig", "-i", str(work_source)]
     for source_type in source_types:
         command += ["-s", source_type]
-    # DevKit rejects -c/--cmd when only interpreted (Java/Python/Scala) sources are scanned.
-    if not interpreted_only:
-        command += ["-c", build_command]
-    command += ["-o", str(report_dir), "-r", "json"]
+    command += ["-o", str(report_dir), "-r", "csv"]
     proc = run_command(command, cwd=work_source, log_path=log_path, env=build_environment(work_dir), check=False)
     cleanup_untracked_build_outputs(work_source)
-    if proc.returncode != 0:
-        result.update({
-            "status": "FAILED",
-            "stage": "COMPATIBILITY",
-            "reason_code": "DEVKIT_SOURCE_SCAN_FAILED",
-            "message": "DevKit source scan failed; see %s" % log_path,
-            "compatibility": {"attempt": attempt, "status": "FAILED", "report_dir": str(report_dir), "log": str(log_path)},
-        })
+
+    # DevKit source CSV exposes a documented ``修改级别`` column.  Parse the
+    # Chinese CSV for advisory data even on returncode 0 so suggestions can be
+    # surfaced in the final result.  The process return code still decides
+    # whether a missing/invalid report can block execution.
+    reports = zh_csv_reports(report_dir)
+    if proc.returncode == 0:
+        inspection = {
+            "findings": [],
+            "rule_items": [],
+            "suggestion_items": [],
+            "unclassified_items": [],
+            "rule_count": 0,
+            "suggestion_count": 0,
+            "unclassified_count": 0,
+            "summary_rule_count": None,
+            "summary_suggestion_count": None,
+            "classification_complete": True,
+            "classification_reason": "",
+            "analyzed_reports": [],
+        }
+        report_parse_warning = ""
+        if reports:
+            try:
+                inspection = inspect_ai_migration_source_csv_reports(reports)
+            except MigrationError as exc:
+                # Preserve the established returncode==0 success contract.
+                # The warning is recorded because advisory extraction failed.
+                report_parse_warning = "%s: %s" % (exc.code, exc)
+        source_patch = capture_source_compatibility_patch(work_dir, work_source, compatibility_base_tree)
+        compatibility = {
+            "attempt": attempt,
+            "status": "SUCCESS",
+            "exit_code": 0,
+            "report_dir": str(report_dir),
+            "reports": [str(x) for x in reports],
+            "analyzed_reports": inspection.get("analyzed_reports") or [],
+            "findings": [],
+            "rule_items": [],
+            "suggestion_items": inspection.get("suggestion_items") or [],
+            "unclassified_items": inspection.get("unclassified_items") or [],
+            "rule_count": 0,
+            "suggestion_count": int(inspection.get("suggestion_count") or 0),
+            "unclassified_count": int(inspection.get("unclassified_count") or 0),
+            "summary_rule_count": inspection.get("summary_rule_count"),
+            "summary_suggestion_count": inspection.get("summary_suggestion_count"),
+            "report_parse_warning": report_parse_warning,
+            "source_state_sha256": git_worktree_fingerprint(work_source),
+            "baseline_tree": compatibility_base_tree,
+            "source_patch": source_patch,
+            "log": str(log_path),
+        }
+        result["compatibility"] = compatibility
+        clear_current_error(result)
+        result.update({"status": "IN_PROGRESS", "stage": "COMPATIBILITY"})
         write_json(result_path, result)
-        return EXIT_FAILED
-    reports = json_reports(report_dir)
+        return EXIT_OK
+
+    # Non-zero source scans are classified only by the documented ``修改级别``
+    # field in *_zh.csv.  Rule items block and require repair; suggestion items
+    # are advisory-only and never enter action_required.
     if not reports:
         result.update({
             "status": "FAILED",
             "stage": "COMPATIBILITY",
-            "reason_code": "DEVKIT_SOURCE_REPORT_MISSING",
-            "message": "DevKit source scan produced no JSON report.",
+            "reason_code": "AI_MIGRATION_SOURCE_ZH_CSV_REPORT_MISSING",
+            "message": "ai-migration source scan returned %s but produced no *_zh.csv report; see %s" % (proc.returncode, log_path),
+            "compatibility": {
+                "attempt": attempt,
+                "status": "FAILED",
+                "exit_code": proc.returncode,
+                "report_dir": str(report_dir),
+                "reports": [],
+                "baseline_tree": compatibility_base_tree,
+                "log": str(log_path),
+            },
         })
         write_json(result_path, result)
         return EXIT_FAILED
 
-    findings = analyze_devkit_reports(reports)
-    hotspots = scan_architecture_hotspots(work_source)
-    hotspot_path = work_dir / "reports" / "source-architecture-hotspots.json"
-    write_json(hotspot_path, hotspots)
-    review_sha256 = compatibility_review_hash(reports, hotspots)
-    review_decision = compatibility_review_decision(work_dir, review_sha256)
-    has_hotspots = bool(hotspots.get("text_hits") or hotspots.get("native_files"))
-    review_passed = review_decision == "PASS_REVIEW" and not findings
-
-    compatibility = {
-        "attempt": attempt,
-        "status": "SUCCESS" if not findings and (not has_hotspots or review_passed) else "NEEDS_REVIEW",
-        "report_dir": str(report_dir),
-        "reports": [str(x) for x in reports],
-        "findings": findings,
-        "hotspots": str(hotspot_path),
-        "hotspot_counts": {
-            "text": len(hotspots.get("text_hits") or []),
-            "native_files": len(hotspots.get("native_files") or []),
-        },
-        "review_sha256": review_sha256,
-        "source_state_sha256": git_worktree_fingerprint(work_source),
-        "review_decision": review_decision,
-        "log": str(log_path),
-    }
-    result["compatibility"] = compatibility
-
-    if findings or (has_hotspots and not review_passed):
+    try:
+        inspection = inspect_ai_migration_source_csv_reports(reports)
+    except MigrationError as exc:
         result.update({
-            "status": "NEEDS_AGENT_FIX",
+            "status": "FAILED",
             "stage": "COMPATIBILITY",
-            "reason_code": "SOURCE_COMPATIBILITY_REVIEW_REQUIRED",
-            "message": "Fix DevKit findings or review architecture-sensitive items, then rerun auto.",
-            "action_required": {
-                "type": "FIX_OR_REVIEW_COMPATIBILITY",
+            "reason_code": exc.code,
+            "message": str(exc),
+            "compatibility": {
+                "attempt": attempt,
+                "status": "FAILED",
+                "exit_code": proc.returncode,
                 "report_dir": str(report_dir),
-                "findings": findings,
-                "hotspots": str(hotspot_path),
-                "hotspot_counts": compatibility["hotspot_counts"],
-                "review_sha256": review_sha256,
-                "review_file": str(work_dir / "compatibility-review.json"),
-                "review_decision": "PASS_REVIEW",
+                "reports": [str(x) for x in reports],
+                "baseline_tree": compatibility_base_tree,
+                "log": str(log_path),
             },
         })
         write_json(result_path, result)
-        return EXIT_NEEDS_FIX
+        return EXIT_FAILED
 
-    clear_current_error(result)
-    result.update({"status": "IN_PROGRESS", "stage": "COMPATIBILITY", "compatibility": compatibility})
+    findings = inspection["findings"]
+    rule_items = inspection.get("rule_items") or []
+    suggestion_items = inspection.get("suggestion_items") or []
+    unclassified_items = inspection.get("unclassified_items") or []
+    if not bool(inspection.get("classification_complete")):
+        result.update({
+            "status": "FAILED",
+            "stage": "COMPATIBILITY",
+            "reason_code": "AI_MIGRATION_SOURCE_CSV_CLASSIFICATION_INCOMPLETE",
+            "message": inspection.get("classification_reason") or "Unable to classify all DevKit source CSV items by modification level.",
+            "compatibility": {
+                "attempt": attempt,
+                "status": "FAILED",
+                "exit_code": proc.returncode,
+                "report_dir": str(report_dir),
+                "reports": [str(x) for x in reports],
+                "analyzed_reports": inspection.get("analyzed_reports") or [],
+                "rule_items": rule_items,
+                "suggestion_items": suggestion_items,
+                "unclassified_items": unclassified_items,
+                "rule_count": int(inspection.get("rule_count") or 0),
+                "suggestion_count": int(inspection.get("suggestion_count") or 0),
+                "unclassified_count": int(inspection.get("unclassified_count") or 0),
+                "summary_rule_count": inspection.get("summary_rule_count"),
+                "summary_suggestion_count": inspection.get("summary_suggestion_count"),
+                "baseline_tree": compatibility_base_tree,
+                "log": str(log_path),
+            },
+        })
+        write_json(result_path, result)
+        return EXIT_FAILED
+
+    if not rule_items:
+        source_patch = capture_source_compatibility_patch(work_dir, work_source, compatibility_base_tree)
+        compatibility = {
+            "attempt": attempt,
+            "status": "SUCCESS_WITH_SUGGESTIONS" if suggestion_items else "SUCCESS",
+            "exit_code": proc.returncode,
+            "report_dir": str(report_dir),
+            "reports": [str(x) for x in reports],
+            "analyzed_reports": inspection.get("analyzed_reports") or [],
+            "findings": [],
+            "rule_items": [],
+            "suggestion_items": suggestion_items,
+            "unclassified_items": [],
+            "rule_count": 0,
+            "suggestion_count": int(inspection.get("suggestion_count") or 0),
+            "unclassified_count": 0,
+            "summary_rule_count": inspection.get("summary_rule_count"),
+            "summary_suggestion_count": inspection.get("summary_suggestion_count"),
+            "source_state_sha256": git_worktree_fingerprint(work_source),
+            "baseline_tree": compatibility_base_tree,
+            "source_patch": source_patch,
+            "log": str(log_path),
+        }
+        result["compatibility"] = compatibility
+        clear_current_error(result)
+        result.update({
+            "status": "IN_PROGRESS",
+            "stage": "COMPATIBILITY",
+            "message": "DevKit source scan contains suggestion items only; no source repair is required.",
+        })
+        write_json(result_path, result)
+        return EXIT_OK
+
+    compatibility = {
+        "attempt": attempt,
+        "status": "NEEDS_FIX",
+        "exit_code": proc.returncode,
+        "report_dir": str(report_dir),
+        "reports": [str(x) for x in reports],
+        "analyzed_reports": inspection.get("analyzed_reports") or [],
+        "findings": findings,
+        "rule_items": rule_items,
+        "suggestion_items": suggestion_items,
+        "unclassified_items": [],
+        "rule_count": int(inspection.get("rule_count") or 0),
+        "suggestion_count": int(inspection.get("suggestion_count") or 0),
+        "unclassified_count": 0,
+        "summary_rule_count": inspection.get("summary_rule_count"),
+        "summary_suggestion_count": inspection.get("summary_suggestion_count"),
+        "source_state_sha256": git_worktree_fingerprint(work_source),
+        "baseline_tree": compatibility_base_tree,
+        "log": str(log_path),
+    }
+    result["compatibility"] = compatibility
+    result.update({
+        "status": "NEEDS_AGENT_FIX",
+        "stage": "COMPATIBILITY",
+        "reason_code": "SOURCE_COMPATIBILITY_RULE_FIX_REQUIRED",
+        "message": "DevKit source scan contains mandatory rule items. Fix only the rule items in the Chinese CSV report, then rerun; suggestion items do not require repair.",
+        "action_required": {
+            "type": "FIX_SOURCE_COMPATIBILITY_RULES",
+            "exit_code": proc.returncode,
+            "reports": [str(x) for x in reports],
+            "rule_count": len(rule_items),
+            "findings": rule_items,
+        },
+    })
     write_json(result_path, result)
-    return EXIT_OK
+    return EXIT_NEEDS_FIX
 
 def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict[str, Any], config: dict[str, Any]) -> int:
     route, source_db, target_db = database_route(work_dir, config)
@@ -495,15 +804,19 @@ def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict
         write_json(result_path, result)
         return EXIT_OK
 
-    sql_work = work_dir / "sql-migration"
-    report_file = sql_work / "reports" / "sql-migration-result.json"
-    patch_file = sql_work / "reports" / "source_code.patch"
+    handoff = load_or_create_sql_handoff(work_dir, work_source, source_db, target_db)
+    task_id = str(handoff.get("task_id") or "")
+    sql_work = Path(str(handoff.get("sql_work_dir") or ""))
+    report_file = Path(str(handoff.get("result_file") or ""))
+    patch_file = Path(str(handoff.get("patch_file") or ""))
     if not report_file.is_file():
+        handoff = update_sql_handoff(work_dir, status="WAITING_FOR_SQL")
+        handoff = start_sql_resume_controller(work_dir, handoff)
         result.update({
-            "status": "WAITING_FOR_SKILL",
+            "status": "WAITING_FOR_SQL",
             "stage": "SQL",
-            "reason_code": "CALL_SQL_MIGRATION",
-            "message": "Execute the independent sql-migration Skill directly in the current main Agent, then rerun auto.",
+            "reason_code": "SQL_MIGRATION_REQUIRED",
+            "message": "The independent sql-migration task is pending. A resume controller is watching the task and will invoke --stage build after SQL finalize completes.",
             "sql_skill": {
                 "PROJECT_PATH": str(work_source),
                 "WORK_DIR": str(sql_work),
@@ -511,11 +824,16 @@ def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict
                 "TARGET_DB": target_db,
             },
             "sql_migration": {
-                "status": "WAITING_FOR_SKILL",
+                "task_id": task_id,
+                "handoff_file": str(sql_handoff_path(work_dir)),
+                "status": "WAITING_FOR_SQL",
                 "source_db": source_db,
                 "target_db": target_db,
+                "work_dir": str(sql_work),
                 "result_file": str(report_file),
                 "patch_file": str(patch_file),
+                "resume_stage": "build",
+                "controller": handoff.get("controller") or {},
             },
         })
         write_json(result_path, result)
@@ -524,14 +842,22 @@ def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict
     sql_result = load_json(report_file)
     status = str(sql_result.get("status") or "").upper()
     counts = sql_result_counts(sql_result)
+    # Keep a stable SQL source patch address in the Java final summary even
+    # when the SQL task has no application-source changes.
+    if not patch_file.is_file():
+        patch_file.parent.mkdir(parents=True, exist_ok=True)
+        patch_file.write_bytes(b"")
     result_hash = sha256_file(report_file)
-    patch_hash = sha256_file(patch_file) if patch_file.is_file() else ""
+    patch_hash = sha256_file(patch_file)
     sql_state = {
+        "task_id": task_id,
+        "handoff_file": str(sql_handoff_path(work_dir)),
         "status": status,
         "source_status": status,
         "source_db": source_db,
         "target_db": target_db,
         "counts": counts,
+        "work_dir": str(sql_work),
         "result_file": str(report_file),
         "patch_file": str(patch_file),
         "sql_result_sha256": result_hash,
@@ -542,6 +868,15 @@ def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict
         sql_state["patch_state"] = apply_sql_patch(work_dir, work_source, report_file, patch_file)
         result["sql_migration"] = sql_state
         result.pop("sql_skill", None)
+        update_sql_handoff(
+            work_dir,
+            status="SQL_APPLIED",
+            sql_status=status,
+            sql_result_sha256=result_hash,
+            source_patch_sha256=patch_hash,
+            patch_state=sql_state["patch_state"],
+            sql_completed_at=now_iso(),
+        )
         clear_current_error(result)
         result.update({"status": "IN_PROGRESS", "stage": "SQL"})
         write_json(result_path, result)
@@ -558,26 +893,29 @@ def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict
             "decision_file": str(work_dir / "sql-migration-decision.json"),
             "decision": "CONTINUE_WITH_PENDING",
         }
-        if not valid_sql_decision(work_dir, request):
-            sql_state["decision"] = "WAITING"
-            result["sql_migration"] = sql_state
-            result.update({
-                "status": "WAITING_FOR_USER",
-                "stage": "SQL",
-                "reason_code": "SQL_MIGRATION_ACTION_REQUIRED",
-                "message": "SQL migration contains pending actions. The SQL result is kept unchanged; record an application-side continue decision to proceed.",
-                "action_required": {"type": "SQL_MIGRATION_ACTION_REQUIRED", **request},
-            })
-            write_json(result_path, result)
-            return EXIT_WAITING
+        decision = ensure_sql_continue_decision(work_dir, request, task_id)
         sql_state["decision"] = "CONTINUE_WITH_PENDING"
+        sql_state["decision_origin"] = decision.get("decision_origin") or "AUTO_POLICY"
+        sql_state["decision_file"] = str(work_dir / "sql-migration-decision.json")
         sql_state["patch_state"] = apply_sql_patch(work_dir, work_source, report_file, patch_file)
         result["sql_migration"] = sql_state
         result.pop("sql_skill", None)
+        update_sql_handoff(
+            work_dir,
+            status="SQL_APPLIED",
+            sql_status=status,
+            sql_result_sha256=result_hash,
+            source_patch_sha256=patch_hash,
+            decision="CONTINUE_WITH_PENDING",
+            decision_origin=sql_state["decision_origin"],
+            patch_state=sql_state["patch_state"],
+            sql_completed_at=now_iso(),
+        )
         clear_current_error(result)
         result.update({"status": "IN_PROGRESS", "stage": "SQL"})
         write_json(result_path, result)
         return EXIT_OK
+    update_sql_handoff(work_dir, status="SQL_FAILED", sql_status=status, sql_completed_at=now_iso())
     result["sql_migration"] = sql_state
     result.update({
         "status": "BLOCKED",

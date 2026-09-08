@@ -31,7 +31,7 @@
                 "version": "26.1.RC1",
                 "type": "ARCHIVE",
                 "file_name": "DevKit-AI-Migration-Tool-26.2.RC1-Linux-Kunpeng.tar.gz",
-                "download_url": null,
+                "download_url": "https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20DevKit/Kunpeng%20DevKit%2026.2.T5/DevKit-AI-Migration-Tool-26.2.T5-Linux-Kunpeng.tar.gz",
                 "local_path": null,
                 "tools": [
                     {

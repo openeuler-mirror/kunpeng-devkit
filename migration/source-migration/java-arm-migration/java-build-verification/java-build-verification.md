@@ -10,7 +10,7 @@ build → package_scan → verify
 
 ## build
 
-使用 baseline 阶段确认的构建命令重新构建。失败时返回 `NEEDS_AGENT_FIX / FIX_FINAL_BUILD`，修复后从 `build` 继续。
+使用 baseline 阶段自动识别并确认的构建命令重新构建。失败时返回 `NEEDS_AGENT_FIX / FIX_FINAL_BUILD`，修复后重新执行顶层命令自动从 `build` 继续。
 
 ## package_scan
 
@@ -19,25 +19,40 @@ build → package_scan → verify
 每个最终制品执行：
 
 ```bash
-ai-migration porting pkg-mig
+ai-migration porting pkg-mig -r csv
 ```
 
-出现 findings 时回到 `build` 修复源码或依赖后重新构建。多制品运行验证需要明确主制品时，通过 `<work_dir>/artifact-selection.json` 选择。
+制品扫码同样严格按 `returncode` 判断：
+
+```text
+returncode == 0
+→ 制品扫码通过
+→ 不解析 CSV
+→ 继续 verify
+
+returncode != 0
+→ 制品存在兼容性问题
+→ 只读取 *_zh.csv
+→ 忽略 *_en.csv
+→ 根据中文 CSV 报告修复源码或依赖并重新构建
+```
+
+非 0 场景如果没有生成 `*_zh.csv`，返回 `AI_MIGRATION_PACKAGE_ZH_CSV_REPORT_MISSING`；中文 CSV 报告无法读取/解析时返回 `AI_MIGRATION_CSV_REPORT_INVALID`。只要 `returncode != 0` 且存在有效中文 CSV 报告，制品扫码保持 `NEEDS_FIX`，由 Agent 根据 CSV 内容修复源码或依赖。
 
 ## verify
 
-默认使用 `uname -m` 验证 ARM64；配置 `--verify-command` 时再执行运行/验收验证。验证命令可引用：
+验证阶段不再接受外部可选参数，固定执行：
 
-```text
-{work_source}
-{work_dir}
-{output_dir}
-{artifact}
+```bash
+uname -m
 ```
 
-最终状态：
+返回值为 `aarch64` 或 `arm64` 时 ARM64 架构验证成功。最终状态：
 
-- `SUCCESS`：SQL无待办、ARM64架构验证通过且运行/验收验证成功；
-- `COMPLETED_WITH_ACTIONS`：已生成候选制品，但仍有 SQL、ARM64 或运行验证待办。
+- `SUCCESS`：SQL 无待办、最终制品扫描通过且 ARM64 架构验证通过；
+- `COMPLETED_WITH_ACTIONS`：已生成候选制品，但仍有 SQL 或 ARM64 架构验证待办。
 
 具体证据和待办记录在 `migration-result.json.verification` 与 `completion_actions`。
+
+
+verify 完成时额外生成 `<work_dir>/reports/final-source-changes.patch`，并把 compatibility Patch、SQL `source_code.patch` 和最终总 Patch 三个地址写入 `migration-result.json.patches/result_summary`。

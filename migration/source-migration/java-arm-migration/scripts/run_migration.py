@@ -107,8 +107,8 @@ def save_workflow(
     write_json(result_path, result)
     return result
 
-def resolve_paths(source_value: str, work_base_value: str | None) -> tuple[Path, Path, Path, Path, dict[str, Any]]:
-    metadata = prepare(source_value, work_base_value, emit=False)
+def resolve_paths(source_value: str) -> tuple[Path, Path, Path, Path, dict[str, Any]]:
+    metadata = prepare(source_value, emit=False)
     source = Path(str(metadata["source"])).resolve()
     work_dir = Path(str(metadata["work_dir"])).resolve()
     work_source = Path(str(metadata["work_source"])).resolve()
@@ -120,24 +120,31 @@ def resolve_paths(source_value: str, work_base_value: str | None) -> tuple[Path,
         write_json(result_path, result)
     return source, work_dir, work_source, result_path, result
 def update_config(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
+    """Persist only SQL-migration inputs exposed by the top-level Skill."""
     config = load_config(work_dir)
-    pairs = {
-        "build_command": args.build_command,
-        "devkit_command": args.devkit_command,
+
+    # Remove legacy externally configurable values from earlier Skill versions.
+    # build_command is retained only when it was auto-detected by the inspect stage.
+    if str(config.get("build_command_source") or "").strip().lower() != "detected":
+        config.pop("build_command", None)
+        config.pop("build_command_source", None)
+    for key in ("ai_migration_command", "verify_command", "architecture_command"):
+        config.pop(key, None)
+
+    for key, value in {
         "source_db": args.source_db,
         "target_db": args.target_db,
-        "verify_command": args.verify_command,
-        "architecture_command": args.architecture_command,
-    }
-    for key, value in pairs.items():
+    }.items():
         if value is not None and str(value).strip():
             config[key] = str(value).strip()
+
     if args.skip_sql:
         config["skip_sql"] = True
         config.pop("source_db", None)
         config.pop("target_db", None)
     if args.enable_sql:
         config["skip_sql"] = False
+
     config.setdefault("created_at", now_iso())
     config["updated_at"] = now_iso()
     write_json(config_path(work_dir), config)
@@ -181,8 +188,6 @@ def run_stage(
             retry_verify = any(
                 str(item.get("type") or "") in {
                     "ARM64_VERIFICATION_REQUIRED",
-                    "RUNTIME_VERIFICATION_REQUIRED",
-                    "RUNTIME_VERIFICATION_FAILED",
                 }
                 for item in (verified.get("completion_actions") or [])
                 if isinstance(item, dict)
@@ -204,7 +209,7 @@ def run_stage(
             )
     else:
         waiting_map = {
-            "WAITING_FOR_SKILL": "SQL_SKILL",
+            "WAITING_FOR_SQL": "SQL_MIGRATION",
             "WAITING_FOR_USER": "USER_DECISION",
             "NEEDS_AGENT_FIX": "AGENT_FIX",
             "BLOCKED": "BLOCKED",
@@ -238,6 +243,10 @@ def run_auto(
     result_path: Path,
     config: dict[str, Any],
 ) -> int:
+    # Reconcile a completed task-scoped SQL result before choosing the next
+    # auto stage. This is the durable fallback when the detached SQL watcher
+    # was lost or the host interrupted it.
+    source_migration.reconcile_sql_handoff(work_dir, result_path)
     result = load_json(result_path)
     stage = infer_resume_stage(result)
     if not stage:
@@ -274,28 +283,12 @@ def run_auto(
         "artifacts": result.get("artifacts") or [],
         "verification": result.get("verification") or {},
         "completion_actions": result.get("completion_actions") or [],
+        "action_required": result.get("action_required"),
+        "patches": result.get("patches") or {},
+        "result_summary": result.get("result_summary") or {},
     }, ensure_ascii=False, indent=2))
     return EXIT_OK
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Run or resume Java source ARM64 migration.")
-    parser.add_argument("--source", required=True, help="Local Java project directory")
-    parser.add_argument("--work-base", help="Workspace root")
-    parser.add_argument("--stage", choices=STAGES + [AUTO_STAGE], default=AUTO_STAGE)
-    parser.add_argument("--build-command", help="Project baseline/final build command")
-    parser.add_argument("--devkit-command", help="DevKit CLI command/path")
-    parser.add_argument("--source-db", help="Source database type when SQL adaptation is required")
-    parser.add_argument("--target-db", help="Target database type when SQL adaptation is required")
-    parser.add_argument("--skip-sql", action="store_true", help="Record SQL adaptation as not applicable")
-    parser.add_argument("--enable-sql", action="store_true", help="Clear a previously recorded skip-sql setting")
-    parser.add_argument("--verify-command", help="Runtime/acceptance verification command on ARM64")
-    parser.add_argument("--architecture-command", help="Architecture check command; defaults to uname -m")
-    args = parser.parse_args()
-
-    source, work_dir, work_source, result_path, _result = resolve_paths(args.source, args.work_base)
-    config = update_config(work_dir, args)
-    if args.stage == AUTO_STAGE:
-        return run_auto(source, work_dir, work_source, result_path, config)
-    code = run_stage(args.stage, source, work_dir, work_source, result_path, config)
+def _print_stop_result(result_path: Path) -> None:
     result = load_json(result_path)
     print(json.dumps({
         "status": result.get("status"),
@@ -303,8 +296,155 @@ def main() -> int:
         "reason_code": result.get("reason_code"),
         "result_file": str(result_path),
         "workflow": result.get("workflow") or {},
+        "action_required": result.get("action_required"),
+        "sql_skill": result.get("sql_skill"),
+        "sql_migration": result.get("sql_migration") or {},
     }, ensure_ascii=False, indent=2))
-    return code
+
+
+def _require_stage_prerequisite(condition: bool, code: str, message: str) -> None:
+    if not condition:
+        raise MigrationError(code, message, status="BLOCKED")
+
+
+def validate_explicit_stage_entry(stage: str, work_dir: Path, result: dict[str, Any], config: dict[str, Any]) -> None:
+    """Validate that an explicitly requested stage cannot bypass required predecessors."""
+    if stage in {"prepare", "inspect"}:
+        return
+
+    project = result.get("project") if isinstance(result.get("project"), dict) else {}
+    baseline = result.get("baseline") if isinstance(result.get("baseline"), dict) else {}
+    compatibility = result.get("compatibility") if isinstance(result.get("compatibility"), dict) else {}
+    build = result.get("build") if isinstance(result.get("build"), dict) else {}
+    package_scan = result.get("package_scan") if isinstance(result.get("package_scan"), dict) else {}
+    artifacts = result.get("artifacts") if isinstance(result.get("artifacts"), list) else []
+    build_command = str(config.get("build_command") or "").strip()
+    build_command_source = str(config.get("build_command_source") or "").strip().lower()
+
+    if stage == "baseline":
+        _require_stage_prerequisite(
+            bool(project) and bool(build_command) and build_command_source == "detected",
+            "STAGE_BASELINE_INSPECT_NOT_READY",
+            "--stage baseline requires the inspect stage to have detected the project build entry first.",
+        )
+        return
+
+    if stage in {"compatibility", "sql", "build", "package_scan", "verify"}:
+        _require_stage_prerequisite(
+            str(baseline.get("status") or "").upper() == "SUCCESS" and bool(build_command),
+            "STAGE_BASELINE_NOT_READY",
+            "--stage %s requires a successful baseline build from the same migration workspace." % stage,
+        )
+
+    if stage in {"sql", "build", "package_scan", "verify"}:
+        _require_stage_prerequisite(
+            str(compatibility.get("status") or "").upper() == "SUCCESS",
+            "STAGE_COMPATIBILITY_NOT_READY",
+            "--stage %s requires source compatibility scanning to have passed first." % stage,
+        )
+
+    if stage in {"package_scan", "verify"}:
+        _require_stage_prerequisite(
+            str(build.get("status") or "").upper() == "SUCCESS",
+            "STAGE_BUILD_NOT_READY",
+            "--stage %s requires a successful final build first." % stage,
+        )
+        # Prevent a stale build/artifact from being reused after the SQL route was changed.
+        build_verification.require_sql_route_consistency(work_dir, result, config)
+
+    if stage == "verify":
+        _require_stage_prerequisite(
+            str(package_scan.get("status") or "").upper() == "SUCCESS" and bool(artifacts),
+            "STAGE_PACKAGE_SCAN_NOT_READY",
+            "--stage verify requires a successful package scan and recorded final artifacts first.",
+        )
+
+
+def run_from_stage(
+    start_stage: str,
+    source: Path,
+    work_dir: Path,
+    work_source: Path,
+    result_path: Path,
+    config: dict[str, Any],
+) -> int:
+    """Start/resume from one explicit stage and continue through later stages.
+
+    Explicit stages are guarded resume points, not unconditional jumps.  In
+    particular, --stage build first executes the SQL handoff gate so that an
+    external sql-migration result is validated and source_code.patch is applied
+    before the final build starts.
+    """
+    result = load_json(result_path)
+    try:
+        validate_explicit_stage_entry(start_stage, work_dir, result, config)
+    except MigrationError as exc:
+        result.update({
+            "status": exc.status,
+            "stage": start_stage.upper(),
+            "reason_code": exc.code,
+            "message": str(exc),
+        })
+        write_json(result_path, result)
+        _print_stop_result(result_path)
+        return EXIT_FAILED
+
+    # BUILD is a common resume point after the independent SQL Skill.  Re-enter
+    # the SQL stage once as an idempotent handoff gate before actually building.
+    if start_stage == "build":
+        code = run_stage("sql", source, work_dir, work_source, result_path, config)
+        if code != EXIT_OK:
+            _print_stop_result(result_path)
+            return code
+
+    stage = start_stage
+    while stage:
+        code = run_stage(stage, source, work_dir, work_source, result_path, config)
+        result = load_json(result_path)
+        if code != EXIT_OK:
+            _print_stop_result(result_path)
+            return code
+        if stage == "verify":
+            break
+        stage = infer_resume_stage(result)
+
+    result = load_json(result_path)
+    print(json.dumps({
+        "status": result.get("status"),
+        "stage": result.get("stage"),
+        "result_file": str(result_path),
+        "workflow": result.get("workflow") or {},
+        "artifacts": result.get("artifacts") or [],
+        "verification": result.get("verification") or {},
+        "completion_actions": result.get("completion_actions") or [],
+        "patches": result.get("patches") or {},
+        "result_summary": result.get("result_summary") or {},
+    }, ensure_ascii=False, indent=2))
+    return EXIT_OK
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run or resume Java source ARM64 migration.")
+    parser.add_argument("--source", required=True, help="Local Java project directory")
+    parser.add_argument(
+        "--stage",
+        choices=[AUTO_STAGE] + STAGES,
+        default=AUTO_STAGE,
+        help="Start/resume from a workflow stage and continue automatically; default: auto",
+    )
+    parser.add_argument("--source-db", help="Source database type when SQL adaptation is required")
+    parser.add_argument("--target-db", help="Target database type when SQL adaptation is required")
+    parser.add_argument("--skip-sql", action="store_true", help="Record SQL adaptation as not applicable")
+    parser.add_argument("--enable-sql", action="store_true", help="Clear a previously recorded skip-sql setting")
+    args = parser.parse_args()
+
+    if args.skip_sql and args.enable_sql:
+        parser.error("--skip-sql and --enable-sql cannot be used together")
+
+    source, work_dir, work_source, result_path, _result = resolve_paths(args.source)
+    config = update_config(work_dir, args)
+    if args.stage != AUTO_STAGE:
+        return run_from_stage(args.stage, source, work_dir, work_source, result_path, config)
+    return run_auto(source, work_dir, work_source, result_path, config)
 
 if __name__ == "__main__":
     sys.exit(main())

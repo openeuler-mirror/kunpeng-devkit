@@ -14,10 +14,10 @@ if str(ROOT_SCRIPTS) not in __import__("sys").path:
 
 from migration_common import (
     EXIT_FAILED, EXIT_NEEDS_FIX, EXIT_OK, EXIT_WAITING, MigrationError,
-    analyze_devkit_reports, build_environment, cleanup_untracked_build_outputs,
-    clear_current_error, database_route, json_reports,
-    load_json, require_baseline_build_command, resolve_devkit, run_command,
-    run_shell, sha256_file, write_json,
+    build_environment, cleanup_untracked_build_outputs,
+    clear_current_error, database_route, inspect_ai_migration_csv_reports, zh_csv_reports,
+    load_json, require_baseline_build_command, resolve_ai_migration, run_command,
+    run_shell, sha256_file, write_git_worktree_patch, write_json,
 )
 
 AUXILIARY_ARTIFACT_PATTERNS = (
@@ -88,47 +88,70 @@ def artifact_output_path(work_source: Path, output_root: Path, artifact: Path) -
     destination = output_root.joinpath(*module_parts, artifact.name)
     return destination
 
-def scan_package(devkit: list[str], artifact: Path, report_dir: Path, log_path: Path, work_source: Path) -> dict[str, Any]:
+def scan_package(ai_migration: list[str], artifact: Path, report_dir: Path, log_path: Path, work_source: Path) -> dict[str, Any]:
     report_dir.mkdir(parents=True, exist_ok=True)
-    command = devkit + [
+    command = ai_migration + [
         "porting", "pkg-mig",
         "-i", str(artifact),
         "-o", str(report_dir),
-        "-r", "json",
+        "-r", "csv",
         "--set-timeout", "60",
     ]
     proc = run_command(command, cwd=work_source, log_path=log_path, check=False, timeout=3660)
-    reports = json_reports(report_dir)
-    findings = analyze_devkit_reports(reports)
+
+    # DevKit package scan status is determined strictly by returncode.
+    # A zero exit code means the artifact scan passed; report files are not parsed.
+    if proc.returncode == 0:
+        success_reports = zh_csv_reports(report_dir)
+        return {
+            "status": "SUCCESS",
+            "reason_code": "",
+            "exit_code": 0,
+            "artifact": str(artifact),
+            "report_dir": str(report_dir),
+            "reports": [str(x) for x in success_reports],
+            "analyzed_reports": [],
+            "findings": [],
+        }
+
+    # Non-zero means the package contains compatibility items. Only the Chinese
+    # *_zh.csv result is authoritative; English reports are intentionally ignored.
+    reports = zh_csv_reports(report_dir)
+    if not reports:
+        return {
+            "status": "FAILED",
+            "reason_code": "AI_MIGRATION_PACKAGE_ZH_CSV_REPORT_MISSING",
+            "message": "ai-migration package scan returned %s but produced no *_zh.csv report." % proc.returncode,
+            "exit_code": proc.returncode,
+            "artifact": str(artifact),
+            "report_dir": str(report_dir),
+            "reports": [],
+            "findings": [],
+        }
+    try:
+        inspection = inspect_ai_migration_csv_reports(reports)
+    except MigrationError as exc:
+        return {
+            "status": "FAILED",
+            "reason_code": exc.code,
+            "message": str(exc),
+            "exit_code": proc.returncode,
+            "artifact": str(artifact),
+            "report_dir": str(report_dir),
+            "reports": [str(x) for x in reports],
+            "findings": [],
+        }
+    findings = inspection["findings"]
     return {
-        "status": "SUCCESS" if proc.returncode == 0 and not findings else ("NEEDS_FIX" if proc.returncode == 0 else "FAILED"),
+        "status": "NEEDS_FIX",
+        "reason_code": "AI_MIGRATION_PACKAGE_FIX_REQUIRED",
         "exit_code": proc.returncode,
         "artifact": str(artifact),
         "report_dir": str(report_dir),
         "reports": [str(x) for x in reports],
+        "analyzed_reports": inspection.get("analyzed_reports") or [],
         "findings": findings,
     }
-
-def select_primary_artifact(work_dir: Path, artifacts: list[dict[str, Any]]) -> str:
-    outputs = [str(item.get("output") or "") for item in artifacts if isinstance(item, dict) and item.get("output")]
-    if len(outputs) == 1:
-        return outputs[0]
-    selection_path = work_dir / "artifact-selection.json"
-    if not selection_path.is_file():
-        return ""
-    selection = load_json(selection_path)
-    requested = str(selection.get("primary_artifact") or "").strip()
-    if not requested:
-        return ""
-    requested_path = str(Path(requested).expanduser().resolve()) if Path(requested).is_absolute() else requested
-    for output in outputs:
-        output_path = str(Path(output).resolve())
-        if requested == output or requested_path == output_path or requested == Path(output).name:
-            same_name = [item for item in outputs if Path(item).name == requested]
-            if requested == Path(output).name and len(same_name) != 1:
-                continue
-            return output
-    return ""
 
 def sql_completion_action(result: dict[str, Any]) -> dict[str, Any] | None:
     sql = result.get("sql_migration") if isinstance(result.get("sql_migration"), dict) else {}
@@ -141,12 +164,26 @@ def sql_completion_action(result: dict[str, Any]) -> dict[str, Any] | None:
         except (TypeError, ValueError):
             pass
     if status == "COMPLETED_WITH_ACTIONS" or pending:
-        return {
+        sql_work = Path(str(sql.get("work_dir") or "")) if str(sql.get("work_dir") or "") else None
+        reports_dir = sql_work / "reports" if sql_work else None
+        manual_review_report = reports_dir / "manual_review_report.json" if reports_dir else None
+        pending_confirm_report = reports_dir / "pending_confirm_sql.json" if reports_dir else None
+        action = {
             "type": "SQL_MIGRATION_PENDING",
+            "requires_action": True,
             "status": status,
+            "task_id": sql.get("task_id") or "",
             "decision": sql.get("decision"),
             "counts": counts,
+            "result_file": sql.get("result_file") or "",
+            "patch_file": sql.get("patch_file") or "",
+            "message": "SQL migration completed with unresolved items. Review manual-review and pending-confirm SQL before production acceptance.",
         }
+        if manual_review_report and manual_review_report.is_file():
+            action["manual_review_report"] = str(manual_review_report)
+        if pending_confirm_report and pending_confirm_report.is_file():
+            action["pending_confirm_report"] = str(pending_confirm_report)
+        return action
     return None
 
 def stage_build(work_dir: Path, work_source: Path, result_path: Path, result: dict[str, Any], config: dict[str, Any]) -> int:
@@ -222,43 +259,68 @@ def stage_package_scan(work_dir: Path, work_source: Path, result_path: Path, res
             "size": destination.stat().st_size,
             "sha256": sha256_file(destination),
         })
-    devkit = resolve_devkit(config)
+    ai_migration = resolve_ai_migration(work_dir)
     scan_attempt = int((result.get("package_scan") or {}).get("attempt") or 0) + 1 if isinstance(result.get("package_scan"), dict) else 1
     scan_results = []
     all_findings = []
+    failure_reason_codes: list[str] = []
     failed = False
+    needs_fix = False
     for index, item in enumerate(copied, 1):
         artifact = Path(item["output"])
         safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", artifact.stem) or ("artifact-%d" % index)
-        report_dir = work_dir / "reports" / "devkit-package" / ("attempt-%03d" % scan_attempt) / ("%03d-%s" % (index, safe_name))
-        scan = scan_package(devkit, artifact, report_dir, work_dir / "logs" / "devkit-package.log", work_source)
+        report_dir = work_dir / "reports" / "ai-migration-package" / ("attempt-%03d" % scan_attempt) / ("%03d-%s" % (index, safe_name))
+        scan = scan_package(ai_migration, artifact, report_dir, work_dir / "logs" / "ai-migration-package.log", work_source)
         scan_results.append(scan)
         all_findings.extend(scan.get("findings") or [])
+        if scan.get("status") == "NEEDS_FIX":
+            needs_fix = True
         if scan.get("status") == "FAILED":
             failed = True
+            reason_code = str(scan.get("reason_code") or "AI_MIGRATION_PACKAGE_SCAN_FAILED")
+            if reason_code not in failure_reason_codes:
+                failure_reason_codes.append(reason_code)
     result["artifacts"] = copied
     result["package_scan"] = {
         "attempt": scan_attempt,
-        "status": "FAILED" if failed else ("NEEDS_FIX" if all_findings else "SUCCESS"),
+        "status": "FAILED" if failed else ("NEEDS_FIX" if needs_fix else "SUCCESS"),
         "results": scan_results,
         "findings": all_findings,
+        "failure_reason_codes": failure_reason_codes,
     }
     if failed:
+        if "AI_MIGRATION_PACKAGE_SCAN_FAILED" in failure_reason_codes:
+            failure_reason = "AI_MIGRATION_PACKAGE_SCAN_FAILED"
+            failure_message = "ai-migration package scan command failed; see logs/ai-migration-package.log."
+        elif "AI_MIGRATION_PACKAGE_ZH_CSV_REPORT_MISSING" in failure_reason_codes:
+            failure_reason = "AI_MIGRATION_PACKAGE_ZH_CSV_REPORT_MISSING"
+            failure_message = "ai-migration package scan returned non-zero but did not produce a *_zh.csv report."
+        elif "AI_MIGRATION_CSV_REPORT_INVALID" in failure_reason_codes:
+            failure_reason = "AI_MIGRATION_CSV_REPORT_INVALID"
+            failure_message = "ai-migration package scan produced an invalid CSV report."
+        else:
+            failure_reason = failure_reason_codes[0] if failure_reason_codes else "AI_MIGRATION_PACKAGE_SCAN_FAILED"
+            failure_message = "ai-migration package scan failed; see package_scan.results for details."
         result.update({
             "status": "FAILED",
             "stage": "PACKAGE_SCAN",
-            "reason_code": "DEVKIT_PACKAGE_SCAN_FAILED",
-            "message": "DevKit package scan failed; see logs/devkit-package.log.",
+            "reason_code": failure_reason,
+            "message": failure_message,
         })
         write_json(result_path, result)
         return EXIT_FAILED
-    if all_findings:
+    if needs_fix:
         result.update({
             "status": "NEEDS_AGENT_FIX",
             "stage": "PACKAGE_SCAN",
-            "reason_code": "DEVKIT_PACKAGE_FINDINGS_REQUIRE_FIX",
-            "message": "Final artifacts still contain ARM64 migration findings.",
-            "action_required": {"type": "FIX_PACKAGE_FINDINGS", "artifacts": copied, "findings": all_findings},
+            "reason_code": "AI_MIGRATION_PACKAGE_FIX_REQUIRED",
+            "message": "ai-migration package scan returned a non-zero code. Fix source code or dependencies according to the Chinese CSV package scan report, rebuild, and rerun.",
+            "action_required": {
+                "type": "FIX_PACKAGE_COMPATIBILITY",
+                "artifacts": copied,
+                "scan_results": [item for item in scan_results if item.get("status") == "NEEDS_FIX"],
+                "findings": all_findings,
+            },
         })
         write_json(result_path, result)
         return EXIT_NEEDS_FIX
@@ -271,67 +333,32 @@ def stage_verify(work_dir: Path, work_source: Path, result_path: Path, result: d
     artifacts = result.get("artifacts") if isinstance(result.get("artifacts"), list) else []
     if not artifacts:
         raise MigrationError("PACKAGE_SCAN_REQUIRED", "No final artifact is available for verification")
-    arch_command = str(config.get("architecture_command") or "uname -m").strip()
-    arch_proc = run_shell(arch_command, cwd=work_source, log_path=work_dir / "logs" / "verification.log", check=False, timeout=300)
+
+    arch_command = "uname -m"
+    arch_proc = run_shell(
+        arch_command,
+        cwd=work_source,
+        log_path=work_dir / "logs" / "verification.log",
+        check=False,
+        timeout=300,
+    )
     architecture = (arch_proc.stdout or "").strip().splitlines()
     architecture_value = architecture[-1].strip().lower() if architecture else ""
-    architecture_status = "SUCCESS" if arch_proc.returncode == 0 and architecture_value in {"aarch64", "arm64"} else "NOT_VERIFIED"
-    verify_command = str(config.get("verify_command") or "").strip()
-    primary_artifact = select_primary_artifact(work_dir, artifacts)
-    if verify_command and "{artifact}" in verify_command and not primary_artifact:
-        result.update({
-            "status": "WAITING_FOR_USER",
-            "stage": "VERIFY",
-            "reason_code": "PRIMARY_ARTIFACT_REQUIRED",
-            "message": "Primary artifact selection is required for runtime verification.",
-            "action_required": {
-                "type": "SELECT_PRIMARY_ARTIFACT",
-                "artifacts": artifacts,
-                "decision_file": str(work_dir / "artifact-selection.json"),
-            },
-        })
-        write_json(result_path, result)
-        return EXIT_WAITING
+    architecture_status = (
+        "SUCCESS"
+        if arch_proc.returncode == 0 and architecture_value in {"aarch64", "arm64"}
+        else "NOT_VERIFIED"
+    )
 
-    runtime_status = "NOT_VERIFIED"
-    runtime_evidence = []
-    verify_output = ""
-    verify_exit = None
-    if architecture_status == "SUCCESS" and verify_command:
-        mapping = {
-            "work_source": str(work_source),
-            "work_dir": str(work_dir),
-            "output_dir": str(work_dir / "output"),
-            "artifact": primary_artifact,
-        }
-        try:
-            rendered = verify_command.format(**mapping)
-        except KeyError as exc:
-            raise MigrationError("INVALID_VERIFY_COMMAND", "Unknown verification placeholder: %s" % exc)
-        proc = run_shell(rendered, cwd=work_source, log_path=work_dir / "logs" / "verification.log", check=False, timeout=1800)
-        verify_exit = proc.returncode
-        verify_output = (proc.stdout or "")[-4000:]
-        if proc.returncode == 0:
-            runtime_status = "SUCCESS"
-            runtime_evidence.append("verification.command")
-        else:
-            runtime_status = "FAILED"
     verification = {
-        "primary_artifact": primary_artifact or None,
         "architecture": {
             "status": architecture_status,
             "command": arch_command,
             "value": architecture_value,
             "exit_code": arch_proc.returncode,
-        },
-        "runtime": {
-            "status": runtime_status,
-            "command": verify_command or None,
-            "exit_code": verify_exit,
-            "evidence": runtime_evidence,
-            "output": verify_output,
-        },
+        }
     }
+
     actions = []
     sql_action = sql_completion_action(result)
     if sql_action:
@@ -340,20 +367,68 @@ def stage_verify(work_dir: Path, work_source: Path, result_path: Path, result: d
         actions.append({
             "type": "ARM64_VERIFICATION_REQUIRED",
             "architecture": architecture_value,
-            "message": "Run verification on an ARM64 environment and rerun the verify stage.",
+            "message": "Run the Skill in an ARM64 environment and execute it again to complete architecture verification.",
         })
-    elif runtime_status != "SUCCESS":
-        actions.append({
-            "type": "RUNTIME_VERIFICATION_REQUIRED" if runtime_status == "NOT_VERIFIED" else "RUNTIME_VERIFICATION_FAILED",
-            "message": "Provide and pass a project runtime/acceptance verification command on ARM64.",
-        })
+
+    compatibility = result.get("compatibility") if isinstance(result.get("compatibility"), dict) else {}
+    compatibility_patch = compatibility.get("source_patch") if isinstance(compatibility.get("source_patch"), dict) else {}
+    sql = result.get("sql_migration") if isinstance(result.get("sql_migration"), dict) else {}
+    sql_patch_path = Path(str(sql.get("patch_file") or "")) if str(sql.get("patch_file") or "") else None
+    final_patch = write_git_worktree_patch(work_source, work_dir / "reports" / "final-source-changes.patch")
+    patches = {
+        "source_compatibility": compatibility_patch or {
+            "path": str(work_dir / "reports" / "source-compatibility.patch"),
+            "sha256": "",
+            "size": 0,
+            "changed_files": [],
+        },
+        "sql_source_changes": {
+            "path": str(sql_patch_path) if sql_patch_path else "",
+            "sha256": sha256_file(sql_patch_path) if sql_patch_path and sql_patch_path.is_file() else "",
+            "size": sql_patch_path.stat().st_size if sql_patch_path and sql_patch_path.is_file() else 0,
+        },
+        "final_source_changes": final_patch,
+    }
+
+    compatibility_suggestions = compatibility.get("suggestion_items") if isinstance(compatibility.get("suggestion_items"), list) else []
+    source_scan_notice = {
+        "rule_count": int(compatibility.get("rule_count") or 0),
+        "suggestion_count": int(compatibility.get("suggestion_count") or 0),
+        "suggestions_require_fix": False,
+        "message": "DevKit suggestion items are informational only and do not require source repair.",
+        "reports": compatibility.get("reports") or [],
+        "suggestion_items": compatibility_suggestions,
+    }
+
+    # clear_current_error removes any stale action_required from earlier stages.
+    # Rebuild the final action contract from completion_actions immediately
+    # afterwards so COMPLETED_WITH_ACTIONS can never coexist with null actions.
+    clear_current_error(result)
     result["verification"] = verification
     result["completion_actions"] = actions
-    clear_current_error(result)
+    if not actions:
+        result.pop("action_required", None)
+    elif len(actions) == 1:
+        result["action_required"] = actions[0]
+    else:
+        result["action_required"] = {
+            "type": "MIGRATION_COMPLETION_ACTIONS_REQUIRED",
+            "requires_action": True,
+            "actions": actions,
+        }
+    result["patches"] = patches
+    result["result_summary"] = {
+        "source_compatibility_patch": patches["source_compatibility"].get("path") or "",
+        "sql_source_patch": patches["sql_source_changes"].get("path") or "",
+        "final_source_patch": patches["final_source_changes"].get("path") or "",
+        "source_scan_advisories": source_scan_notice,
+        "artifacts": [item.get("output") for item in artifacts if isinstance(item, dict) and item.get("output")],
+    }
     result.update({
         "status": "SUCCESS" if not actions else "COMPLETED_WITH_ACTIONS",
         "stage": "COMPLETE",
         "reason_code": "" if not actions else "JAVA_SOURCE_MIGRATION_ACTIONS_REQUIRED",
+        "message": "" if not actions else "Migration stages completed, but completion actions remain and are listed in action_required.",
     })
     write_json(result_path, result)
     return EXIT_OK
