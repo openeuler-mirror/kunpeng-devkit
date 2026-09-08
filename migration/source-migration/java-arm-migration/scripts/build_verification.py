@@ -312,6 +312,7 @@ def stage_package_scan(work_dir: Path, work_source: Path, result_path: Path, res
             "message": "ai-migration package scan returned a non-zero code. Fix source code or dependencies according to the Chinese CSV package scan report, rebuild, and rerun.",
             "action_required": {
                 "type": "FIX_PACKAGE_COMPATIBILITY",
+                "resume_stage": "build",
                 "artifacts": copied,
                 "scan_results": [item for item in scan_results if item.get("status") == "NEEDS_FIX"],
                 "findings": all_findings,

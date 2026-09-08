@@ -1005,19 +1005,20 @@ def cleanup_untracked_build_outputs(work_source: Path) -> list[str]:
     return removed
 
 def database_route(work_dir: Path, config: dict[str, Any]) -> tuple[str, str, str]:
-    if bool(config.get("skip_sql")):
-        return "SKIP", "", ""
-    source_db = str(config.get("source_db") or "").strip()
-    target_db = str(config.get("target_db") or "").strip()
+    # database-route.json is the only persisted authority for the SQL decision.
+    # Legacy migration-config.json database fields must never silently decide a
+    # later invocation.  Explicit CLI inputs are persisted into this file by
+    # run_migration.py before the stage is evaluated.
     route_file = work_dir / "database-route.json"
-    if route_file.is_file():
-        route = load_json(route_file)
-        decision = str(route.get("decision") or "").upper()
-        if decision == "SKIP":
-            return "SKIP", "", ""
-        source_db = str(route.get("source_db") or source_db).strip()
-        target_db = str(route.get("target_db") or target_db).strip()
-    if source_db and target_db:
+    if not route_file.is_file():
+        return "REQUIRED", "", ""
+    route = load_json(route_file)
+    decision = str(route.get("decision") or "").upper()
+    source_db = str(route.get("source_db") or "").strip()
+    target_db = str(route.get("target_db") or "").strip()
+    if decision == "SKIP":
+        return "SKIP", source_db, target_db
+    if decision == "MIGRATE" and source_db and target_db:
         if source_db.lower() == target_db.lower():
             return "SKIP", source_db, target_db
         return "MIGRATE", source_db, target_db

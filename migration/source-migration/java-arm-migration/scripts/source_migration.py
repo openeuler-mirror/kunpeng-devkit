@@ -780,11 +780,12 @@ def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict
             "status": "WAITING_FOR_USER",
             "stage": "SQL",
             "reason_code": "DATABASE_ROUTE_REQUIRED",
-            "message": "Database migration route has not been provided.",
+            "message": "SQL migration is a required workflow decision. Provide --source-db/--target-db to migrate, or explicitly choose --skip-sql when SQL adaptation is not required.",
             "action_required": {
                 "type": "DATABASE_ROUTE_REQUIRED",
                 "decision_file": str(work_dir / "database-route.json"),
                 "choices": ["MIGRATE", "SKIP"],
+                "required_inputs": ["SOURCE_DB", "TARGET_DB"],
             },
         })
         write_json(result_path, result)
@@ -820,6 +821,21 @@ def stage_sql(work_dir: Path, work_source: Path, result_path: Path, result: dict
                 "WORK_DIR": str(sql_work),
                 "SOURCE_DB": source_db,
                 "TARGET_DB": target_db,
+            },
+            "action_required": {
+                "type": "RUN_SQL_MIGRATION",
+                "requires_action": True,
+                "task_id": task_id,
+                "skill": "sql-migration",
+                "inputs": {
+                    "PROJECT_PATH": str(work_source),
+                    "WORK_DIR": str(sql_work),
+                    "SOURCE_DB": source_db,
+                    "TARGET_DB": target_db,
+                },
+                "handoff_file": str(sql_handoff_path(work_dir)),
+                "result_file": str(report_file),
+                "message": "Invoke the independent sql-migration Skill with exactly these inputs. The Java resume controller only watches for SQL finalize; it does not execute the SQL Skill itself.",
             },
             "sql_migration": {
                 "task_id": task_id,

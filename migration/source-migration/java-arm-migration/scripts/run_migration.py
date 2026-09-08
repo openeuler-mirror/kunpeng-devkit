@@ -109,7 +109,7 @@ def resolve_paths(source_value: str) -> tuple[Path, Path, Path, dict[str, Any]]:
         write_json(result_path, result)
     return work_dir, work_source, result_path, result
 def update_config(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
-    """Persist only SQL-migration inputs exposed by the top-level Skill."""
+    """Persist explicit SQL-route inputs without silently inheriting legacy skip flags."""
     config = load_config(work_dir)
 
     # Remove legacy externally configurable values from earlier Skill versions.
@@ -120,19 +120,37 @@ def update_config(work_dir: Path, args: argparse.Namespace) -> dict[str, Any]:
     for key in ("ai_migration_command", "verify_command", "architecture_command"):
         config.pop(key, None)
 
-    for key, value in {
-        "source_db": args.source_db,
-        "target_db": args.target_db,
-    }.items():
-        if value is not None and str(value).strip():
-            config[key] = str(value).strip()
+    # csv4/csv5 persisted skip_sql in migration-config.json.  That can silently
+    # skip the mandatory SQL-route decision on a later invocation.  Route
+    # decisions now live only in database-route.json or explicit CLI inputs.
+    config.pop("skip_sql", None)
+    config.pop("source_db", None)
+    config.pop("target_db", None)
+    route_file = work_dir / "database-route.json"
+
+    if args.enable_sql and route_file.is_file():
+        route = load_json(route_file)
+        if str(route.get("decision") or "").upper() == "SKIP":
+            route_file.unlink()
 
     if args.skip_sql:
-        config["skip_sql"] = True
         config.pop("source_db", None)
         config.pop("target_db", None)
-    if args.enable_sql:
-        config["skip_sql"] = False
+        write_json(route_file, {
+            "decision": "SKIP",
+            "source_db": "",
+            "target_db": "",
+            "updated_at": now_iso(),
+        })
+    elif args.source_db and args.target_db:
+        source_db = str(args.source_db).strip()
+        target_db = str(args.target_db).strip()
+        write_json(route_file, {
+            "decision": "SKIP" if source_db.lower() == target_db.lower() else "MIGRATE",
+            "source_db": source_db,
+            "target_db": target_db,
+            "updated_at": now_iso(),
+        })
 
     config.setdefault("created_at", now_iso())
     config["updated_at"] = now_iso()
@@ -225,6 +243,7 @@ def print_result(result_path: Path, *, final: bool = False) -> None:
         "result_file": str(result_path),
         "workflow": result.get("workflow") or {},
         "action_required": result.get("action_required"),
+        "sql_migration": result.get("sql_migration") or {},
     }
     if result.get("sql_skill") is not None:
         payload["sql_skill"] = result.get("sql_skill")
@@ -408,6 +427,10 @@ def main() -> int:
 
     if args.skip_sql and args.enable_sql:
         parser.error("--skip-sql and --enable-sql cannot be used together")
+    if bool(args.source_db) != bool(args.target_db):
+        parser.error("--source-db and --target-db must be provided together")
+    if args.skip_sql and (args.source_db or args.target_db):
+        parser.error("--skip-sql cannot be combined with --source-db/--target-db")
 
     work_dir, work_source, result_path, _result = resolve_paths(args.source)
     config = update_config(work_dir, args)
