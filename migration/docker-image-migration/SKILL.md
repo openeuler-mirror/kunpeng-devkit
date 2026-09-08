@@ -1,5 +1,5 @@
 ---
-name: docker-image-migration-new-double
+name: docker-image-migration
 description: >-
   docker-image-migration Skill 主调度文件。用于将 x86_64 Docker 镜像迁移到 linux/arm64（鲲鹏）环境，覆盖有 Dockerfile 的直接迁移与无 Dockerfile 的镜像逆向重构两类场景。负责场景选择、启动门禁、受控并发、构建与运行验证、知识沉淀及中断恢复。不适用范围：Windows 容器迁移、非 Docker 场景（裸机或 VM）、仅需人工替换单行 `FROM` 的极简任务、history 完全不可读且镜像不可运行的场景。
 license: MulanPSL-2.0
