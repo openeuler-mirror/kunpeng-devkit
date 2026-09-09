@@ -82,7 +82,7 @@ DEVKIT_SEARCH_ROOTS=(
 locate_existing_devkit() {
     for root in "${DEVKIT_SEARCH_ROOTS[@]}"; do
         [[ -d "$root" ]] || continue
-        # 找到所有 jar 候选，逐个校验是否含 ai-migration 二进制
+        # 找到所有 jar 候选，按版本号降序排列，逐个校验是否含 ai-migration 二进制，取第一个命中的
         while IFS= read -r found_jar; do
             [[ -n "$found_jar" ]] || continue
             # DevKit 工具根目录 = jar 所在 sql_analysis 目录的上级
@@ -95,7 +95,7 @@ locate_existing_devkit() {
                 return 0
             fi
             log "跳过（无 ai-migration 二进制）：$found_jar"
-        done < <(find "$root" -maxdepth 5 -type f -name "sql-analysis-*.jar" 2>/dev/null)
+        done < <(find "$root" -maxdepth 5 -type f -name "sql-analysis-*.jar" 2>/dev/null | sort -Vr || true)
     done
     return 1
 }
@@ -202,21 +202,22 @@ EOF
 
 # 在 DEVKIT_SEARCH_ROOTS 里查找已缓存的 DevKit 压缩包，命中且完整性合格则输出路径。
 # 仅在未定位到 jar、未指定 DEVKIT_PACKAGE_PATH 时由调用方触发。
-# 按固定版本精确匹配，按搜索根顺序先命中先返回。
+# 不限版本，多个匹配时取版本最高且完整性合格的；按搜索根顺序先命中先返回。
 locate_cached_devkit_package() {
-    local pattern="$ARCHIVE_NAME"
+    local pattern="DevKit-AI-Migration-Tool-*-Linux-Kunpeng.tar.gz"
     local root found size
     for root in "${DEVKIT_SEARCH_ROOTS[@]}"; do
         [[ -d "$root" ]] || continue
-        found=$(find "$root" -maxdepth 5 -type f -name "$pattern" 2>/dev/null | sort -V | tail -1 || true)
-        [[ -n "$found" ]] || continue
-        size=$(stat -c%s "$found" 2>/dev/null || stat -f%z "$found" 2>/dev/null || echo 0)
-        if [[ "$size" -lt "$MIN_PKG_BYTES" ]]; then
-            warn "缓存压缩包过小（${size} 字节），跳过：$found"
-            continue
-        fi
-        echo "$found"
-        return 0
+        while IFS= read -r found; do
+            [[ -n "$found" ]] || continue
+            size=$(stat -c%s "$found" 2>/dev/null || stat -f%z "$found" 2>/dev/null || echo 0)
+            if [[ "$size" -lt "$MIN_PKG_BYTES" ]]; then
+                warn "缓存压缩包过小（${size} 字节），跳过：$found"
+                continue
+            fi
+            echo "$found"
+            return 0
+        done < <(find "$root" -maxdepth 5 -type f -name "$pattern" 2>/dev/null | sort -Vr || true)
     done
     return 1
 }
@@ -241,7 +242,7 @@ if [ -n "${DEVKIT_PACKAGE_PATH:-}" ]; then
     DEVKIT_DIR=$(dirname "$TARGET")
     log "模式：仅解压（用户提供压缩包：$DEVKIT_PACKAGE_PATH）"
     # 先在压缩包所在目录查找已解压的 jar，避免重复解压
-    EXISTING_JAR=$(find "$DEVKIT_DIR" -type f -name "sql-analysis-*.jar" 2>/dev/null | head -1 || true)
+    EXISTING_JAR=$(find "$DEVKIT_DIR" -type f -name "sql-analysis-*.jar" 2>/dev/null | sort -Vr | head -1 || true)
     if [ -n "$EXISTING_JAR" ]; then
         SKIP_EXTRACT=true
         log "检测到已解压的 DevKit，跳过解压：$EXISTING_JAR"
