@@ -26,8 +26,8 @@
 | `FORCE_VERSION_OVERRIDES`         | map          | `networkx>=2.6`                                              | 否                    | 在 Dockerfile 末尾追加 `pip install` 覆盖指定包版本          |
 | `X86_AI_MIGRATION_DIR`            | string       | 无                                                           | 远程采集时必填        | x86_64 采集机上 ai-migration 工具包目录的绝对路径（优先 `/opt/huawei/devkit` 安装目录，无则工作目录） |
 | `X86_HOST`                        | string       | 无                                                           | 远程采集时必填        | x86_64 采集机 SSH 地址，格式 `<user>@<host>`                 |
-| `AI_MIGRATION_TOOL_VERSION`       | string       | `26.0.0`                                                     | 否                    | ai-migration 工具包版本号，仅用于拼装下载 URL；定位步骤用 `*` 通配，不受此值约束 |
-| `AI_MIGRATION_TOOL_DOWNLOAD_BASE` | string       | `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit` | 否                    | 工具包下载基址，拼装下载 URL 时追加 `/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-<arch>.tar.gz` |
+| `AI_MIGRATION_TOOL_VERSION`       | string       | `26.2.T5`                                                    | 否                    | ai-migration 工具包版本号，用于拼装下载 URL（下载路径与文件名均含此版本号）；定位步骤用 `*` 通配，不受此值约束 |
+| `AI_MIGRATION_TOOL_DOWNLOAD_BASE` | string       | `https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20DevKit` | 否                    | 工具包下载基址（OBS 根目录，不含版本号）。下载 URL = `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-<arch>.tar.gz`（ARM64 用 `Kunpeng`，x86_64 用 `x86-64`） |
 
 ## 目录
 
@@ -155,20 +155,20 @@ X86_AI_MIGRATION_DIR=/home/user/arm_builds_20260831/DevKit-AI-Migration-Tool-${A
 
 | 配置                              | 默认值                                                       | 说明                                                         |
 | --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `AI_MIGRATION_TOOL_VERSION`       | `26.0.0`                                                     | ai-migration 工具包版本号，下游下载步骤经 `${AI_MIGRATION_TOOL_VERSION}` 引用 |
-| `AI_MIGRATION_TOOL_DOWNLOAD_BASE` | `https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/Kunpeng_DevKit` | 工具包下载基址。下载 URL = `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-<arch>.tar.gz`（ARM64 用 `Kunpeng`，x86_64 用 `x86-64`） |
+| `AI_MIGRATION_TOOL_VERSION`       | `26.2.T5`                                                    | ai-migration 工具包版本号，下载路径与文件名均含此版本号，下游下载步骤经 `${AI_MIGRATION_TOOL_VERSION}` 引用 |
+| `AI_MIGRATION_TOOL_DOWNLOAD_BASE` | `https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20DevKit` | 工具包下载基址（OBS 根目录，不含版本号）。下载 URL = `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-<arch>.tar.gz`（ARM64 用 `Kunpeng`，x86_64 用 `x86-64`） |
 
 **使用示例**：
 
 ```bash
 # 下载 URL 拼装（ARM64 主控端）
-curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-Kunpeng.tar.gz
+curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-Kunpeng.tar.gz
 
 # 下载 URL 拼装（x86_64 采集机）
-curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz
+curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz
 ```
 
-> 定位与获取的完整优先级（`/opt/huawei/devkit` → 工作目录 → 下载 → 跨机传输 → 请求用户）见 SKILL.md「工具定位」与 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 步骤 2/2.1。下载属系统环境变更，执行前须按 SKILL.md「系统环境变更确认」请求用户确认。
+> 定位与获取的完整优先级（`/opt/huawei/devkit` → 工作目录 → 下载 → 跨机传输 → 请求用户）见 SKILL.md「工具定位」与 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 步骤 2/2.1。下载属系统环境变更，执行前须按 SKILL.md「系统环境变更确认」请求用户确认。若上述直链失效（如版本目录调整），可在 DevKit 下载门户 `https://kunpeng-community.rnd.huawei.com/zh/developer/devkit/downloadNew` 手动查找对应架构与版本的工具包。
 
 ---
 
