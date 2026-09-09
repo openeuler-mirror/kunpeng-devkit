@@ -2,7 +2,7 @@
 # DevKit CLI 自动下载安装脚本
 #
 # 用法：
-#   WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/devkit-download.sh
+#   bash devkit_download.sh [--work-dir <工作目录>]
 #
 # 输出：
 #   成功时 stdout 打印 `DEVKIT=<绝对路径>`，并将同一行写入
@@ -20,13 +20,21 @@
 
 set -euo pipefail
 
-log()  { echo "[devkit-download] $*" >&2; }
-warn() { echo "[devkit-download] WARN: $*" >&2; }
+log()  { echo "[devkit_download] $*" >&2; }
+warn() { echo "[devkit_download] WARN: $*" >&2; }
 fail() { log "ERROR: $2"; exit "$1"; }
 
-# --- 0. 前置校验 ---
-[[ -n "${WORK_DIR:-}" ]] || fail 1 "环境变量 WORK_DIR 未设置"
-[[ -d  "$WORK_DIR"    ]] || fail 1 "WORK_DIR 不是目录：$WORK_DIR"
+# --- 0. 参数解析与前置校验 ---
+WORK_DIR="${WORK_DIR:-./output}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --work-dir=*) WORK_DIR="${1#--work-dir=}"; shift ;;
+    --work-dir|-w) WORK_DIR="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+mkdir -p "$WORK_DIR" || fail 1 "无法创建 WORK_DIR：$WORK_DIR"
 
 for cmd in curl wget tar find stat; do
   command -v "$cmd" >/dev/null 2>&1 || fail 1 "缺少依赖命令：$cmd"
@@ -59,14 +67,15 @@ log "匹配到最新 CLI 包：$CLI_PKG"
 TARGET="$DOWNLOAD_DIR/$CLI_PKG"
 DL_RC=0
 for i in $(seq 1 "$MAX_RETRY"); do
-  if wget -c --tries=3 --timeout=60 --read-timeout=60 \
+  if wget -c --no-check-certificate --tries=3 --timeout=60 --read-timeout=60 \
           "$MIRROR_BASE/$CLI_PKG" -O "$TARGET"; then
     DL_RC=0
     break
+  else
+    DL_RC=$?
+    warn "下载失败（第 ${i}/${MAX_RETRY} 次，exit=${DL_RC}），重试中..."
+    sleep 2
   fi
-  DL_RC=$?
-  warn "下载失败（第 ${i}/${MAX_RETRY} 次，exit=${DL_RC}），重试中..."
-  sleep 2
 done
 [[ $DL_RC -eq 0 ]] || fail 3 "下载失败：$MIRROR_BASE/$CLI_PKG"
 

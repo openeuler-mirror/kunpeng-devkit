@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SourceCode build script
+# Copyright Huawei Technologies Co., Ltd. 2023. All rights reserved.
 # DevKit 扫描摘要 JSON 读取脚本（三级工具兜底）
 #
 # 用途：从 $WORK_DIR/reports/devkit_summary.json 中按字段读取内容，
@@ -7,7 +9,7 @@
 #       任何环境下均可读取生成的 JSON 摘要，避免上下文加载整份 DevKit 报告。
 #
 # 用法：
-#   WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
+#   WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/devkit_summary_read.sh <field>
 #
 # 字段：
 #   rule_categories    — 输出 Rule 级问题类别，每行一个（供触发条件判定）
@@ -80,7 +82,7 @@ has_category_jq() {
 }
 
 # 2.2 awk 降级路径（无 jq 时，纯 shell/awk 实现）
-# 适用于 devkit-report-summary.sh 通过 awk_fallback 生成的 JSON，
+# 适用于 devkit_report_summary.sh 通过 awk_fallback 生成的 JSON，
 # 也兼容 jq 生成的合法 JSON。
 awk_extract_section() {
   # 提取以 "$1: [" 开头、以 "  ]," 或 "  ]" 结束（含嵌套花括号深度计数）

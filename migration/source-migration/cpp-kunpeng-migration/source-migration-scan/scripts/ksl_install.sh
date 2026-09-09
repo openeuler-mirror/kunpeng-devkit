@@ -6,7 +6,7 @@
 #       NEON 的映射兼容层）。
 #
 # 用法：
-#   WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/ksl-install.sh
+#   bash ksl_install.sh [--work-dir <工作目录>]
 #
 # 输出：
 #   成功时 stdout 打印 `KSL_INCLUDE=<路径>` 与 `KSL_LIB=<路径>`，并将同一行
@@ -24,27 +24,40 @@
 
 set -euo pipefail
 
-log()  { echo "[ksl-install] $*" >&2; }
-warn() { echo "[ksl-install] WARN: $*" >&2; }
+if [[ -v LD_LIBRARY_PATH_ORIG ]]; then
+  export LD_LIBRARY_PATH="$LD_LIBRARY_PATH_ORIG"
+fi
+
+log()  { echo "[ksl_install] $*" >&2; }
+warn() { echo "[ksl_install] WARN: $*" >&2; }
 fail() { log "ERROR: $2"; exit "$1"; }
 
-# --- 0. 前置校验 ---
-[[ -n "${WORK_DIR:-}" ]] || fail 1 "环境变量 WORK_DIR 未设置"
-[[ -d  "$WORK_DIR"    ]] || fail 1 "WORK_DIR 不是目录：$WORK_DIR"
+# --- 0. 参数解析与前置校验 ---
+WORK_DIR="${WORK_DIR:-./output}"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --work-dir=*) WORK_DIR="${1#--work-dir=}"; shift ;;
+    --work-dir|-w) WORK_DIR="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+mkdir -p "$WORK_DIR" || fail 1 "无法创建 WORK_DIR：$WORK_DIR"
 
 for cmd in wget unzip find; do
   command -v "$cmd" >/dev/null 2>&1 || fail 1 "缺少依赖命令：$cmd"
 done
 
 # RPM 安装工具：dnf / yum / rpm 至少需有一个
+# 检测时不仅验证命令存在，还要验证能真正运行（避免 dnf 存在但模块损坏的情况）
 RPM_TOOL=""
 for cmd in dnf yum rpm; do
-  if command -v "$cmd" >/dev/null 2>&1; then
+  if command -v "$cmd" >/dev/null 2>&1 && "$cmd" --version >/dev/null 2>&1; then
     RPM_TOOL="$cmd"
     break
   fi
 done
-[[ -n "$RPM_TOOL" ]] || fail 1 "缺少 RPM 安装工具：dnf / yum / rpm 均未找到"
+[[ -n "$RPM_TOOL" ]] || fail 1 "缺少可用的 RPM 安装工具：dnf / yum / rpm 均未找到或不可用"
 
 KSL_DIR="$WORK_DIR/ksl"
 REPORT_DIR="$WORK_DIR/reports"
@@ -63,13 +76,14 @@ log "URL: $KSL_URL"
 TARGET="$KSL_DIR/$KSL_ZIP"
 DL_RC=0
 for i in $(seq 1 "$MAX_RETRY"); do
-  if wget -c --tries=3 --timeout=60 --read-timeout=60 "$KSL_URL" -O "$TARGET"; then
+  if wget -c --no-check-certificate --tries=3 --timeout=60 --read-timeout=60 "$KSL_URL" -O "$TARGET"; then
     DL_RC=0
     break
+  else
+    DL_RC=$?
+    warn "下载失败（第 ${i}/${MAX_RETRY} 次，exit=${DL_RC}），重试中..."
+    sleep 2
   fi
-  DL_RC=$?
-  warn "下载失败（第 ${i}/${MAX_RETRY} 次，exit=${DL_RC}），重试中..."
-  sleep 2
 done
 [[ $DL_RC -eq 0 ]] || fail 2 "下载失败：$KSL_URL"
 
@@ -97,25 +111,31 @@ RPM_LIST=$(find "$KSL_EXTRACT_DIR" -name "*.rpm" | sort)
 
 log "使用 $RPM_TOOL 安装 RPM 包"
 INSTALL_OK=0
-case "$RPM_TOOL" in
-  dnf)
-    if find "$KSL_EXTRACT_DIR" -name "*.rpm" -print0 | xargs -0 dnf install -y; then
-      INSTALL_OK=1
-    fi
-    ;;
-  yum)
-    if find "$KSL_EXTRACT_DIR" -name "*.rpm" -print0 | xargs -0 yum install -y; then
-      INSTALL_OK=1
-    fi
-    ;;
-  rpm)
-    # rpm 无依赖解析，加 --nodeps 避免依赖链阻断
-    if find "$KSL_EXTRACT_DIR" -name "*.rpm" -exec rpm -ivh --nodeps {} \;; then
-      INSTALL_OK=1
-    fi
-    ;;
-esac
-[[ $INSTALL_OK -eq 1 ]] || fail 5 "RPM 安装失败（$RPM_TOOL 返回非零）"
+# 按优先级尝试安装：优先用检测到的工具，失败则依次降级
+for tool in "$RPM_TOOL" yum rpm; do
+  command -v "$tool" >/dev/null 2>&1 || continue
+  case "$tool" in
+    dnf)
+      if find "$KSL_EXTRACT_DIR" -name "*.rpm" -print0 | xargs -0 dnf install -y; then
+        INSTALL_OK=1
+      fi
+      ;;
+    yum)
+      if find "$KSL_EXTRACT_DIR" -name "*.rpm" -print0 | xargs -0 yum install -y; then
+        INSTALL_OK=1
+      fi
+      ;;
+    rpm)
+      # rpm 无依赖解析，加 --nodeps 避免依赖链阻断
+      if find "$KSL_EXTRACT_DIR" -name "*.rpm" -exec rpm -ivh --nodeps {} \;; then
+        INSTALL_OK=1
+      fi
+      ;;
+  esac
+  [[ $INSTALL_OK -eq 1 ]] && break
+  [[ "$tool" != "rpm" ]] && warn "$tool 安装失败，尝试下一个工具"
+done
+[[ $INSTALL_OK -eq 1 ]] || fail 5 "RPM 安装失败（dnf/yum/rpm 均失败）"
 
 # --- 4. 验证安装 ---
 log "验证 avx2ki.h 和 libavx2ki.so"
