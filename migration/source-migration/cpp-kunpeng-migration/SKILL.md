@@ -214,7 +214,7 @@ options:
 >
 > **不可并行的原因**：DevKit 扫描结果对后续修改有**直接指导作用**——它会定位需要修改的源文件、指出问题类型（内联汇编 / intrinsics / 头文件 / 类型大小等）、给出修改建议。如果先修改再扫描，可能遗漏问题或做重复/冲突修改。因此**必须先等扫描结束、拿到报告，再开始源码和构建适配**。
 >
-> 阶段 4 开始前必须先定位包含 `ai-migration` 可执行文件的 Kunpeng AI Migration Tool 工具包：优先检查用户提供的 `AI_MIGRATION_DIR`、`/opt/huawei/devkit/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration` 和 `$WORK_DIR/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration`；均未找到时，再按 `source-migration-scan.md` 4.1.1 的确认流程下载或请求用户提供路径。定位成功后将工具包目录记录为 `AI_MIGRATION_DIR`，所有 `source-migration` 子命令统一使用 `${AI_MIGRATION_DIR}/ai-migration`，不直接查找或调用 Skill 目录下的脚本。
+> 阶段 4 开始前必须先定位包含 `ai-migration` 可执行文件的 Kunpeng AI Migration Tool 工具包：优先检查用户提供的 `AI_MIGRATION_DIR`、`/opt/huawei/devkit/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration` 和 `$WORK_DIR/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration`；均未找到时，先按 `source-migration-scan.md` 4.1.1 的默认配置自动尝试直链下载，只有下载、解压或校验失败后才进入确认流程，请求用户提供路径、确认重试/手动下载或中止。定位成功后将工具包目录记录为 `AI_MIGRATION_DIR`，所有 `source-migration` 子命令统一使用 `${AI_MIGRATION_DIR}/ai-migration`，不直接查找或调用 Skill 目录下的脚本。
 >
 > 阶段 4 只做源码迁移扫描与适配——依赖分支切换已在阶段 3 末尾完成，此处不再切换。
 >

@@ -53,7 +53,7 @@ printf 'AI_MIGRATION_DIR=%q\nAI_MIGRATION_BIN=%q\n' \
 
 后续步骤若发现 `AI_MIGRATION_DIR` 未设置，先执行 `source "$WORK_DIR/reports/ai_migration_path.txt"`，再调用 `${AI_MIGRATION_DIR}/ai-migration`。
 
-若本地没有工具包，先按下方提问获取用户对下载的确认；用户选择 `download` 后，再使用与 Docker 镜像迁移相同的配置约定。配置值由任务上下文或同名环境变量提供，环境变量未提供时使用以下默认值：
+若本地没有工具包，先使用下方默认配置自动尝试一次直链下载（下载命令自身的重试不计为多次决策），不先打断用户确认。配置值由任务上下文或同名环境变量提供，环境变量未提供时使用以下默认值：
 
 ```bash
 AI_MIGRATION_TOOL_VERSION="${AI_MIGRATION_TOOL_VERSION:-26.2.T5}"
@@ -66,22 +66,22 @@ ARM64 工具包下载 URL 为：
 ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-Kunpeng.tar.gz
 ```
 
-其中 `AI_MIGRATION_TOOL_VERSION` **仅用于拼装下载 URL**；本地定位必须使用 `*` 通配，不因配置版本号排除已经安装的其他版本。优先下载配置版本直链；若直链失效，可到 DevKit 下载门户 `https://kunpeng-community.rnd.huawei.com/zh/developer/devkit/downloadNew` 手动选择对应架构与版本，并记录实际文件名和版本。
+其中 `AI_MIGRATION_TOOL_VERSION` **仅用于拼装下载 URL**；本地定位必须使用 `*` 通配，不因配置版本号排除已经安装的其他版本。按 `$SKILL_DIR/source-migration-scan/references/devkit-download.md` 第 3 节的步骤直接尝试配置版本直链；直链下载、解压或校验失败后，才向用户说明失败原因和影响并提问。用户确认后，才可重试直链或到 DevKit 下载门户 `https://kunpeng-community.rnd.huawei.com/zh/developer/devkit/downloadNew` 手动选择对应架构与版本，并记录实际文件名和版本。
 
-下载属于网络、磁盘和文件系统变更，执行前必须向用户展示待执行命令及影响范围并取得确认。若本地定位失败，**不得直接下载**，必须先向用户提问：
+默认直链失败后，必须先向用户提问：
 
 ```
-question: "未找到可用的 AI Migration Tool，如何继续阶段 4 扫描？"
+question: "默认 AI Migration Tool 直链下载失败，如何继续阶段 4 扫描？"
 options:
   - id: provide_path   label: "我知道路径，手动提供 AI Migration Tool 路径"
-  - id: download       label: "确认下载 AI Migration Tool"
+  - id: download       label: "确认重试或手动下载 AI Migration Tool"
   - id: abort          label: "中止阶段 4"
 ```
 
 按用户选择处理：
 
 - **provide\_path**：用户给出包含 `ai-migration` 的工具包目录后，设置 `AI_MIGRATION_DIR`，先验证 `source-migration --help`，验证成功后再写入 `$WORK_DIR/reports/ai_migration_path.txt`；验证失败则回到本提问。
-- **download**：读取 `$SKILL_DIR/source-migration-scan/references/devkit-download.md`，展示下载命令和影响范围并取得确认，按其中的定位、下载和校验步骤获取工具包；工具包就绪后再进入 4.1.1.2。
+- **download**：读取 `$SKILL_DIR/source-migration-scan/references/devkit-download.md`，按用户确认重试默认直链，或指导用户从下载门户取得 `Linux-Kunpeng` 工具包后放入工作目录，再按其中步骤解压和校验；工具包就绪后再进入 4.1.1.2。
 - **abort**：终止阶段 4，不进入 4.2。
 
 #### 4.1.1.1 AI Migration Tool 下载与校验

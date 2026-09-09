@@ -54,7 +54,7 @@ printf 'AI_MIGRATION_DIR=%q\nAI_MIGRATION_BIN=%q\n' \
 
 ## 3. 本地找不到时的下载配置
 
-本地定位失败后，先向用户说明下载命令、网络/磁盘影响和不下载的后果，取得确认后再下载。配置名和默认值与 Docker 镜像迁移 `references/config_reference.md` 第 9 节保持一致。源码迁移不依赖 Docker Skill 文件本身，值由任务上下文或同名环境变量提供，环境变量未提供时使用以下默认值：
+本地定位失败后，先按默认配置自动尝试一次直链下载（下载命令自身的重试不计为多次决策），不先等待用户确认。配置名和默认值与 Docker 镜像迁移 `references/config_reference.md` 第 9 节保持一致。源码迁移不依赖 Docker Skill 文件本身，值由任务上下文或同名环境变量提供，环境变量未提供时使用以下默认值：
 
 ```bash
 AI_MIGRATION_TOOL_VERSION="${AI_MIGRATION_TOOL_VERSION:-26.2.T5}"
@@ -70,9 +70,9 @@ ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSIO
 规则：
 
 - `AI_MIGRATION_TOOL_VERSION` 只用于拼装下载 URL；本地定位仍使用 `*` 通配。
-- 先尝试配置版本直链；若直链失效（例如版本目录调整），到 DevKit 下载门户手动选择对应架构与版本，下载后放入 `$WORK_DIR/downloads/`。
+- 先自动尝试配置版本直链；若直链、解压或校验失败，停止自动流程并向用户说明失败原因和影响，取得用户选择后再重试直链，或到 DevKit 下载门户手动选择对应架构与版本，下载后放入 `$WORK_DIR/downloads/`。
 - 记录最终实际下载的文件名和版本，不要把“配置版本”误记为“实际版本”。
-- 下载属于网络、磁盘和文件系统变更，执行前应向用户说明命令和影响范围并取得确认。
+- 默认直链失败后，必须先取得用户选择，不能静默反复下载或跳过扫描。
 
 下载、解压示例：
 

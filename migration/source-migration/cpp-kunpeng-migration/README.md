@@ -250,7 +250,7 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 ### Q: AI Migration Tool 或 DevKit 未安装怎么办？
 
-阶段 4 扫描前会按优先级查找用户提供的 `AI_MIGRATION_DIR`、`/opt/huawei/devkit/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration` 和工作目录中的 Kunpeng 工具包。均未找到时，Skill 会通过 `AskUserQuestion` 让你选择：确认下载工具包 / 手动提供已有路径 / 中止。工具包就绪后，再通过 `${AI_MIGRATION_DIR}/ai-migration source-migration download` 获取 DevKit CLI；不会跳过扫描。
+阶段 4 扫描前会按优先级查找用户提供的 `AI_MIGRATION_DIR`、`/opt/huawei/devkit/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration` 和工作目录中的 Kunpeng 工具包。均未找到时，Skill 会先按默认配置自动尝试 AI Migration Tool 直链下载；只有直链下载、解压或校验失败后，才通过 `AskUserQuestion` 让你选择：手动提供已有路径 / 重试或手动下载工具包 / 中止。工具包就绪后，再通过 `${AI_MIGRATION_DIR}/ai-migration source-migration download` 获取 DevKit CLI；不会跳过扫描。
 
 ### Q: 私有仓库依赖无 ARM 版本怎么办？
 
