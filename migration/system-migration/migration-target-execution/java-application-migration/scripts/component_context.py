@@ -229,6 +229,16 @@ def binary_execution_context(plan_path: Path, application_id: str, package_id: s
     sql_enabled = application_sql_enabled(app)
     sql: dict[str, Any] = {"enabled": sql_enabled, "mode": "AGENT_SKILL" if sql_enabled else "DISABLED"}
     tools: dict[str, Any] = {"devkit_command": str(devkit)}
+
+    vineflower_jar = tools_root / "lib" / "vineflower-1.12.jar"
+    vineflower_java = tools_root / "bin" / "vineflower-java"
+    java_fallback = jdk / "bin" / "java"
+    if vineflower_jar.is_file():
+        tools["vineflower_jar"] = str(vineflower_jar)
+    if vineflower_java.is_file():
+        tools["vineflower_java"] = str(vineflower_java)
+    elif java_fallback.is_file():
+        tools["vineflower_java"] = str(java_fallback)
     if sql_enabled:
         selected = app.get("application_sql_migration") or {}
         source_db, target_db = _selected_route(selected.get("selected_route"))
@@ -238,8 +248,6 @@ def binary_execution_context(plan_path: Path, application_id: str, package_id: s
             "target_db": target_db,
             "work_dir": str((work_dir / "sql-migration").resolve()),
         })
-        tools["vineflower_jar"] = str(_tool_under(tools_root, "lib/vineflower-1.12.jar"))
-        tools["vineflower_java"] = str(_tool_under(tools_root, "bin/vineflower-java", executable=True))
 
     return {
         "application_id": application_id,

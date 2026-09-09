@@ -1,86 +1,17 @@
 from __future__ import annotations
 import hashlib
 import os
-import shlex
 import shutil
 import struct
 from pathlib import Path
 from typing import Any
 
 from migration_common import (
-    ARCHIVE_SUFFIXES, EXIT_NEEDS_AGENT_FIX, EXIT_OK,
+    EXIT_NEEDS_AGENT_FIX, EXIT_OK,
     MigrationError,
 )
 from migration_common import load_json, write_json, run, java_tool
-from binary_archive import safe_extract_zip
 
-def find_java_files(root: Path) -> list[Path]:
-    return sorted(p for p in root.rglob("*.java") if p.is_file())
-
-def run_vineflower(
-    classes_dir: Path,
-    patch_root: Path,
-    config: dict[str, Any],
-    tools: dict[str, Any],
-    log_dir: Path,
-    *,
-    temp_dir: Path | None = None,
-    log_name: str = "vineflower.log",
-) -> None:
-    java_root = patch_root / "src/main/java"
-    if find_java_files(java_root):
-        return
-    vineflower_jar = tools.get("vineflower_jar")
-    if not vineflower_jar:
-        raise MigrationError("MISSING_VINEFLOWER", "tools.vineflower_jar is required when SQL migration is enabled")
-    vf = Path(str(vineflower_jar)).expanduser().resolve()
-    if not vf.is_file():
-        raise MigrationError("MISSING_VINEFLOWER", f"Vineflower JAR not found: {vf}")
-    java_cmd = str(tools.get("vineflower_java") or "")
-    java_tokens = shlex.split(java_cmd)
-    if not java_tokens:
-        raise MigrationError("MISSING_VINEFLOWER_JAVA", "Vineflower java command is empty")
-    output = temp_dir or (patch_root.parent / "decompile-tmp")
-    if output.exists():
-        shutil.rmtree(output)
-    output.mkdir(parents=True)
-    command = java_tokens + [
-        "-jar", str(vf),
-        "-dgs=1", "-asc=1", "-rsy=1",
-        str(classes_dir), str(output),
-    ]
-    run(command, log_dir / log_name)
-    java_root.mkdir(parents=True, exist_ok=True)
-    java_files = find_java_files(output)
-    if not java_files:
-        # Some versions may create a zip/jar destination artifact.
-        archives = [p for p in output.rglob("*") if p.suffix.lower() in ARCHIVE_SUFFIXES]
-        for archive in archives:
-            temp = output / (archive.stem + "-extracted")
-            safe_extract_zip(archive, temp)
-        java_files = find_java_files(output)
-    if not java_files and any(classes_dir.rglob("*.class")):
-        raise MigrationError("VINEFLOWER_NO_SOURCE", f"Vineflower produced no Java files; see {log_dir / log_name}")
-    for source in java_files:
-        # Preserve package-like relative paths. Remove common output prefixes.
-        rel = source.relative_to(output)
-        parts = list(rel.parts)
-        if "classes" in parts:
-            rel = Path(*parts[parts.index("classes") + 1:])
-        target = java_root / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
-    # Vineflower output is transient and must never become part of the SQL PROJECT_PATH.
-    if output.exists():
-        shutil.rmtree(output)
-
-def git_baseline(patch_root: Path, log_dir: Path) -> None:
-    if not (patch_root / ".git").exists():
-        run(["git", "init"], log_dir / "git.log", cwd=patch_root)
-        run(["git", "config", "user.email", "migration-agent@localhost"], log_dir / "git.log", cwd=patch_root)
-        run(["git", "config", "user.name", "Migration Agent"], log_dir / "git.log", cwd=patch_root)
-        run(["git", "add", "."], log_dir / "git.log", cwd=patch_root)
-        run(["git", "commit", "-m", "baseline"], log_dir / "git.log", cwd=patch_root)
 
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
