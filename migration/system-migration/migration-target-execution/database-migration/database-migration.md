@@ -64,7 +64,7 @@ export TMPDIR="$WORK_DIR/tmp" TMP="$WORK_DIR/tmp" TEMP="$WORK_DIR/tmp"
 
 1.1 **采集安装参数**：从 `migration-plan.json` 提取数据库类型、版本、安装/数据根路径、端口、实例名、字符集、License 路径（`license_required=true` 时读 `packages[].license_path`）等。支持范围外的数据库（非 达梦/金仓/MySQL）标记为非自动安装，不打断流程并在最后提示。将非秘密参数写入 `$WORK_DIR/build/install_env.conf` 作为阶段2输入；管理员密码仅记录其密码文件路径，不写明文。若密码等于各库参考文档记录的默认值（DM `SYSDBA001`、Kingbase `Kingbase123`、MySQL `MySQL_123!`），在配置中标记 `IS_DEFAULT_PASSWORD=true` 以便阶段2明文展示。
 
-1.2 **环境基线检查**：判断内存/磁盘是否满足该库最低要求；强制核对数据库必需运行依赖 glibc、libaio、ncurses、readline、zlib 是否齐全，任一缺失即判定环境检查不通过；检查信号量/共享内存/文件句柄等内核与资源限制、目标端口与进程冲突。
+1.2 **环境基线检查**：判断内存/磁盘是否满足该库最低要求；在当前步骤**强制核对**数据库必需运行依赖 glibc、libaio、ncurses、readline、zlib 是否齐全，任一缺失即判定环境检查不通过；检查信号量/共享内存/文件句柄等内核与资源限制、目标端口与进程冲突。
 
 1.3 **问题自动修复**：无问题则跳过。有问题时优先自动修复——依赖缺失则安装、资源限制不足则补写 `limits.conf`、内核参数不达标则改 `sysctl.conf` 并 `sysctl -p`；**端口冲突属于阻断项**，自动修复无法解决，必须**中断流程并立即向用户确认**：展示冲突端口、占用进程与占用数据库实例，交由用户决定（选择其他端口 / 停止占用进程 / 手动处理），未经用户确认不得继续安装。所有系统配置修改前先备份到 `$WORK_DIR/backup/`。
 
