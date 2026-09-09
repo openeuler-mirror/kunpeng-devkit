@@ -54,6 +54,29 @@ ensure_runtime_dir() {
     fi
 }
 require_cmd() { command -v "$1" >/dev/null 2>&1 || die "缺少必要命令: $1"; }
+# 必需依赖库强制检查：glibc/libaio/ncurses/readline/zlib 任一缺失即终止
+find_shared_lib() {
+    local name="$1" dir
+    if command -v ldconfig >/dev/null 2>&1 && ldconfig -p 2>/dev/null | grep -F "${name}" >/dev/null; then
+        return 0
+    fi
+    for dir in /lib /lib64 /usr/lib /usr/lib64 /usr/local/lib /usr/local/lib64 \
+               /lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu; do
+        ls "${dir}"/${name}* >/dev/null 2>&1 && return 0
+    done
+    return 1
+}
+check_required_libs() {
+    log_info "强制检查必需依赖库: glibc libaio ncurses readline zlib"
+    local missing=""
+    find_shared_lib "libc.so"        || missing="${missing} glibc"
+    find_shared_lib "libaio.so"      || missing="${missing} libaio"
+    { find_shared_lib "libncurses.so" || find_shared_lib "libncursesw.so"; } || missing="${missing} ncurses"
+    find_shared_lib "libreadline.so" || missing="${missing} readline"
+    find_shared_lib "libz.so"        || missing="${missing} zlib"
+    [ -z "$missing" ] || die "缺少必需依赖库:${missing} —— 请先安装对应系统软件包后重试"
+    log_info "必需依赖库检查通过: glibc libaio ncurses readline zlib"
+}
 run_as_root() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo -n "$@"; fi; }
 has_root_priv() { [ "$(id -u)" -eq 0 ] && return 0; sudo -n true 2>/dev/null && return 0; return 1; }
 # 以数据库专属 OS 用户执行 install.bin / sys_ctl / ksql（金仓安装器不允许 root 运行）
