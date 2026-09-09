@@ -8,14 +8,14 @@
 
 ```bash
 MW_PKG_DIR="$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/<devkit_pkg>/toolscript/migration-target-execution/middleware-migration"
-REPO_MW_DIR="<本仓库>/migration/system-migration/migration-target-execution/middleware-migration"
+REPO_MW_DIR="<执行skill的工作区根目录>/migration/system-migration/migration-target-execution/middleware-migration"  # 即当前skill检出的仓库根目录
 cp "$REPO_MW_DIR"/scripts/lib/*.py "$MW_PKG_DIR/scripts/lib/"
 cp -r "$REPO_MW_DIR"/config "$MW_PKG_DIR"/
 cp -r "$REPO_MW_DIR"/reference "$MW_PKG_DIR"/
 bash "$MW_PKG_DIR/scripts/run_migration.sh" "$MIGRATION_PLAN_PATH"
 ```
 
-`<devkit_id>`、`<devkit_pkg>` 取自 plan（`migration_tools` 中声明 `ai-migration` 的 DevKit 包 `id` 与解包顶层目录名）；`MIGRATION_WORK_DIR` 由 `python3 scripts/migration_plan.py work-dir --plan "$MIGRATION_PLAN_PATH"` 解析。调用方只需传入 `migration-plan.json`，内部脚本完成解析、排序（JDK 优先）、安装、配置恢复、服务切换与验证、汇总。详细策略见 `config/middleware_registry.json`。
+`<devkit_id>` 取自 plan（`migration_tools` 中声明 `ai-migration` 的 DevKit 包 `id`）；`<devkit_pkg>` 为该包解压后的顶层目录名（`ls "$MIGRATION_WORK_DIR/tools/unpacked/<devkit_id>/expanded/"` 取唯一顶层目录）；`MIGRATION_WORK_DIR` 由主 Skill 的 `python3 <migration-target-execution>/scripts/migration_plan.py work-dir --plan "$MIGRATION_PLAN_PATH"` 解析（返回 `<migration_work_dir>/<migration_id>`，与预检一致）。调用方只需传入 `migration-plan.json`，内部脚本完成解析、排序（JDK 优先）、安装、配置恢复、服务切换与验证、汇总。详细策略见 `config/middleware_registry.json`。
 
 ## 执行时序（必须遵守）
 
@@ -74,6 +74,8 @@ Agent **必须**调用 `scripts/run_handoff.sh` 补完接管项并汇总结果�
 
 ## 输出
 
+以下路径均相对于 `MIGRATION_WORK_DIR`（即 `$MIGRATION_WORK_DIR/middleware/reports/...`）：
+
 ```text
 middleware/reports/batch_migration_summary.json
 middleware/reports/batch_migration_summary.md   
@@ -113,4 +115,6 @@ config/
 reference/
     ├── middleware_handoff_playbook.md  # Agent 接管项诊断与分流手册
     └── middleware_issues.md            # 已知问题与排查
+tests/
+└── verify_lib.py            # 仓库侧脚本离线验证（不复制进 DevKit 包）
 ```

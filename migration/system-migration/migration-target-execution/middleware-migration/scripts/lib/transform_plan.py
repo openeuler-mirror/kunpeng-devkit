@@ -11,7 +11,10 @@ import sys
 from pathlib import Path
 
 
-REGISTRY_FILE = Path(__file__).resolve().parents[2] / "config" / "middleware_registry.json"
+# scripts/lib/transform_plan.py → 模块根 = scripts/lib 上两级（middleware-migration/）
+LIB_DIR = Path(__file__).resolve().parent
+MW_ROOT = LIB_DIR.parent.parent
+REGISTRY_FILE = MW_ROOT / "config" / "middleware_registry.json"
 
 
 def load_product_aliases():
@@ -81,7 +84,13 @@ def main():
     middlewares = plan.get('route', {}).get('middleware', [])
     migration_base = Path(str(plan.get('target_environment', {}).get('migration_work_dir') or ''))
     migration_id = str(plan.get('migration_id') or '')
-    migration_root = migration_base / migration_id if migration_base.is_absolute() and migration_id else None
+    if not migration_base.is_absolute() or not migration_id:
+        # 缺任一字段时无法推导组件包工作路径，显式报错避免下游静默走错分支
+        sys.stderr.write(
+            "invalid plan: target_environment.migration_work_dir (absolute) and migration_id are required\n"
+        )
+        sys.exit(2)
+    migration_root = migration_base / migration_id
 
     result = []
     for mw in middlewares:
@@ -91,7 +100,7 @@ def main():
         pkg = packages[0] if packages else {}
 
         prepared_package = ''
-        if pkg and pkg.get('source_type') != 'SYSTEM_REPOSITORY' and migration_root is not None:
+        if pkg and pkg.get('source_type') != 'SYSTEM_REPOSITORY':
             prepared_package = str(migration_root / 'packages' / str(mw.get('id') or '') / str(pkg.get('file_name') or ''))
 
         item = {

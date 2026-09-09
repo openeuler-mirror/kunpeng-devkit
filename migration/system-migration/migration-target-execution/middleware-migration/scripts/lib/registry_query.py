@@ -18,6 +18,13 @@ Registry 查询工具 - 基于 python3 标准库 json 解析 config/middleware_r
 import json
 import sys
 import re
+from pathlib import Path
+
+
+# scripts/lib/registry_query.py → 模块根 = scripts/lib 上两级（middleware-migration/）
+LIB_DIR = Path(__file__).resolve().parent
+MW_ROOT = LIB_DIR.parent.parent
+REGISTRY_FILE = MW_ROOT / "config" / "middleware_registry.json"
 
 
 def parse_path(key):
@@ -92,7 +99,7 @@ def main():
         sys.exit(2)
 
     key = args[0]
-    path = args[1] if len(args) > 1 else None
+    path = args[1] if len(args) > 1 else str(REGISTRY_FILE)
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
