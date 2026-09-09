@@ -11,7 +11,7 @@
 #   2. 未定位到 jar 时，按以下来源取得压缩包并解压：
 #        a. DEVKIT_PACKAGE_PATH（用户提供压缩包，仅解压）
 #        b. DEVKIT_SEARCH_ROOTS 里已缓存的压缩包（含 work_dir/downloads/；命中且 size≥10MB 则复用，跳过下载）
-#        c. 从华为云镜像站下载最新版（DEVKIT_URL/DEVKIT_VERSION 可指定）
+#        c. 从指定地址下载固定版本（26.2.T5）
 #
 # 压缩包格式（26.2.RC1+）：
 #   DevKit-AI-Migration-Tool-<ver>-Linux-Kunpeng.tar.gz  单层结构
@@ -22,8 +22,6 @@
 # 用法：
 #   WORK_DIR=<工作目录> bash download_devkit.sh
 #   可选参数：
-#     DEVKIT_VERSION=<版本号>      指定下载版本，留空则自动匹配最新版本
-#     DEVKIT_URL=<下载URL>         直接指定下载URL（优先于版本号）
 #     DEVKIT_PACKAGE_PATH=<压缩包> 跳过下载，仅解压用户提供的压缩包
 #
 # 输出：
@@ -33,7 +31,6 @@
 # 退出码：
 #   0  成功
 #   1  参数/环境校验失败
-#   2  镜像站不可达或未匹配到包
 #   3  下载失败或文件不完整
 #   4  解压失败
 #   5  未找到 sql-analysis-*.jar
@@ -61,6 +58,11 @@ mkdir -p "$REPORT_DIR" "$DOWNLOAD_DIR" "$LOG_DIR"
 
 # 压缩包完整性下限（10MB）：缓存复用与下载校验共用
 MIN_PKG_BYTES=10485760
+
+# 固定版本与下载地址
+DEVKIT_VERSION="26.2.T5"
+ARCHIVE_NAME="DevKit-AI-Migration-Tool-${DEVKIT_VERSION}-Linux-Kunpeng.tar.gz"
+DOWNLOAD_URL="https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20DevKit/Kunpeng%20DevKit%20${DEVKIT_VERSION}/${ARCHIVE_NAME}"
 
 # 脚本所在目录（用于推断 DevKit 内置场景）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -199,15 +201,10 @@ EOF
 }
 
 # 在 DEVKIT_SEARCH_ROOTS 里查找已缓存的 DevKit 压缩包，命中且完整性合格则输出路径。
-# 仅在未定位到 jar、未指定 DEVKIT_PACKAGE_PATH/DEVKIT_URL 时由调用方触发。
-# DEVKIT_VERSION 指定时精确匹配该版本，未指定时取版本最新；按搜索根顺序先命中先返回。
+# 仅在未定位到 jar、未指定 DEVKIT_PACKAGE_PATH 时由调用方触发。
+# 按固定版本精确匹配，按搜索根顺序先命中先返回。
 locate_cached_devkit_package() {
-    local pattern
-    if [ -n "${DEVKIT_VERSION:-}" ]; then
-        pattern="DevKit-AI-Migration-Tool-${DEVKIT_VERSION}-Linux-Kunpeng.tar.gz"
-    else
-        pattern="DevKit-AI-Migration-Tool-*-Linux-Kunpeng.tar.gz"
-    fi
+    local pattern="$ARCHIVE_NAME"
     local root found size
     for root in "${DEVKIT_SEARCH_ROOTS[@]}"; do
         [[ -d "$root" ]] || continue
@@ -226,7 +223,7 @@ locate_cached_devkit_package() {
 
 # 尝试定位已存在的 DevKit
 EXISTING_JAR=""
-if [[ -z "${DEVKIT_PACKAGE_PATH:-}" && -z "${DEVKIT_URL:-}" && -z "${DEVKIT_VERSION:-}" ]]; then
+if [[ -z "${DEVKIT_PACKAGE_PATH:-}" ]]; then
     EXISTING_JAR=$(locate_existing_devkit || true)
 fi
 if [[ -n "$EXISTING_JAR" ]]; then
@@ -249,8 +246,8 @@ if [ -n "${DEVKIT_PACKAGE_PATH:-}" ]; then
         SKIP_EXTRACT=true
         log "检测到已解压的 DevKit，跳过解压：$EXISTING_JAR"
     fi
-elif [ -z "${DEVKIT_URL:-}" ] && CACHED_PKG=$(locate_cached_devkit_package); then
-    # ===== 模式3：复用 downloads/ 缓存压缩包（跳过下载）=====
+elif CACHED_PKG=$(locate_cached_devkit_package); then
+    # ===== 模式2：复用 downloads/ 缓存压缩包（跳过下载）=====
     TARGET="$CACHED_PKG"
     DEVKIT_DIR="$WORK_DIR/sql-analysis"
     mkdir -p "$DEVKIT_DIR"
@@ -259,39 +256,13 @@ else
     # ===== 模式1：下载并解压 =====
     DEVKIT_DIR="$WORK_DIR/sql-analysis"
     mkdir -p "$DEVKIT_DIR"
-    for cmd in curl wget stat; do
+    for cmd in wget stat; do
       command -v "$cmd" >/dev/null 2>&1 || fail 1 "缺少依赖命令：$cmd（下载模式需要）"
     done
 
-    # 华为云镜像站：DevKit-AI-Migration-Tool 包下载源
-    MIRROR_BASE="https://mirrors.huaweicloud.com/kunpeng/archive/DevKit/Packages/AI-Migration"
+    CLI_PKG="$ARCHIVE_NAME"
     MAX_RETRY=3
-
-    if [ -n "${DEVKIT_URL:-}" ]; then
-        DOWNLOAD_URL="${DEVKIT_URL}"
-        CLI_PKG=$(basename "${DOWNLOAD_URL}")
-        log "使用指定URL: ${DOWNLOAD_URL}"
-    elif [ -n "${DEVKIT_VERSION:-}" ]; then
-        ARCHIVE_NAME="DevKit-AI-Migration-Tool-${DEVKIT_VERSION}-Linux-Kunpeng.tar.gz"
-        DOWNLOAD_URL="${MIRROR_BASE}/${ARCHIVE_NAME}"
-        CLI_PKG="${ARCHIVE_NAME}"
-        log "下载指定版本 ${DEVKIT_VERSION}: ${DOWNLOAD_URL}"
-    else
-        # 自动匹配最新版本
-        PKG_PATTERN='DevKit-AI-Migration-Tool-[0-9][^"]*Linux-Kunpeng\.tar\.gz'
-        log "查询镜像站：$MIRROR_BASE/"
-        LISTING=$(curl -fsSL --max-time 30 "$MIRROR_BASE/" 2>/dev/null || true)
-        [[ -n "$LISTING" ]] || fail 2 "镜像站不可达或返回空（请检查网络/代理）"
-
-        CLI_PKG=$(printf '%s\n' "$LISTING" \
-          | grep -oE "$PKG_PATTERN" \
-          | sort -V \
-          | tail -1 || true)
-        [[ -n "$CLI_PKG" ]] || fail 2 "镜像站未匹配到 DevKit-AI-Migration-Tool-*-Linux-Kunpeng.tar.gz"
-
-        DOWNLOAD_URL="${MIRROR_BASE}/${CLI_PKG}"
-        log "匹配到最新版本包：$CLI_PKG"
-    fi
+    log "下载固定版本 ${DEVKIT_VERSION}: ${DOWNLOAD_URL}"
 
     # 下载（断点续传 + 重试）
     TARGET="$DOWNLOAD_DIR/$CLI_PKG"
@@ -310,7 +281,7 @@ else
 
     SIZE=$(stat -c%s "$TARGET" 2>/dev/null || stat -f%z "$TARGET" 2>/dev/null || echo 0)
     if [[ "$SIZE" -lt "$MIN_PKG_BYTES" ]]; then
-      fail 3 "下载文件过小（${SIZE} 字节），疑似不完整：$TARGET"
+        fail 3 "下载文件过小（${SIZE} 字节），疑似不完整：$TARGET"
     fi
     log "下载完成，文件大小: $SIZE 字节"
 fi
