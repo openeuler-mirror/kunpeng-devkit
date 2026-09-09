@@ -10,40 +10,134 @@
 
 ## 4.1 运行 DevKit 扫描
 
-### 4.1.1 定位 DevKit 工具
+### 4.1.1 定位 AI Migration Tool 与 DevKit CLI
 
-首先确认 DevKit 是否已安装，以及可执行文件的路径：
+源码扫描使用两层工具，必须先区分：
+
+- **AI Migration Tool**：包含 `ai-migration` 可执行文件，负责统一封装 `source-migration` 子命令；本节后续命令统一通过 `${AI_MIGRATION_DIR}/ai-migration` 调用。
+- **DevKit CLI**：由 `source-migration download` 子命令获取，实际执行 4.1.3 的 `porting src-mig` 扫描；其路径记录在 `DEVKIT` 变量中。
+
+阶段 4 开始前按以下顺序定位 AI Migration Tool：
 
 ```bash
-# 尝试从系统 PATH 中查找
-which devkit 2>/dev/null
+AI_MIGRATION_BIN=""
 
-# 或在常见安装路径中查找（根据实际环境调整搜索范围）
-find /opt /usr/local -name "devkit" -maxdepth 8 -type f 2>/dev/null | head -3
-
-# 确认版本
-<devkit路径> --version
+# 1. 用户已提供的工具包目录
+if [[ -n "${AI_MIGRATION_DIR:-}" && -f "$AI_MIGRATION_DIR/ai-migration" ]]; then
+  AI_MIGRATION_BIN="$AI_MIGRATION_DIR/ai-migration"
+else
+  # 2. DevKit 安装目录中的 AI Migration Tool
+  AI_MIGRATION_BIN=$(find /opt/huawei/devkit -maxdepth 3 -type f \
+    -path '*/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration' 2>/dev/null | head -1 || true)
+  # 3. 本次工作目录中的 AI Migration Tool
+  if [[ -z "$AI_MIGRATION_BIN" ]]; then
+    AI_MIGRATION_BIN=$(find "$WORK_DIR" -maxdepth 3 -type f \
+      -path '*/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration' 2>/dev/null | head -1 || true)
+  fi
+  [[ -n "$AI_MIGRATION_BIN" ]] && AI_MIGRATION_DIR=$(dirname "$AI_MIGRATION_BIN")
+fi
 ```
 
-若上述均未找到，**不得跳过扫描**，**必须**向用户提问让其决策如何处理（与 source-migration-scan.md 阶段 4 硬性约束一致）：
+找到后，将 `ai-migration` 所在目录记录为 `AI_MIGRATION_DIR`，写入本次任务上下文，并验证源码迁移命令入口：
+
+```bash
+[[ -n "${AI_MIGRATION_DIR:-}" && -f "$AI_MIGRATION_DIR/ai-migration" ]] || exit 1
+chmod +x "${AI_MIGRATION_DIR}/ai-migration" 2>/dev/null || true
+"${AI_MIGRATION_DIR}/ai-migration" source-migration --help
+export AI_MIGRATION_DIR
+mkdir -p "$WORK_DIR/reports"
+printf 'AI_MIGRATION_DIR=%q\nAI_MIGRATION_BIN=%q\n' \
+  "$AI_MIGRATION_DIR" "$AI_MIGRATION_DIR/ai-migration" \
+  > "$WORK_DIR/reports/ai_migration_path.txt"
+```
+
+后续步骤若发现 `AI_MIGRATION_DIR` 未设置，先执行 `source "$WORK_DIR/reports/ai_migration_path.txt"`，再调用 `${AI_MIGRATION_DIR}/ai-migration`。
+
+若本地没有工具包，先使用下方默认配置自动尝试一次直链下载（下载命令自身的重试不计为多次决策），不先打断用户确认。配置值由任务上下文或同名环境变量提供，环境变量未提供时使用以下默认值：
+
+```bash
+AI_MIGRATION_TOOL_VERSION="${AI_MIGRATION_TOOL_VERSION:-26.2.T5}"
+AI_MIGRATION_TOOL_DOWNLOAD_BASE="${AI_MIGRATION_TOOL_DOWNLOAD_BASE:-https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20DevKit}"
+```
+
+ARM64 工具包下载 URL 为：
+
+```text
+${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-Kunpeng.tar.gz
+```
+
+其中 `AI_MIGRATION_TOOL_VERSION` **仅用于拼装下载 URL**；本地定位必须使用 `*` 通配，不因配置版本号排除已经安装的其他版本。按 `$SKILL_DIR/source-migration-scan/references/devkit-download.md` 第 3 节的步骤直接尝试配置版本直链；直链下载、解压或校验失败后，才向用户说明失败原因和影响并提问。用户确认后，才可重试直链或到 DevKit 下载门户 `https://kunpeng-community.rnd.huawei.com/zh/developer/devkit/downloadNew` 手动选择对应架构与版本，并记录实际文件名和版本。
+
+默认直链失败后，必须先向用户提问：
 
 ```
-question: "未在系统中检测到 DevKit，如何继续阶段 4 扫描？"
+question: "默认 AI Migration Tool 直链下载失败，如何继续阶段 4 扫描？"
 options:
-  - id: provide_path   label: "我知道路径，手动提供 DevKit 安装路径"
-  - id: download       label: "由 Skill 自动下载安装 DevKit"
+  - id: provide_path   label: "我知道路径，手动提供 AI Migration Tool 路径"
+  - id: download       label: "确认重试或手动下载 AI Migration Tool"
   - id: abort          label: "中止阶段 4"
 ```
 
 按用户选择处理：
 
-- **provide\_path**：用户给出路径后，将其作为 `DEVKIT` 继续后续步骤；若该路径 `--version` 仍失败，回到本提问
-- **download**：由 agent 执行 DevKit 下载安装逻辑（详见下方 4.1.1.1），安装完成后继续后续步骤
-- **abort**：终止阶段 4，不进入 4.2
+- **provide\_path**：用户给出包含 `ai-migration` 的工具包目录后，设置 `AI_MIGRATION_DIR`，先验证 `source-migration --help`，验证成功后再写入 `$WORK_DIR/reports/ai_migration_path.txt`；验证失败则回到本提问。
+- **download**：读取 `$SKILL_DIR/source-migration-scan/references/devkit-download.md`，按用户确认重试默认直链，或指导用户从下载门户取得 `Linux-Kunpeng` 工具包后放入工作目录，再按其中步骤解压和校验；工具包就绪后再进入 4.1.1.2。
+- **abort**：终止阶段 4，不进入 4.2。
 
-#### 4.1.1.1 自动下载安装 DevKit
+#### 4.1.1.1 AI Migration Tool 下载与校验
 
-用户选择 `download` 时，agent **必须读取文件** `$SKILL_DIR/source-migration-scan/references/devkit-download.md` 按其中步骤执行：从华为云镜像站动态匹配最新 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，下载解压并验证 `--version`，最终将路径赋值给 `DEVKIT` 变量供 4.1.2 使用。失败时回到 4.1.1 提问。
+本步骤只负责获取**包含 `ai-migration` 的工具包**，不直接运行 Skill 目录下的四个 shell 脚本。工具包获取完成后，四个脚本相关操作均通过 `${AI_MIGRATION_DIR}/ai-migration source-migration ...` 调用；其中 `source-migration download` 再负责获取实际执行扫描的 DevKit CLI。
+
+#### 4.1.1.2 `source-migration` 命令接口
+
+通用调用格式：
+
+```bash
+"${AI_MIGRATION_DIR}/ai-migration" source-migration <subcommand> [参数]
+```
+
+| 子命令 | 调用格式 | 参数/选项 | 含义与输出 |
+| --- | --- | --- | --- |
+| `download` | `source-migration download [--work-dir <DIR>]` | `--work-dir <DIR>`：工作目录，注入脚本的 `WORK_DIR`；未传时为 `./output` | 调用 `devkit_download.sh`，动态匹配并下载 `DevKit-CLI-*-Linux-Kunpeng.tar.gz`，解压、验证 `devkit --version`；stdout 输出 `DEVKIT=<路径>`，并写入 `<DIR>/reports/devkit_path.txt`（文件键为 `DEVKIT_BIN`） |
+| `scan` | `source-migration scan <REPORT_DIR> [--work-dir <DIR>]` | `<REPORT_DIR>`：4.1.3 生成的 DevKit 报告目录，注入脚本的 `DEVKIT_REPORT_DIR`；`--work-dir/-w <DIR>`：摘要和日志工作目录，注入 `WORK_DIR`，未传时为 `./output` | 调用 `devkit_report_summary.sh` 流式汇总 CSV 报告，生成 `<REPORT_DIR>/summary.txt` 和 `<DIR>/reports/devkit_summary.json`；无 CSV 或仅有 HTML 报告时格式不支持并返回退出码 2 |
+| `read-summary` | `source-migration read-summary <FIELD> [CATEGORY] [--work-dir <DIR>]` | `<FIELD>`：`rule_categories`、`categories`、`rule_detail_sample`、`all`、`has_rule`、`has`；`[CATEGORY]`：仅 `FIELD=has` 时传入类别名；`--work-dir/-w <DIR>`：读取摘要所在工作目录，注入脚本的 `WORK_DIR`，未传时为 `./output` | 调用 `devkit_summary_read.sh` 读取 JSON 摘要；`has_rule`/`has` 同时通过 stdout 和退出码表达判断结果 |
+| `install-ksl` | `source-migration install-ksl [--work-dir <DIR>]` | `--work-dir <DIR>`：工作目录，注入脚本的 `WORK_DIR`；未传时为 `./output` | 调用 `ksl_install.sh` 下载、解压、安装并验证 KSL RPM，stdout 输出 `KSL_INCLUDE=<路径>`、`KSL_LIB=<路径>`，并写入 `<DIR>/reports/ksl_path.txt` |
+
+命令参数的边界约定：`download` 和 `install-ksl` 不接受位置参数；`scan` 必须传入报告目录；`read-summary` 必须传入字段名，使用 `has` 时还必须传入类别名。`-w` 是 `scan`/`read-summary` 的 CLI 别名；`download`/`install-ksl` 的 CLI 使用 `--work-dir`。后续步骤不得改为直接调用上述脚本或用 `python3` 调用工具包内部实现。
+
+各子命令的退出码沿用对应脚本：`download` 为 `0` 成功、`1` 参数/依赖校验、`2` 镜像站不可达或未匹配、`3` 下载不完整/失败、`4` 解压失败、`5` 未找到 `devkit`、`6` 版本验证失败、`7` 路径持久化失败；`scan` 为 `0` 成功、`1` 环境校验、`2` 无 CSV，或仅有 HTML 报告、`3` 表头不兼容、`4` JSON 输出失败；`read-summary` 为 `0` 条件满足、`1` 参数/文件错误、`2` 字段无效、`11` 无 Rule、`12` 未找到类别、`13` 降级解析格式错误；`install-ksl` 为 `0` 成功、`1` 环境校验、`2` 下载失败/不完整、`3` 解压失败、`4` 未找到 RPM、`5` RPM 安装失败、`6` 安装验证失败、`7` 路径持久化失败。
+
+`download` 成功后解析 stdout 中的 `DEVKIT=<路径>`；如果后续步骤在另一 shell 中执行，则读取 `$WORK_DIR/reports/devkit_path.txt`，将其中的 `DEVKIT_BIN` 赋给并导出 `DEVKIT`。
+
+#### 4.1.1.3 获取并准备 DevKit CLI
+
+AI Migration Tool 定位成功后，必须先执行一次 `source-migration download`，不能直接进入 4.1.3。该命令是独立子进程，不能依赖其内部 shell 自动修改当前上下文，因此下载完成后显式恢复 `DEVKIT`，并在正式扫描前重新设置 DevKit 动态库路径：
+
+```bash
+# 统一使用绝对工作目录，保证路径文件可跨 shell 复用
+WORK_DIR="$(cd "$WORK_DIR" && pwd)"
+
+DEVKIT_DOWNLOAD_OUTPUT=$("${AI_MIGRATION_DIR}/ai-migration" \
+  source-migration download --work-dir "$WORK_DIR") || {
+  rc=$?
+  printf '%s\n' "$DEVKIT_DOWNLOAD_OUTPUT" >&2
+  exit "$rc"
+}
+printf '%s\n' "$DEVKIT_DOWNLOAD_OUTPUT"
+
+PATH_FILE="$WORK_DIR/reports/devkit_path.txt"
+[[ -s "$PATH_FILE" ]] || { echo "缺少 DevKit 路径文件：$PATH_FILE" >&2; exit 1; }
+source "$PATH_FILE"
+DEVKIT="${DEVKIT_BIN:-}"
+[[ -n "$DEVKIT" && -f "$DEVKIT" ]] || { echo "DevKit 不可用：$DEVKIT" >&2; exit 1; }
+export DEVKIT
+
+# download 子命令中的 LD_LIBRARY_PATH 只对其子进程有效；扫描前必须重新设置
+DEVKIT_BIN_DIR="$(cd "$(dirname "$DEVKIT")" && pwd)"
+export LD_LIBRARY_PATH="${DEVKIT_BIN_DIR}/lib:${DEVKIT_BIN_DIR}/../lib:${LD_LIBRARY_PATH:-}"
+```
+
+若 `source-migration download` 返回非 0，必须按 4.1.1.2 的退出码处理，不得继续 4.1.3。
 
 ### 4.1.2 确认扫描参数
 
@@ -64,49 +158,56 @@ options:
 
 ```bash
 DEVKIT_REPORT_DIR="$WORK_DIR/reports/devkit-$(date +%Y%m%d%H%M%S)"
-mkdir -p $DEVKIT_REPORT_DIR
+mkdir -p "$DEVKIT_REPORT_DIR"
 
-$DEVKIT porting src-mig \
-  -i $PROJECT_ROOT \
+set -o pipefail
+THREADS=$(( $(nproc) / 2 ))
+(( THREADS < 1 )) && THREADS=1
+
+"$DEVKIT" porting src-mig \
+  -i "$PROJECT_ROOT" \
   -b <bazel|cmake|make|blade|other> \
   -r all \
-  -np $(( $(nproc) / 2 )) \
-  -o $DEVKIT_REPORT_DIR \
-  2>&1 | tee $WORK_DIR/reports/devkit-scan.log
+  -np "$THREADS" \
+  -o "$DEVKIT_REPORT_DIR" \
+  2>&1 | tee "$WORK_DIR/reports/devkit-scan.log"
+SCAN_RC=${PIPESTATUS[0]}
+(( SCAN_RC == 0 )) || exit "$SCAN_RC"
 ```
 
 > `-r all` 表示输出全部报告格式（json / html / csv）。
 
 > `-np` 指定扫描线程数，取当前机器 CPU 数的一半，避免占满 CPU 影响其他任务。
 
-> **扫描命令调不起来时**：若 `$DEVKIT porting src-mig` 无法启动（命令找不到、二进制报错、段错误、缺动态库等），视为已定位的 DevKit 包损坏或架构不符，不要反复重试扫描--回到 4.1.1.1 重跑 `source-migration-scan/scripts/devkit-download.sh` 重新下载安装后再回本步重试；重下仍失败则回 4.1.1 向用户提问。
+> **扫描命令调不起来时**：若 `$DEVKIT porting src-mig` 无法启动（命令找不到、二进制报错、段错误、缺动态库等），视为已定位的 DevKit 包损坏或架构不符，不要反复重试扫描--回到 4.1.1.2 重跑 `"${AI_MIGRATION_DIR}/ai-migration" source-migration download --work-dir "$WORK_DIR"` 重新获取 DevKit CLI 后再回本步重试；重下仍失败则回 4.1.1 向用户提问。
 
 ### 4.1.4 读取并汇总扫描报告
 
-> **重要约束**：本节使用专用脚本 `source-migration-scan/scripts/devkit-report-summary.sh` 流式处理报告，输出压缩型摘要文件。
+> **重要约束**：本节通过 AI Migration Tool 的报告汇总命令流式处理报告，输出压缩型摘要文件。
 
-使用脚本流式读取并汇总扫描报告：
+使用命令流式读取并汇总扫描报告：
 
 ```bash
-bash $SKILL_DIR/source-migration-scan/scripts/devkit-report-summary.sh
+"${AI_MIGRATION_DIR}/ai-migration" source-migration scan "$DEVKIT_REPORT_DIR" --work-dir "$WORK_DIR"
 ```
 
-> **脚本前置条件**：环境变量 `DEVKIT_REPORT_DIR` 已设置（由 4.1.3 阶段确定）。脚本自动探测 CSV 表头列索引（兼容 DevKit 不同版本列顺序差异）。
+> **命令前置条件**：`${AI_MIGRATION_DIR}/ai-migration` 已在 4.1.1 验证；`$DEVKIT_REPORT_DIR` 作为 `scan` 的位置参数传入，AI Migration Tool 将其映射为内部脚本所需的报告目录输入；`--work-dir` 指定摘要输出工作目录。命令自动探测 CSV 表头列索引（兼容 DevKit 不同版本列顺序差异）。
 >
-> **脚本输出**：
+> **命令输出**：
 > - `$DEVKIT_REPORT_DIR/summary.txt`
 > - `$WORK_DIR/reports/devkit_summary.json` 
 >
-> **脚本退出码**：
+> **命令退出码**：
 >
 > | 退出码 | 含义 |
 > |-------|------|
-> | 0 | 成功（报告目录为空时也返回 0，仅输出"无问题"摘要） |
+> | 0 | 成功（已找到并汇总 CSV 报告） |
 > | 1 | 环境校验失败（`DEVKIT_REPORT_DIR` 未设置或不存在） |
-> | 2 | 未找到任何 CSV/HTML 报告文件 |
+> | 2 | 未找到 CSV，或目录中仅有 HTML 报告（当前汇总脚本不处理 HTML） |
 > | 3 | CSV 表头格式不符合预期（无 `PortingCategory` 或 `Level` 列） |
+> | 4 | JSON 摘要输出失败 |
 >
-> 失败时按退出码定位：检查目录与文件存在性（1/2）、表头兼容性（3）。
+> 失败时按退出码定位：检查目录与文件存在性（1/2）、表头兼容性（3）或磁盘/权限问题（4）。
 >
 > **JSON 摘要生成工具自动降级**（脚本内部处理，无需手动干预，纯 shell 实现不依赖 python）：
 >
@@ -120,11 +221,11 @@ bash $SKILL_DIR/source-migration-scan/scripts/devkit-report-summary.sh
 **读取 JSON 摘要供后续阶段使用：**
 
 ```bash
-# 后续阶段统一通过专用脚本读取摘要，二级工具（jq / awk）兜底已封装在脚本内
-bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
+# 后续阶段统一通过 AI Migration Tool 命令读取摘要，二级工具（jq / awk）兜底已封装
+"${AI_MIGRATION_DIR}/ai-migration" source-migration read-summary <field> --work-dir "$WORK_DIR"
 ```
 
-> **脚本**：`source-migration-scan/scripts/devkit-summary-read.sh`，封装 jq → awk 降级路径（纯 shell 实现，不依赖 python），**任何环境下均可读取生成的 JSON 摘要**，无需 agent 自行判断工具可用性。
+> **命令实现**：封装 jq → awk 降级路径（纯 shell 实现，不依赖 python），**任何环境下均可读取生成的 JSON 摘要**，无需 agent 自行判断工具可用性。
 >
 > **支持的字段**：
 >
@@ -134,10 +235,10 @@ bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
 > | `categories` | 按 Category 统计的总数 | 输出 `category<TAB>total<TAB>rule` 三列 |
 > | `rule_detail_sample` | Rule 明细示例 | 输出 `[CATEGORY] LOCATION: SUGGESTION` |
 > | `all` | 依次输出以上三段（空行分隔） | 调试/全量预览 |
-> | `has_rule` | 判定 Rule 类别是否非空 | `if bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh has_rule >/dev/null; then ...` |
-> | `has <CATEGORY>` | 判定指定类别是否在 Rule 列表中 | `bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh has INTRINSICS` |
+> | `has_rule` | 判定 Rule 类别是否非空 | `if "${AI_MIGRATION_DIR}/ai-migration" source-migration read-summary has_rule --work-dir "$WORK_DIR" >/dev/null; then ...` |
+> | `has <CATEGORY>` | 判定指定类别是否在 Rule 列表中 | `"${AI_MIGRATION_DIR}/ai-migration" source-migration read-summary has INTRINSICS --work-dir "$WORK_DIR"` |
 >
-> **脚本退出码**：
+> **命令退出码**：
 >
 > | 退出码 | 含义 |
 > |-------|------|
@@ -147,7 +248,7 @@ bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>
 > | 11 | `has_rule` 检查：Rule 类别列表为空 |
 > | 12 | `has <CATEGORY>` 检查：未找到该类别 |
 >
-> **后续阶段读取约定**：4.2.0-prelude、4.2.0、4.2.5 等章节统一通过 `bash $SKILL_DIR/source-migration-scan/scripts/devkit-summary-read.sh <field>` 读取摘要，**不得**直接 `cat` 报告 CSV 文件或内联 `jq`/`awk` 代码，避免上下文膨胀与工具可用性判断逻辑散落。
+> **后续阶段读取约定**：4.2.0-prelude、4.2.0、4.2.5 等章节统一通过 `"${AI_MIGRATION_DIR}/ai-migration" source-migration read-summary <field> --work-dir "$WORK_DIR"` 读取摘要，**不得**直接 `cat` 报告 CSV 文件或内联 `jq`/`awk` 代码，避免上下文膨胀与工具可用性判断逻辑散落。
 
 **理解报告中的问题修改级别：**
 
@@ -223,19 +324,19 @@ cat $WORK_DIR/reports/user_decisions.txt
 
 #### 4.2.0.1 下载并安装 BoostKit KSL 包
 
-使用专用脚本 `source-migration-scan/scripts/ksl-install.sh` 完成下载、解压、安装 RPM 及验证，脚本封装了重试、完整性校验、RPM 工具自动选择（dnf > yum > rpm）和路径持久化逻辑：
+通过 AI Migration Tool 的 KSL 安装命令完成下载、解压、安装 RPM 及验证，命令封装了重试、完整性校验、RPM 工具自动选择（dnf > yum > rpm）和路径持久化逻辑：
 
 ```bash
-bash $SKILL_DIR/source-migration-scan/scripts/ksl-install.sh
+"${AI_MIGRATION_DIR}/ai-migration" source-migration install-ksl --work-dir "$WORK_DIR"
 ```
 
-> **脚本前置条件**：环境变量 `WORK_DIR` 已设置（由阶段 1 确定）。
+> **命令前置条件**：`${AI_MIGRATION_DIR}/ai-migration` 已在 4.1.1 验证；`--work-dir "$WORK_DIR"` 指向阶段 1 创建的工作目录。
 >
-> **脚本输出**：
+> **命令输出**：
 > - stdout 打印 `KSL_INCLUDE=<路径>` 与 `KSL_LIB=<路径>`
 > - 路径同时写入 `$WORK_DIR/reports/ksl_path.txt`，供后续编译选项使用
 >
-> **脚本退出码**：
+> **命令退出码**：
 >
 > | 退出码 | 含义 |
 > |-------|------|
@@ -256,7 +357,7 @@ bash $SKILL_DIR/source-migration-scan/scripts/ksl-install.sh
 
 ```bash
 # 读取脚本持久化的安装路径
-source $WORK_DIR/reports/ksl_path.txt
+source "$WORK_DIR/reports/ksl_path.txt"
 echo "KSL_INCLUDE=$KSL_INCLUDE"
 echo "KSL_LIB=$KSL_LIB"
 ```
@@ -523,7 +624,7 @@ git -C $PROJECT_ROOT diff --stat 2>/dev/null \
 **Rule 级别（必须完成）：**
 
 - [ ] **4.2.0-prelude** 已读取 `user_decisions.txt` 并确定 `AVX_STRATEGY`（ksl/neon/disable）与 `MKL_STRATEGY`（kml/openblas/disable）
-- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目且 `AVX_STRATEGY=ksl`：`source-migration-scan/scripts/ksl-install.sh` 执行成功（exit 0），`$WORK_DIR/reports/ksl_path.txt` 已生成且 `avx2ki.h`/`libavx2ki.so` 可访问；若 `AVX_STRATEGY=neon` 则走 4.2.0-alt 确认 NEON 工具链可用；否则跳过
+- [ ] **4.2.0** 若报告含 `INTRINSICS_LIBRARY`（avx2ki_option）或 `INTRINSICS` 类型 Rule 条目且 `AVX_STRATEGY=ksl`：`"${AI_MIGRATION_DIR}/ai-migration" source-migration install-ksl --work-dir "$WORK_DIR"` 执行成功（exit 0），`$WORK_DIR/reports/ksl_path.txt` 已生成且 `avx2ki.h`/`libavx2ki.so` 可访问；若 `AVX_STRATEGY=neon` 则走 4.2.0-alt 确认 NEON 工具链可用；否则跳过
 - [ ] **4.2.1（avx2ki）** 若 4.2.0 已执行（`AVX_STRATEGY=ksl`）：aarch64 编译选项中已添加 `-lavx2ki` 链接选项；若 `AVX_STRATEGY=neon` 则不添加 avx2ki 链接（NEON 无需额外库）；否则跳过
 - [ ] **4.2.1** `-mavx`/`-mavx2` 等不支持选项已从 aarch64 构建中移除（Rule 必须）
 - [ ] **4.2.2** 所有 `ATTRIBUTE` 类型问题（x86 专属头文件）已用架构宏保护，鲲鹏侧按 `AVX_STRATEGY` 引入 `avx2ki.h`（ksl）或 `arm_neon.h`（neon）

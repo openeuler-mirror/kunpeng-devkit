@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SourceCode build script
+# Copyright Huawei Technologies Co., Ltd. 2023. All rights reserved.
 # DevKit 扫描报告读取与汇总脚本
 #
 # 用途：流式读取并汇总 DevKit 扫描报告（CSV/HTML），生成压缩型摘要文件，
@@ -6,9 +8,9 @@
 #       本脚本采用 awk 逐行流式处理，内存占用与报告大小无关（O(1) 内存）。
 #
 # 用法：
-#   DEVKIT_REPORT_DIR=<报告目录>  bash $SKILL_DIR/source-migration-scan/scripts/devkit-report-summary.sh
+#   DEVKIT_REPORT_DIR=<报告目录>  bash $SKILL_DIR/source-migration-scan/scripts/devkit_report_summary.sh
 #   或
-#   DEVKIT_REPORT_DIR=<报告目录> WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/devkit-report-summary.sh
+#   DEVKIT_REPORT_DIR=<报告目录> WORK_DIR=<工作目录> bash $SKILL_DIR/source-migration-scan/scripts/devkit_report_summary.sh
 #
 # 输出：
 #   $DEVKIT_REPORT_DIR/summary.txt          — 人类可读摘要（统计 + 表格 + 前 N 条明细）

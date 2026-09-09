@@ -55,7 +55,7 @@
 | 目标环境 | ARM（aarch64 / 鲲鹏）服务器，具备编译条件 |
 | AI 编码助手 | 支持 Skill 机制、可对接 LLM 且在ARM服务器（鲲鹏）上部署（如 opencode / Claude Code / CatPaw 等） |
 | 构建工具 | GCC / Make / CMake / Bazel / Blade / SCons（按项目实际使用的构建系统准备，或者联网可下载） |
-| DevKit | 鲲鹏 DevKit 已安装（阶段 4 扫描所需，`which devkit` 可查）联网可自动下载 |
+| AI Migration Tool / DevKit | 阶段 4 扫描所需；优先复用本地 `ai-migration` 工具包，找不到时经确认后按配置下载，随后由其获取并调用 DevKit CLI |
 
 **额外选项**：
 
@@ -248,9 +248,9 @@ Skill 会在 workspace 根目录同级创建专用工作目录（不污染源码
 
 确认 `SKILL.md` 文件名全大写，且位于正确的技能目录下。CatPaw IDE 需重启后识别新安装的 Skill。也可在对话中显式点名："使用 `cpp-kunpeng-migration` 技能，帮我迁移项目"。
 
-### Q: DevKit 未安装怎么办？
+### Q: AI Migration Tool 或 DevKit 未安装怎么办？
 
-阶段 4 扫描时若 `which devkit` 返回空，Skill 会通过 `AskUserQuestion` 让你选择：手动提供安装路径 / 自行下载安装后继续 / 中止。不会跳过扫描或自行下载安装。
+阶段 4 扫描前会按优先级查找用户提供的 `AI_MIGRATION_DIR`、`/opt/huawei/devkit/DevKit-AI-Migration-Tool-*-Linux-Kunpeng/ai-migration` 和工作目录中的 Kunpeng 工具包。均未找到时，Skill 会先按默认配置自动尝试 AI Migration Tool 直链下载；只有直链下载、解压或校验失败后，才通过 `AskUserQuestion` 让你选择：手动提供已有路径 / 重试或手动下载工具包 / 中止。工具包就绪后，再通过 `${AI_MIGRATION_DIR}/ai-migration source-migration download` 获取 DevKit CLI；不会跳过扫描。
 
 ### Q: 私有仓库依赖无 ARM 版本怎么办？
 
@@ -295,10 +295,10 @@ cpp-kunpeng-migration/
 │   │   ├── mkl-migration.md                          # MKL 库迁移
 │   │   └── x86-header-migration.md                   # x86 专属头文件迁移
 │   └── scripts/
-│       ├── devkit-download.sh                        # DevKit 自动下载安装脚本
-│       ├── devkit-report-summary.sh                  # 扫描报告汇总脚本
-│       ├── devkit-summary-read.sh                    # 扫描报告读取脚本
-│       └── ksl-install.sh                            # KSL 安装脚本
+│       ├── devkit_download.sh                        # DevKit 自动下载安装脚本
+│       ├── devkit_report_summary.sh                  # 扫描报告汇总脚本
+│       ├── devkit_summary_read.sh                    # 扫描报告读取脚本
+│       └── ksl_install.sh                            # KSL 安装脚本
 ├── sourcecode-build-verify/                          # 阶段 5 子 Skill：编译验证与循环修复
 │   ├── sourcecode-build-verify.md
 │   └── references/
