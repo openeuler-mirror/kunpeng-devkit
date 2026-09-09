@@ -21,7 +21,7 @@
 仅当以下条件**同时满足**时，才需要 x86_64 采集机并执行本节：
 
 1. 当前机器为 ARM64（`uname -m` = `aarch64` 或 `arm64`）
-2. 迁移场景需要采集 x86_64 镜像的 manifest + history、采集 layer 或执行 inspect（无 Dockerfile 场景的采集阶段，或有 Dockerfile 场景需从 x86 镜像提取资源时）。ARM64 机器无法 `docker pull` / `docker history` x86_64 镜像，manifest + history 的本地采集（`collect-x86`）须在 x86_64 采集机执行
+2. 迁移场景需要采集 x86_64 镜像的 manifest + history、采集 layer 或执行 layout 扫描（无 Dockerfile 场景的采集阶段，或有 Dockerfile 场景需从 x86 镜像提取资源时）。ARM64 机器无法 `docker pull` / `docker history` x86_64 镜像，manifest + history 的本地采集（`collect-x86`）须在 x86_64 采集机执行
 3. 用户已提供 x86_64 采集机的 SSH 地址
 
 若当前机器为 x86_64（可直接本地采集），或无需远程采集，**跳过本节**。
@@ -99,7 +99,7 @@ ssh <user>@<host> "ls <工作目录>/DevKit-AI-Migration-Tool-*-Linux-x86-64/ai-
    ```bash
    # 下载地址（文件名形如 DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz）
    ssh <user>@<host> "cd <工作目录> && \
-     curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz && \
+     curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz && \
      tar -xzf DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz"
    ```
 
@@ -108,7 +108,7 @@ ssh <user>@<host> "ls <工作目录>/DevKit-AI-Migration-Tool-*-Linux-x86-64/ai-
    ```bash
    # 在网络正常的机器（如 ARM64 主控端）下载
    cd <ARM64 工作目录>
-   curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz
+   curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz
    # 传输到 x86_64 采集机并解压
    scp DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz <user>@<host>:<工作目录>/
    ssh <user>@<host> "cd <工作目录> && tar -xzf DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz"
@@ -121,7 +121,7 @@ ssh <user>@<host> "ls <工作目录>/DevKit-AI-Migration-Tool-*-Linux-x86-64/ai-
 
    未得到用户确认前不得继续执行。
 
-> 默认按 `${AI_MIGRATION_TOOL_VERSION}`（见 `config_reference.md` §9）下载；若该版本在 `${AI_MIGRATION_TOOL_DOWNLOAD_BASE}` 下不存在，先列出该目录内容，按当前机器架构选取对应工具包（x86_64 采集机用 `*-Linux-x86-64`，ARM64 主控端用 `*-Linux-Kunpeng`）的最新可用版本，并在任务记录中留存实际下载的文件名与版本。
+> 默认按 `${AI_MIGRATION_TOOL_VERSION}`（见 `config_reference.md` §9）下载；若该版本直链失效（如版本目录调整），可在 DevKit 下载门户 `https://kunpeng-community.rnd.huawei.com/zh/developer/devkit/downloadNew` 手动查找对应架构与版本的工具包，下载后按本步骤放到工作目录，并在任务记录中留存实际下载的文件名与版本。
 
 获取完成后回到步骤 2 重新定位。
 
@@ -243,7 +243,7 @@ ssh <user>@<host> "${AI_MIGRATION_DIR}/ai-migration image-migration env --help"
 | ✗ Permission denied    | 执行 `ssh <user>@<host> "chmod +x ${AI_MIGRATION_DIR}/ai-migration"` 后重新验证 |
 | ✗ 其他错误             | 输出完整错误信息，暂停等待用户处理                           |
 
-> 远程清理时只删除采集输出文件（如 `/tmp/layer_<project>.json`、`/tmp/layout_<project>.json`），**不要删除工具包目录**，后续 `inspect`（阶段 1.7）和 `docker cp`（阶段 3）仍需使用。
+> 远程清理时只删除采集输出文件（如 `/tmp/layer_<project>.json`、`/tmp/layout_<project>.json`），**不要删除工具包目录**，后续 `layout`（阶段 1.7）和 `docker cp`（阶段 3）仍需使用。
 
 ---
 
