@@ -150,6 +150,13 @@ preflight_check() {
     has_root_priv || die "本脚本必须以 root 身份执行（或具备 sudo 免密权限）；install.bin 会自动切换至 $DB_OS_USER 用户"
     id "$DB_OS_USER" >/dev/null 2>&1 || die "数据库 OS 用户 $DB_OS_USER 不存在，请先由前置流程创建"
     require_cmd unzip; require_cmd mount; require_cmd md5sum; require_cmd envsubst
+    # 强制核对数据库必需运行库（glibc/libaio/ncurses/readline/zlib），任一缺失即环境检查不通过
+    local _entry _soname _name _missing_libs=""
+    for _entry in libc.so.6:glibc libaio.so.1:libaio libncurses.so:ncurses libreadline.so:readline libz.so.1:zlib; do
+        _soname="${_entry%%:*}"; _name="${_entry##*:}"
+        ldconfig -p 2>/dev/null | grep -q "$_soname" || _missing_libs="$_missing_libs $_name"
+    done
+    [ -z "$_missing_libs" ] || die "缺少必需运行库:$_missing_libs"
     [ -n "$PACKAGE" ] && [ -f "$PACKAGE" ] || die "安装包不存在: ${PACKAGE:-未指定}"
     [ -n "$LICENSE_FILE" ] && [ ! -f "$LICENSE_FILE" ] && die "license 文件不存在: $LICENSE_FILE"
     [ -n "$EXTRACT_BASE_DIR" ] || EXTRACT_BASE_DIR="${DATABASE_WORK_DIR:+$DATABASE_WORK_DIR/tmp/kingbase}"

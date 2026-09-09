@@ -104,6 +104,13 @@ preflight_check() {
     log_info "执行前置环境校验"
     [ "$(uname -m)" = "aarch64" ] || die "仅支持aarch64鲲鹏架构"
     require_cmd unzip; require_cmd timeout; require_cmd envsubst
+    # 强制核对数据库必需运行库（glibc/libaio/zlib），任一缺失即环境检查不通过
+    local _entry _soname _name _missing_libs=""
+    for _entry in libc.so.6:glibc libaio.so.1:libaio libz.so.1:zlib; do
+        _soname="${_entry%%:*}"; _name="${_entry##*:}"
+        ldconfig -p 2>/dev/null | grep -q "$_soname" || _missing_libs="$_missing_libs $_name"
+    done
+    [ -z "$_missing_libs" ] || die "缺少必需运行库:$_missing_libs"
     [ -n "$PACKAGE" ] && [ -f "$PACKAGE" ] || die "安装包不存在: ${PACKAGE:-未指定}"
 
     # 创建 dmdba:dinstall
