@@ -4,8 +4,6 @@
 
 ## 1. 表格与 URL 约定
 
-- `PACKAGE_BASE_URL = "https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware"`
-- `{PACKAGE_BASE_URL}`：使用上述固定地址，与表中的包名拼接。
 - `{version}`、`{major}`、`{os}`：分别替换为目标版本、主版本和目标操作系统。
 - `*` 表示构建号等无法确认的文件名片段。把该模式原样写入 `packages[].file_name` 和 HTTPS `download_url`，状态使用 `PENDING_DOWNLOAD`；目标预检从 URL 父目录解析唯一匹配，零个或多个匹配都不得猜测。
 - `目标版本=待确认` 或 `0` 时，输出 `ROUTE_CONFIRM_REQUIRED`，不得自动确定路线。
@@ -45,7 +43,7 @@
 
 | 源产品 | 源版本 | 目标产品 | 目标版本 | License | URL 模板 | 备注 |
 |---|---|---|---|---|---|---|
-| RabbitMQ | 1.x–3.x | RabbitMQ | 3.9.29 | 否 | `{PACKAGE_BASE_URL}/rabbitmq-server-3.9.29-1.el8.noarch.rpm` | 同产品迁移，el8 rpm（noarch），Erlang 依赖可用同目录 `erlang-*.aarch64.rpm` |
+| RabbitMQ | 1.x–3.x | RabbitMQ | 3.9.29 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/rabbitmq-server-3.9.29-1.el8.noarch.rpm` | 同产品迁移，el8 rpm（noarch），Erlang 依赖可用同目录 `erlang-*.aarch64.rpm` |
 | Redis | 2.x | Redis | 2.8.24 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/redis-2.8.24.tar.gz` | 同产品迁移 |
 | Redis | 3.x | Redis | 3.2.13 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/redis-3.2.13.tar.gz` | 同产品迁移 |
 | Redis | 4.x | Redis | 4.0.14 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/redis-4.0.14.tar.gz` | 同产品迁移 |
@@ -63,8 +61,6 @@
 | Tomcat | 8.0 | Tomcat | 8.0.53 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/apache-tomcat-8.0.53.tar.gz` | 保持主版本 |
 | Tomcat | 8.5 | Tomcat | 8.5.100 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/apache-tomcat-8.5.100.tar.gz` | 保持主版本 |
 | Tomcat | 9.0 | Tomcat | 9.0.65 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/apache-tomcat-9.0.65.tar.gz` | 保持主版本 |
-| Tomcat | 3.x–9.x | 金蝶AAS | 9 | 是 | — | 国产化候选，商业软件无公开下载，需联系金蝶天燕获取安装包后走 MANUAL 上传 |
-| Tomcat | 3.x–9.x | 金蝶AAS | 10 | 是 | — | 国产化候选，商业软件无公开下载，需联系金蝶天燕获取安装包后走 MANUAL 上传 |
 | Tomcat | 6.x–8.x | 东方通TongWeb | 7.0.4.9_M3 | 是 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/TongWeb7.0.4.9_M3_Enterprise_with_tool.tar.gz` | 国产化候选 |
 | Tomcat | 7.x–9.x | BES AppServer Standard | 9.5.5.7266 | 是 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/BES-AppServer-Standard-With-Tool-devkit-ver-9.5.5.7266.tar.gz` | 国产化候选 |
 | JDK / JRE | Java 6、7、8 | OpenJDK | 1.8.0 | 否 | `https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/OpenJDK8U-jdk_aarch64_linux_hotspot_8u422b05.tar.gz` | 保持 Java 8 兼容级别 |
@@ -91,7 +87,7 @@
 | Nacos / RocketMQ | 版本未知或未命中 | 原产品 | — | 否 | — | 先向用户确认源版本，不得生成虚假待选版本 |
 | CustomDirectory / JavaMiddleware | 0 | 原产品 | 0 | 待确认 | — | 占位映射，不代表已有兼容路线 |
 
-Tomcat 有多个目标产品；有国产化要求时提供金蝶AAS、TongWeb、BES 候选，否则优先保持 Tomcat。JDK/JRE 默认保持 Java 主版本，跨大版本升级必须确认。
+Tomcat 有多个目标产品；有国产化要求时提供 TongWeb、BES 候选，否则优先保持 Tomcat。JDK/JRE 默认保持 Java 主版本，跨大版本升级必须确认。
 
 ## 4. 路线决策规则
 

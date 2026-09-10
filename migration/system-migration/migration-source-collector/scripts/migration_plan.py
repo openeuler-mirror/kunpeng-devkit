@@ -394,12 +394,6 @@ def route_version_key(value: str) -> tuple[int, ...]:
 def load_route_urls(path: Path) -> list[tuple[str, str, str]]:
     routes: list[tuple[str, str, str]] = []
     lines = path.read_text(encoding="utf-8-sig").splitlines()
-    base_url = ""
-    for line in lines:
-        match = re.search(r'PACKAGE_BASE_URL\s*=\s*"(https://[^"]+)"', line)
-        if match:
-            base_url = match.group(1).rstrip("/")
-            break
     for line in lines:
         if not line.lstrip().startswith("|"):
             continue
@@ -410,7 +404,6 @@ def load_route_urls(path: Path) -> list[tuple[str, str, str]]:
             product, version, url_cell = cells[2], cells[3], cells[5]
         else:
             continue
-        url_cell = url_cell.replace("{PACKAGE_BASE_URL}", base_url)
         match = URL_RE.fullmatch(url_cell)
         if match and not re.search(r"[{}*]", match.group(0)):
             routes.append((normalize_product(product), version, match.group(0)))
