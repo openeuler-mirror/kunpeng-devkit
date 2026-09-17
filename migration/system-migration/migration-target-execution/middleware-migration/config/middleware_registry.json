@@ -1,0 +1,337 @@
+{
+  "product_aliases": {
+    "东方通TongWeb": "tongweb",
+    "BES AppServer Standard": "besappserver",
+    "JRE": "bisenjre",
+    "毕昇JDK": "openjdk",
+    "毕昇JRE": "bisenjre"
+  },
+  "strategies": {
+    "openjdk": {
+      "script": "scripts/migrate_jdk.sh",
+      "install_method": "jdk"
+    },
+    "ibmjdk": {
+      "script": "scripts/migrate_jdk.sh",
+      "install_method": "jdk"
+    },
+    "oraclejdk": {
+      "script": "scripts/migrate_jdk.sh",
+      "install_method": "jdk"
+    },
+    "nginx": {
+      "script": "scripts/migrate_package.sh",
+      "install_method": "auto",
+      "install_dir": "/opt/nginx",
+      "deploy_dir_strategy": "install_dir",
+      "service_name": "nginx",
+      "package_name": "nginx",
+      "bin_path": "sbin/nginx",
+      "service_prefix": true,
+      "daemon_off": true,
+      "build_dependencies": [
+        "gcc",
+        "make",
+        "pcre-devel",
+        "zlib-devel",
+        "openssl-devel"
+      ],
+      "validation": {
+        "config": [
+          {
+            "command": "${DEPLOY_DIR}/sbin/nginx -t -p ${DEPLOY_DIR}/"
+          }
+        ],
+        "service": [
+          {
+            "command": "systemctl status nginx"
+          }
+        ],
+        "functional": [
+          {
+            "command": "curl -sfo /dev/null http://127.0.0.1 || curl -so /dev/null -w '%{http_code}' http://127.0.0.1 | grep -qE '^[2-5][0-9][0-9]$'"
+          }
+        ]
+      }
+    },
+    "tomcat": {
+      "script": "scripts/migrate_javamiddleware.sh",
+      "install_method": "javamiddleware",
+      "dependencies": [
+        {
+          "type": "openjdk",
+          "target_version": "11"
+        }
+      ],
+      "config_dir": "/opt/tomcat/conf",
+      "service_name": "tomcat",
+      "exec_start": "${INSTALL_DIR}/bin/catalina.sh run",
+      "validation": {
+        "config": [
+          {
+            "command": "xmllint --noout ${DEPLOY_DIR}/conf/server.xml"
+          }
+        ],
+        "service": [
+          {
+            "command": "systemctl status tomcat"
+          }
+        ],
+        "functional": [
+          {
+            "command": "PORT=$(grep '<Connector' ${DEPLOY_DIR}/conf/server.xml 2>/dev/null | grep -oP 'port=\"\\K[0-9]+' | head -1); curl -sf http://127.0.0.1:${PORT:-8080}"
+          }
+        ]
+      }
+    },
+    "resin": {
+      "script": "scripts/migrate_javamiddleware.sh",
+      "install_method": "javamiddleware",
+      "dependencies": [
+        {
+          "type": "openjdk",
+          "target_version": "11"
+        }
+      ],
+      "config_dir": "/opt/resin/conf",
+      "service_name": "resin",
+      "exec_start": "${INSTALL_DIR}/bin/resin.sh console",
+      "validation": {
+        "config": [
+          {
+            "command": "xmllint --noout ${DEPLOY_DIR}/conf/resin.xml"
+          }
+        ],
+        "service": [
+          {
+            "command": "systemctl status resin"
+          }
+        ],
+        "functional": [
+          {
+            "command": "PORT=$(grep '<http' ${DEPLOY_DIR}/conf/resin.xml 2>/dev/null | grep -oP 'port=\"\\K[0-9]+' | head -1); curl -sf http://127.0.0.1:${PORT:-8080}"
+          }
+        ]
+      }
+    },
+    "tongweb": {
+      "script": "scripts/migrate_tongweb.sh",
+      "install_method": "binary",
+      "dependencies": [
+        {
+          "type": "openjdk",
+          "target_version": "11"
+        }
+      ],
+      "service_name": "tongweb",
+      "health_url": "http://127.0.0.1:9088",
+      "validation": {
+        "service": [
+          {
+            "command": "systemctl status tongweb"
+          }
+        ],
+        "functional": [
+          {
+            "command": "curl -sf http://127.0.0.1:9088"
+          }
+        ]
+      }
+    },
+    "besappserver": {
+      "script": "scripts/migrate_besappserver.sh",
+      "install_method": "binary",
+      "dependencies": [
+        {
+          "type": "openjdk",
+          "target_version": "8"
+        }
+      ],
+      "service_name": "besappserver",
+      "health_url": "http://127.0.0.1:8080",
+      "validation": {
+        "service": [
+          {
+            "command": "systemctl status besappserver"
+          }
+        ],
+        "functional": [
+          {
+            "command": "curl -so /dev/null -w '%{http_code}' http://127.0.0.1:8080 | grep -qE '^[2-5][0-9][0-9]$'"
+          }
+        ]
+      }
+    },
+    "redis": {
+      "script": "scripts/migrate_package.sh",
+      "install_method": "auto",
+      "install_dir": "/opt/redis",
+      "deploy_dir_strategy": "install_dir",
+      "config_dir": "/etc/redis",
+      "service_name": "redis",
+      "package_name": "redis",
+      "bin_path": "bin/redis-server",
+      "make_options": "BUILD_TLS=no",
+      "build_dependencies": [
+        "gcc",
+        "make",
+        "openssl-devel"
+      ],
+      "validation": {
+        "config": [
+          {
+            "command": "redis-cli ping"
+          }
+        ],
+        "service": [
+          {
+            "command": "systemctl status redis"
+          }
+        ],
+        "functional": [
+          {
+            "command": "redis-cli set migration_test ok"
+          },
+          {
+            "command": "redis-cli get migration_test"
+          },
+          {
+            "command": "redis-cli del migration_test"
+          }
+        ]
+      }
+    },
+    "elasticsearch": {
+      "script": "scripts/migrate_package.sh",
+      "install_method": "auto",
+      "install_dir": "/opt/elasticsearch",
+      "deploy_dir_strategy": "install_dir",
+      "config_dir": "/etc/elasticsearch",
+      "service_name": "elasticsearch",
+      "package_name": "elasticsearch",
+      "bin_path": "bin/elasticsearch",
+      "service_user": "elasticsearch",
+      "sysctl": {
+        "vm.max_map_count": 262144
+      },
+      "service_port": 9200,
+      "validation": {
+        "config": [
+          {
+            "command": "test -f ${DEPLOY_DIR}/config/elasticsearch.yml"
+          }
+        ],
+        "service": [
+          {
+            "command": "systemctl status elasticsearch"
+          }
+        ],
+        "functional": [
+          {
+            "command": "curl -sf localhost:9200/_cluster/health"
+          }
+        ]
+      }
+    },
+    "rabbitmq": {
+      "script": "scripts/migrate_package.sh",
+      "install_method": "yum",
+      "install_dir": "/opt/rabbitmq",
+      "deploy_dir_strategy": "skip",
+      "config_dir": "/etc/rabbitmq",
+      "service_name": "rabbitmq-server",
+      "package_name": "rabbitmq-server",
+      "validation": {
+        "service": [
+          {
+            "command": "systemctl status rabbitmq-server"
+          }
+        ],
+        "functional": [
+          {
+            "command": "rabbitmqctl status"
+          }
+        ]
+      }
+    },
+    "docker": {
+      "script": "scripts/migrate_package.sh",
+      "install_method": "yum",
+      "install_dir": "/usr/bin",
+      "deploy_dir_strategy": "skip",
+      "config_dir": "/etc/docker",
+      "service_name": "docker",
+      "package_name": "docker",
+      "validation": {
+        "service": [
+          {
+            "command": "systemctl status docker"
+          }
+        ],
+        "functional": [
+          {
+            "command": "docker run --rm hello-world"
+          }
+        ]
+      }
+    },
+    "nacos": {
+      "script": "scripts/migrate_javamiddleware.sh",
+      "install_method": "javamiddleware",
+      "dependencies": [
+        {
+          "type": "openjdk",
+          "target_version": "11"
+        }
+      ],
+      "config_dir": "/opt/nacos/conf",
+      "service_name": "nacos",
+      "exec_start": "${INSTALL_DIR}/bin/startup-foreground.sh",
+      "validation": {
+        "service": [
+          {
+            "command": "systemctl status nacos"
+          }
+        ],
+        "functional": [
+          {
+            "command": "curl -sf http://127.0.0.1:8848/nacos/v1/console/health/readiness"
+          }
+        ]
+      }
+    },
+    "rocketmq": {
+      "script": "scripts/migrate_javamiddleware.sh",
+      "install_method": "javamiddleware",
+      "dependencies": [
+        {
+          "type": "openjdk",
+          "target_version": "11"
+        }
+      ],
+      "config_dir": "/opt/rocketmq/conf",
+      "service_name": "rocketmq",
+      "exec_start": "${INSTALL_DIR}/bin/mqnamesrv",
+      "validation": {
+        "service": [
+          {
+            "command": "systemctl status rocketmq"
+          }
+        ],
+        "functional": [
+          {
+            "command": "mqadmin clusterList -n 127.0.0.1:9876"
+          }
+        ]
+      }
+    },
+    "bisenjre": {
+      "script": "scripts/migrate_jdk.sh",
+      "install_method": "jdk"
+    },
+    "jdk": {
+      "script": "scripts/migrate_jdk.sh",
+      "install_method": "jdk"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "source_db_conn": {
+    "_comment": "源库连接。flag=false 时以下字段留空；flag=true 时需填全 jdbc_url/user/password/driver_jar_path/driver_class_name",
+    "flag": false,
+    "jdbc_url": "",
+    "user": "",
+    "password": "",
+    "driver_jar_path": "",
+    "driver_class_name": ""
+  },
+  "target_db_conn": {
+    "_comment": "目标库连接。flag=true 时用于 EXPLAIN 验证转换后 SQL；需填全字段。target_db_conn.flag=true 时还需本机有 javac≥21（入口脚本自动定位/下载）",
+    "flag": false,
+    "jdbc_url": "",
+    "user": "",
+    "password": "",
+    "driver_jar_path": "",
+    "driver_class_name": ""
+  }
+}

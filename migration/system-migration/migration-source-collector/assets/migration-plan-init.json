@@ -1,0 +1,170 @@
+{
+    "migration_id": null,
+    "source_environment": {
+        "collection_package": null,
+        "details_archive": ""
+    },
+    "target_environment": {
+        "hostname": "",
+        "primary_ip": "",
+        "os": "",
+        "architecture": "",
+        "kernel": "",
+        "glibc": "",
+        "package_manager": "",
+        "privilege": "",
+        "java": {
+            "installed": false,
+            "version": "",
+            "command": ""
+        },
+        "network": {
+            "status": "UNKNOWN",
+            "probe_url": ""
+        },
+        "migration_work_dir": "/opt/kunpeng-migration/work",
+        "free_space_bytes": 0,
+        "migration_tools": [
+            {
+                "id": "devKit-ai-migration-tool",
+                "package_name": "DevKit AI Migration Tool",
+                "version": "26.1.RC1",
+                "type": "ARCHIVE",
+                "file_name": "DevKit-AI-Migration-Tool-26.2.RC1-Linux-Kunpeng.tar.gz",
+                "download_url": "https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20DevKit/Kunpeng%20DevKit%2026.2.T5/DevKit-AI-Migration-Tool-26.2.T5-Linux-Kunpeng.tar.gz",
+                "local_path": null,
+                "tools": [
+                    {
+                        "name": "ai-migration"
+                    },
+                    {
+                        "name": "sql-analysis"
+                    }
+                ],
+                "status": "PENDING_DOWNLOAD"
+            },
+            {
+                "id": "vineflower",
+                "package_name": "Vineflower",
+                "version": "1.12.0",
+                "type": "FILE",
+                "file_name": "vineflower-1.12.0.jar",
+                "download_url": "https://repo1.maven.org/maven2/org/vineflower/vineflower/1.12.0/vineflower-1.12.0.jar",
+                "local_path": null,
+                "tools": [
+                    {
+                        "name": "Vineflower 1.12"
+                    }
+                ],
+                "status": "PENDING_DOWNLOAD"
+            },
+            {
+                "id": "jdk",
+                "package_name": "JDK",
+                "version": "17",
+                "type": "ARCHIVE",
+                "file_name": "OpenJDK17U-jdk_aarch64_linux_hotspot_17.0.14_7.tar.gz",
+                "download_url": "https://mirrors.huaweicloud.com/kunpeng/archive/Kunpeng_Middleware/OpenJDK17U-jdk_aarch64_linux_hotspot_17.0.14_7.tar.gz",
+                "local_path": null,
+                "tools": [
+                    {
+                        "name": "java"
+                    },
+                    {
+                        "name": "javac"
+                    },
+                    {
+                        "name": "jar"
+                    }
+                ],
+                "status": "PENDING_DOWNLOAD"
+            }
+        ]
+    },
+    "route": {
+        "middleware": [
+            {
+                "id": "",
+                "classification": "",
+                "source": {
+                    "product": "",
+                    "version": "",
+                    "location": "",
+                    "artifact_paths": [
+                        ""
+                    ]
+                },
+                "target": {
+                    "product": "",
+                    "version": ""
+                },
+                "packages": [
+                    {
+                        "id": "",
+                        "type": "",
+                        "version": "",
+                        "file_name": "",
+                        "source_type": "",
+                        "download_url": "",
+                        "local_path": "",
+                        "status": "",
+                        "license_required": false
+                    }
+                ]
+            }
+        ],
+        "database": [
+            {
+                "id": "",
+                "classification": "",
+                "source": {
+                    "product": "",
+                    "version": "",
+                    "location": "",
+                    "artifact_paths": [
+                        ""
+                    ]
+                },
+                "target": {
+                    "product": "",
+                    "version": ""
+                },
+                "packages": [
+                    {
+                        "id": "",
+                        "type": "",
+                        "version": "",
+                        "file_name": "",
+                        "source_type": "",
+                        "download_url": null,
+                        "local_path": "",
+                        "status": "",
+                        "license_required": false
+                    }
+                ]
+            }
+        ],
+        "application": [
+            {
+                "id": "",
+                "classification": "",
+                "product": "",
+                "version": null,
+                "install_location": "",
+                "packages": [
+                    {
+                        "id": "",
+                        "type": "",
+                        "file_name": "",
+                        "local_path": "",
+                        "license_required": false
+                    }
+                ],
+                "application_sql_migration": {
+                    "selected_route": "",
+                    "requires_sql_adaptation": false
+                }
+            }
+        ]
+    }
+}

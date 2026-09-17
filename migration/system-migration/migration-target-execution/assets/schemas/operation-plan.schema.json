@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "system-migration/operation-plan.schema.json",
+  "title": "Guidance-driven target change plan",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "migration_plan",
+    "migration_plan_digest",
+    "generated_at",
+    "operations"
+  ],
+  "properties": {
+    "schema_version": {"const": "4.1"},
+    "migration_plan": {"type": "string", "minLength": 1},
+    "migration_plan_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["module", "migration_content", "migration_route"],
+        "properties": {
+          "module": {"enum": ["database", "middleware", "application"]},
+          "migration_content": {"type": "string", "minLength": 1},
+          "migration_route": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
