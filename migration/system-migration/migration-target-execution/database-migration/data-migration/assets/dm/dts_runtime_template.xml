@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TransformTask transformer="13" name="{TASK_NAME}">
+  <Source type="db" useCustomDriver="false" useDefaultURL="true">
+    <Server>{SRC_HOST}</Server>
+    <Port>{SRC_PORT}</Port>
+    <DatabaseVersion>0</DatabaseVersion>
+    <AuthType>0</AuthType>
+    <Compress>false</Compress>
+    <User>{SRC_USER}</User>
+    <Password>{SRC_PWD}</Password>
+    <Catalog>{SRC_SCHEMA}</Catalog>
+  </Source>
+  <Destination type="db" useCustomDriver="false" useDefaultURL="true">
+    <Server>{DST_HOST}</Server>
+    <Port>{DST_PORT}</Port>
+    <AuthType>0</AuthType>
+    <Compress>false</Compress>
+    <DmType>dm</DmType>
+    <User>{DST_USER}</User>
+    <Password>{DST_PWD}</Password>
+  </Destination>
+  <Config selectObjType="1">
+    <Strategy name="lengthInChar" value="1.0"/>
+    <Strategy name="continueWhenError" value="true"/>
+    <Strategy name="threadCount" value="{THREAD_COUNT}"/>
+    <Strategy name="objectNameToUpperCase" value="{TO_UPPER}"/>
+  </Config>
+  <Mode simple="false">
+    <DBStrategies>
+      <Strategy>TRANSFORM_SCHEMAS</Strategy>
+    </DBStrategies>
+    <Schema source="{SRC_SCHEMA}" destination="{DST_SCHEMA}">
+      <Strategies>
+        <Strategy>TRANSFORM_TABLES</Strategy>
+        <Strategy>TRANSFORM_VIEWS</Strategy>
+        <Strategy>TRANSFORM_PROCEDURE_FUNCTIONS</Strategy>
+        <Strategy>TRANSFORM_DATABASE_AND_SCHEMA_TRIGGERS</Strategy>
+      </Strategies>
+    </Schema>
+  </Mode>
+  <Agents>
+    <Strategy name="remoteExecute" value="false"/>
+  </Agents>
+  <TransformItems ItemCount="{ITEM_COUNT}">
+{TRANSFORM_ITEMS}
+  </TransformItems>
+  <Summary/>
+</TransformTask>

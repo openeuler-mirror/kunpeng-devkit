@@ -1,0 +1,9 @@
+{
+  "migration_tools": [
+    {
+      "name": "devKit-ai-migration-tool",
+      "download_url": "https://kunpeng-repo.obs.cn-north-4.myhuaweicloud.com/Kunpeng%20DevKit/Kunpeng%20DevKit%2026.2.T5/DevKit-AI-Migration-Tool-26.2.T5-Linux-Kunpeng.tar.gz",
+      "local_path": ""
+    }
+  ]
+}
