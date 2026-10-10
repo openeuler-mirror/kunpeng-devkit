@@ -1,0 +1,84 @@
+# Kafka 应用元信息
+# 用于 KAT 模板生成 skill，定义 Kafka 场景所需的变量、参数命令和生命周期命令
+app_name: Kafka
+description: Apache Kafka 分布式消息流平台
+tuning_direction: "high"
+performance_info: "records/sec"
+param_template: param_Kafka_System.yaml
+native_benchmark: kafka-producer-perf-test    # 原生压测工具名
+native_benchmark_extract: |                   # 原生压测工具的指标提取命令
+  grep -oP '\d+\.\d+\s+records/sec' | awk '{print $1}' | tail -n1
+native_benchmark_command: |
+  sh {kafka_home}/bin/kafka-producer-perf-test.sh --topic testtopic --num-records 1000000 --record-size 1024 --throughput 300000 --producer-props bootstrap.servers=localhost:{app_port} --producer.config {kafka_home}/config/producer.properties
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: kafka_home
+      desc: Kafka 安装路径（kafka-server-start.sh、kafka-topics.sh 所在目录的上级）
+      search_targets:
+        - kafka-server-start.sh
+      placeholder: /path/kafka
+    - name: app_port
+      desc: Kafka broker 端口号
+      default: "9092"
+      placeholder: "9092"
+    - name: zookeeper_port
+      desc: ZooKeeper 端口号
+      default: "2181"
+      placeholder: "2181"
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 Kafka 参数下发命令所需的变量和模板
+param_group:
+  vars:
+    - name: kafka_home
+      desc: Kafka 安装路径
+      reuse_from: app_framework
+    - name: app_port
+      desc: Kafka broker 端口号
+      reuse_from: app_framework
+  command_templates:
+    query: |
+      grep -E '^\s*<kat_name>\s*=' {kafka_home}/config/server.properties_kat | tail -n1 | sed 's/^[^=]*=\s*//' | tr -d '\n'
+    assign: |
+      output=$(cat {kafka_home}/config/server.properties_kat | grep -wn "^\s*<kat_name>" | grep -vE '^[0-9]+:#' | awk -F ":" '{print $1}'); if [ -z "$output" ]; then echo "<kat_name>=<kat_value>" >> {kafka_home}/config/server.properties_kat; else line_nums=($output); for line_num in "${line_nums[@]}"; do if [ -n "$line_num" ]; then sed -i "${line_num}c <kat_name>=<kat_value>" {kafka_home}/config/server.properties_kat; fi; done; fi
+    backup: |
+      cp -f {kafka_home}/config/server.properties_kat {kafka_home}/config/server.properties_kat_bak && echo 'The new configuration will be saved to {kafka_home}/config/server.properties_kat. You can load it later if necessary.'
+    recover: |
+      cp -f {kafka_home}/config/server.properties_kat_bak {kafka_home}/config/server.properties_kat && echo 'The {kafka_home}/config/server.properties_kat file has been restored to the initial configuration.'
+    execute_after_assign: ""
+
+# ── 部分3: 生命周期命令（内置场景预定义，复用 KAT 内部 cmd 流程）──
+# 除 run_test 外的所有命令均为预定义模板，LLM 只需替换变量，无需自行生成
+cmd:
+  set_up:
+    - cmd: |
+        if [ ! -e {kafka_home}/bin/kafka-server-start.sh ]; then echo 'The file {kafka_home}/bin/kafka-server-start.sh does not exist. Please check whether kafka_home is correct.' && exit 1; fi; if [ ! -r {kafka_home}/bin/kafka-server-start.sh ] || [ ! -x {kafka_home}/bin/kafka-server-start.sh ]; then echo 'Does not have the permission to execute {kafka_home}/bin/kafka-server-start.sh' && exit 1; fi; if [ ! -e {kafka_home}/config/server.properties ]; then echo 'The file {kafka_home}/config/server.properties does not exist.' && exit 1; fi; if [ ! -r {kafka_home}/config/server.properties ] || [ ! -w {kafka_home}/config ]; then echo 'Does not have the permission to copy {kafka_home}/config/server.properties' && exit 1; fi;
+      host_name: []
+    - cmd: |
+        if [ ! -e {kafka_home}/config/server.properties_kat ]; then cp -f {kafka_home}/config/server.properties {kafka_home}/config/server.properties_kat; fi;
+      host_name: []
+  round_set_up:
+    - cmd: |
+        cp -f {kafka_home}/config/server.properties_kat {kafka_home}/config/server.properties && {kafka_home}/bin/kafka-server-stop.sh 2>/dev/null; sleep 3; {kafka_home}/bin/kafka-server-start.sh -daemon {kafka_home}/config/server.properties 2>/dev/null || echo 'Failed to restart Kafka' && exit 1;
+      host_name: []
+  run_test:
+    - cmd: |
+        timeout 600 sh {kafka_home}/bin/kafka-server-start.sh -daemon {kafka_home}/config/server.properties_kat; for i in {1..30}; do if jps | grep -w "Kafka"; then break; else sleep 2; fi; done; if [ $i -eq 30 ]; then echo 'Kafka server did not start successfully.' && exit 1; else exit 0; fi
+      host_name: []
+    - cmd: |
+        sleep 5; for i in {1..30}; do if timeout 600 {kafka_home}/bin/kafka-topics.sh --bootstrap-server localhost:{app_port} --list | grep -w "testtopic"; then timeout 600 {kafka_home}/bin/kafka-topics.sh --bootstrap-server localhost:{app_port} --delete --topic testtopic && sleep 2; else break; fi; done; if [ $i -eq 30 ]; then echo 'Test topic testtopic already exists. Please select a topic that does not exist for the test.' && exit 1; fi;for i in {1..30}; do if timeout 600 {kafka_home}/bin/kafka-topics.sh --bootstrap-server localhost:{app_port} --list | grep -w "testtopic"; then break; else timeout 600 {kafka_home}/bin/kafka-topics.sh --bootstrap-server localhost:{app_port} --create --topic testtopic --partitions 72 --replication-factor 1 && sleep 2; fi; done; if [ $i -eq 30 ]; then echo 'Create topic testtopic failed.' && exit 1; else exit 0; fi;
+      host_name: []
+    - cmd: |
+        timeout 600 sh {kafka_home}/bin/kafka-producer-perf-test.sh --topic testtopic --num-records 300000 --record-size 1024 --throughput 300000 --producer-props bootstrap.servers=localhost:{app_port} --producer.config {kafka_home}/config/producer.properties; for i in {1..30}; do if jps | grep -w "ProducerPerformance"; then sleep 2; else break; fi; done; if [ $i -eq 30 ]; then echo 'ProducerPerformance did not stop successfully.' && exit 1; else exit 0; fi;
+      host_name: []
+  round_tear_down:
+    - cmd: |
+        {kafka_home}/bin/kafka-server-stop.sh 2>/dev/null || true; sleep 3;
+      host_name: []
+  tear_down:
+    - cmd: |
+        rm -f {kafka_home}/config/server.properties_kat_bak
+      host_name: []

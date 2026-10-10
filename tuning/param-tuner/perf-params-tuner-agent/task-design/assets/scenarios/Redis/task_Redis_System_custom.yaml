@@ -1,0 +1,155 @@
+template_type:
+    "custom"
+# [可选修改]服务器的列表，默认为空则是在本机执行
+hosts_list:
+    -
+        # [可选修改]服务器的别名，用于在后续的host_name中进行服务器的指定。为空默认为本机
+        name:
+            ""
+        # [可选修改]服务器的ip地址
+        ip:
+            ""
+        # [可选修改]在使用ssh进行远程服务器连接时，所使用的用户名
+        username:
+            ""
+        # [可选修改]在使用ssh进行远程服务器连接时，所使用的端口号
+        port:
+            "22"
+configs:
+    # [可选修改]总的调优轮次，根据所使能参数空间进行调整，推荐尽可能调大
+    rounds:
+        50
+    # [可选修改]最大连续失败次数，当连续失败次数到达此设定值时会自动停止调优
+    maximum_consecutive_failures:
+        10
+    # [不可修改]调优算法，目前仅支持HPO算法
+    algorithm:
+        "HPO"
+    # [可选修改]随机轮次在总轮次中占比，rounds * random_initial_ratio则得到随机轮次数目。如果希望有更多的寻优轮次可调低此参数
+    random_initial_ratio:
+        0.5
+    performance_info:
+        "requests per second"
+    # [可选修改]给定算法在调优时的调优方向，目前支持调高（high）和调低（low）两种选项
+    tuning_direction:
+        "high"
+# [可选修改]将参数中的enable设置为True表明会调优该部分参数
+assign_params:
+    -
+        # [不可修改]数组的名称，分为应用参数（应用名）、系统参数（System）与微架构（uarch）参数
+        name:
+            "Redis"
+        enable:
+            True
+        # 查询参数初始值的命令，获取后用于在后续的使用中进行展示。
+        query_cmd:
+            -
+                cmd: |
+                    /path/redis/bin/redis-cli CONFIG GET <kat_name> | tail -n1 | tr -d '\n'
+                host_name:
+                    []
+        # 下发参数的命令，用于训练时将算法给出的参数值进行下发，使得应用在新参数下进行基准测试
+        assign_cmd:
+            -
+                cmd: |
+                    output=$(cat /path/redis/redis.conf_kat | grep -wn "^<kat_name>"| grep -vE '^[0-9]+:#' | awk -F ":" '{print $1}'); if [ -z "$output" ]; then echo "<kat_name> <kat_value>" >> /path/redis/redis.conf_kat; else line_nums=($output); for line_num in "${line_nums[@]}"; do if [ -n "$line_num" ]; then sed -i "${line_num}c <kat_name> <kat_value>" /path/redis/redis.conf_kat; fi; done; fi
+                host_name:
+                    []
+        # 备份命令，用于在use的使用场景下对原始的参数进行备份。
+        backup_cmd:
+            -
+                cmd: |
+                    cp -f /path/redis/redis.conf_kat /path/redis/redis.conf_kat_bak && echo 'The new configuration will be saved to /path/redis/redis.conf_kat. You can load it later if necessary.'
+                host_name:
+                    []
+        # 恢复命令，用于退出use时对之前备份的参数进行恢复。
+        recover_cmd:
+            -
+                cmd: |
+                    cp -f /path/redis/redis.conf_kat_bak /path/redis/redis.conf_kat && echo 'The /path/redis/redis.conf_kat file has been restored to the initial configuration.'
+                host_name:
+                    []
+        # 所有参数下发完成后，仍需要执行的命令：因为下发命令为循环执行，若有需要在下发后处理的命令，请维护此字段
+        execute_after_assign:
+            -
+                cmd: |
+                    
+                host_name:
+                    []
+        vars:
+            []
+    -
+        # [不可修改]数组的名称，分为应用参数（应用名）、系统参数（System）与微架构（uarch）参数
+        name:
+            "System"
+        enable:
+            False
+        # [可选修改]与hosts_list中的name对应，用于指定下发参数的服务器。为空默认为本机
+        host_name:
+            ""
+    -
+        # [不可修改]数组的名称，分为应用参数（应用名）、系统参数（System）与微架构（uarch）参数
+        name:
+            "Kunpeng uarch"
+        enable:
+            False
+        # [可选修改]与hosts_list中的name对应，用于指定下发参数的服务器。为空默认为本机
+        host_name:
+            ""
+# 初始启动命令
+set_up:
+    -
+        cmd: |
+            if [ ! -e /path/redis/bin/redis-server ]; then echo 'The file /path/redis/bin/redis-server does not exist in the /path/redis/bin directory. Please check the app_exe_path of app whether the application execution path is correct.' && exit 1; fi; if [ ! -r /path/redis/bin/redis-server ] || [ ! -x /path/redis/bin/redis-server ]; then echo 'Does not have the permission to execute /path/redis/bin/redis-server' && exit 1; fi; if [ ! -e /path/redis/bin/redis-cli ]; then echo 'The file /path/redis/bin/redis-cli does not exist in the /path/redis/bin directory. Please check the app_exe_path of app whether the application execution path is correct.' && exit 1; fi; if [ ! -r /path/redis/bin/redis-cli ] || [ ! -x /path/redis/bin/redis-cli ]; then echo 'Does not have the permission to execute /path/redis/bin/redis-cli' && exit 1; fi; if [ ! -e /path/redis/bin/redis-benchmark ]; then echo 'The file /path/redis/bin/redis-benchmark does not exist in the /path/redis/bin directory. Please check the app_exe_path of app whether the application execution path is correct.' && exit 1; fi; if [ ! -r /path/redis/bin/redis-benchmark ] || [ ! -x /path/redis/bin/redis-benchmark ]; then echo 'Does not have the permission to execute /path/redis/bin/redis-benchmark' && exit 1; fi; if [ ! -e /path/redis/redis.conf ]; then echo 'The file /path/redis/redis.conf does not exist in the /path/redis directory. Please check the app_exe_path of app whether the application execution path is correct.' && exit 1; fi; if [ ! -r /path/redis/redis.conf ] || [ ! -w /path/redis ]; then echo 'Does not have the permission to copy /path/redis/redis.conf' && exit 1; fi; if [ ! -e /path/data ]; then echo '/path/data does not exist. Please check whether the app_data_path of app is correct.' && exit 1; fi;
+        host_name:
+            []
+    -
+        cmd: |
+            if [ ! -e /path/redis/redis.conf_kat ]; then cp -f /path/redis/redis.conf /path/redis/redis.conf_kat; fi;
+        host_name:
+            []
+# 每轮训练时的启动命令，用于启动应用准备进行基准测试。
+round_set_up:
+    -
+        cmd: |
+            if [[ "$( /path/redis/bin/redis-cli -p 6379 ping | tr -d '\n' )" == "PONG" ]]; then /path/redis/bin/redis-cli -p 6379 shutdown; fi
+        host_name:
+            []
+# 每轮训练时测试命令，用于对应用进行基准测试以获取测试结果。该命令的回显需要为一浮点数
+run_test:
+    -
+        cmd: |
+            /path/redis/bin/redis-server /path/redis/redis.conf_kat --dir /path/data --port 6379 --daemonize yes
+        host_name:
+            ""
+    -
+        cmd: |
+            output=$( { /path/redis/bin/redis-benchmark -p 6379 -c 50 -n 100000 -d 3 --dbnum 0 -r 100000 -t set -q 2>&1; } )
+            if [ $? -ne 0 ]; then
+              echo "Benchmark command failed with exit code $?"
+              echo "$output"
+              exit 1
+            fi
+            result=$(echo "$output" | grep -oP '\d+\.\d+(?=\s+requests per second)' | awk '{sum += $1} END {print sum}')
+            if [ -z "$result" ]; then
+              echo "Failed to extract metric from benchmark output"
+              echo "$output"
+              exit 1
+            fi
+            echo "$result"
+        host_name:
+            ""
+# 每轮训练后的清理动作，用于在单轮测试结束后恢复环境。
+round_tear_down:
+    -
+        cmd: |
+            if [[ "$( /path/redis/bin/redis-cli -p 6379 ping | tr -d '\n' )" == "PONG" ]]; then /path/redis/bin/redis-cli -p 6379 shutdown; fi
+        host_name:
+            []
+# 完整流程结束后的清理动作，用于在所有训练结束后恢复环境与原始参数。
+tear_down:
+    -
+        cmd: |
+            rm -f /path/redis/redis.conf_kat_bak
+        host_name:
+            []

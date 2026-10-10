@@ -1,0 +1,79 @@
+# Rocksdb 应用元信息
+# 用于 KAT 模板生成 skill，定义 Rocksdb 场景所需的变量、参数命令和生命周期命令
+app_name: Rocksdb
+description: Rocksdb 键值存储引擎
+tuning_direction: "high"
+performance_info: "ops/sec"
+param_template: param_Rocksdb_System.yaml
+native_benchmark: rocksdb_dbbench    # 原生压测工具名
+native_benchmark_command: |          # 默认压测命令（纯原始命令，错误处理由包装器模板统一添加）
+  {test_tool_path} -db={database_dir} -key_size=10 -value_size=830 -num=10000 -duration=0 -threads=16 -cache_size=16777216 $(tr '\n' ' ' < /tmp/kat_{app_name}_assign_params.log) -benchmarks=fillseq
+native_benchmark_extract: |          # 原生压测工具的指标提取命令
+  awk '/ops\/sec/ {print $(NF-1)}' | awk '{sum += $1} END {print sum}'
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: test_tool_path
+      desc: db_bench 可执行文件路径
+      search_targets:
+        - db_bench
+      placeholder: /path/to/db_bench
+    - name: database_dir
+      desc: 数据库文件目录
+      default: /tmp/rocksdb_test
+      placeholder: /path/data
+    - name: version
+      desc: Rocksdb 版本
+      default: "7.0.4"
+      placeholder: "7.0.4"
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 Rocksdb 参数下发命令所需的变量和模板
+# 注意：Rocksdb 参数通过 db_bench CLI flags 下发，不需要配置文件操作
+param_group:
+  vars:
+    - name: test_tool_path
+      desc: db_bench 可执行文件路径
+      reuse_from: app_framework
+    - name: database_dir
+      desc: 数据库文件目录
+      reuse_from: app_framework
+    - name: version
+      desc: Rocksdb 版本
+      reuse_from: app_framework
+  command_templates:
+    query: ""
+    assign: |
+      echo -<kat_name>=<kat_value> >> /tmp/kat_{app_name}_assign_params.log
+    backup: ""
+    recover: |
+      > /tmp/kat_{app_name}_assign_params.log
+    execute_after_assign: |
+      configurations=$(tr '\n' ' ' < /tmp/kat_{app_name}_assign_params.log) && echo "assigned params: $configurations"
+
+# ── 部分3: 生命周期命令（内置场景预定义，复用 KAT 内部 cmd 流程）──
+# 除 run_test 外的所有命令均为预定义模板，LLM 只需替换变量，无需自行生成
+# 注意：Rocksdb 是库而非服务端进程，db_bench 直接运行并在测试完成后自行退出
+cmd:
+  set_up:
+    - cmd: |
+        if ! command -v {test_tool_path} &>/dev/null && [ ! -f {test_tool_path} ]; then echo '{test_tool_path} does not exist or is not accessible. Please check whether the db_bench executable path is correct.' && exit 1; fi; if [ -f {test_tool_path} ] && ([ ! -r {test_tool_path} ] || [ ! -x {test_tool_path} ]); then echo 'Does not have the permission to execute {test_tool_path}' && exit 1; fi; mkdir -p {database_dir}; touch /tmp/kat_{app_name}_assign_params.log;
+      host_name: []
+  round_set_up:
+    - cmd: |
+        rm -rf {database_dir}/*
+      host_name: []
+  run_test: []    # 空：由 LLM 动态生成
+  round_tear_down:
+    - cmd: |
+        > /tmp/kat_{app_name}_assign_params.log
+      host_name: []
+  tear_down:
+    - cmd: |
+        rm -f /tmp/kat_{app_name}_assign_params.log
+      host_name: []
+    - cmd: |
+        rm -rf {database_dir}/*
+      host_name: []
