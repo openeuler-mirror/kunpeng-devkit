@@ -1,0 +1,104 @@
+# Vastbase 应用元信息
+# 用于 KAT 模板生成 skill，定义 Vastbase 场景所需的变量、参数命令和生命周期命令
+app_name: Vastbase
+description: Vastbase 海量数据库（基于 openGauss）
+tuning_direction: "high"
+performance_info: "tpmC"
+param_template: param_Vastbase_System.yaml
+native_benchmark: BenchmarkSQL    # 原生压测工具名
+native_benchmark_extract: |      # 原生压测工具的指标提取命令
+  grep -oP '\d+\.\d+\s+tpmC' | awk '{print $1}' | tail -n1
+native_benchmark_command: |
+  cd {benchmark_path} && ./runBenchmark.sh {config_path}
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: app_exe_path
+      desc: Vastbase 安装路径（vastbase/vsql/vb_ctl 所在目录）
+      search_targets:
+        - vastbase
+        - vsql
+        - vb_ctl
+      placeholder: /path/vastbase/bin
+    - name: app_config_path
+      desc: Vastbase 配置文件所在目录（postgresql.conf 所在位置，通常为数据目录）
+      search_targets:
+        - postgresql.conf
+      placeholder: /path/vastbase/data
+    - name: app_data_path
+      desc: Vastbase 数据目录（vb_ctl -D 参数指定的目录）
+      default: /path/vastbase/data
+      placeholder: /path/data
+    - name: app_port
+      desc: Vastbase 端口号
+      default: "5432"
+      placeholder: "5432"
+    - name: vb_user
+      desc: Vastbase 系统用户（用于执行启停命令的用户）
+      default: "vastbase"
+      placeholder: "vastbase"
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 Vastbase 参数下发命令所需的变量和模板
+param_group:
+  vars:
+    - name: app_exe_path
+      desc: vsql 所在路径
+      reuse_from: app_framework
+    - name: app_config_path
+      desc: postgresql.conf 所在目录
+      reuse_from: app_framework
+    - name: app_port
+      desc: Vastbase 端口号
+      reuse_from: app_framework
+  command_templates:
+    query: |
+      {app_exe_path}/vsql -p {app_port} -d vastbase -t -A -c "SHOW <kat_name>;" | tr -d '\n'
+    assign: |
+      output=$(cat {app_config_path}/postgresql.conf_kat | grep -wn "^\s*<kat_name>" | grep -vE '^[0-9]+:#' | awk -F ":" '{print $1}'); if [ -z "$output" ]; then echo "<kat_name> = <kat_value>" >> {app_config_path}/postgresql.conf_kat; else line_nums=($output); for line_num in "${line_nums[@]}"; do if [ -n "$line_num" ]; then sed -i "${line_num}c <kat_name> = <kat_value>" {app_config_path}/postgresql.conf_kat; fi; done; fi
+    backup: |
+      cp -f {app_config_path}/postgresql.conf_kat {app_config_path}/postgresql.conf_kat_bak && echo 'The new configuration will be saved to {app_config_path}/postgresql.conf_kat. You can load it later if necessary.'
+    recover: |
+      cp -f {app_config_path}/postgresql.conf_kat_bak {app_config_path}/postgresql.conf_kat && echo 'The {app_config_path}/postgresql.conf_kat file has been restored to the initial configuration.'
+    execute_after_assign: ""
+
+# ── 部分3: 生命周期命令（内置场景预定义，复用 KAT 内部 cmd 流程）──
+# 除 run_test 外的所有命令均为预定义模板，LLM 只需替换变量，无需自行生成
+cmd:
+  set_up:
+    - cmd: |
+        if [ ! -e {app_exe_path}/vastbase ]; then echo 'The file {app_exe_path}/vastbase does not exist. Please check whether the application execution path is correct.' && exit 1; fi; if [ ! -r {app_exe_path}/vastbase ] || [ ! -x {app_exe_path}/vastbase ]; then echo 'Does not have the permission to execute {app_exe_path}/vastbase' && exit 1; fi; if [ ! -e {app_exe_path}/vsql ]; then echo 'The file {app_exe_path}/vsql does not exist.' && exit 1; fi; if [ ! -r {app_exe_path}/vsql ] || [ ! -x {app_exe_path}/vsql ]; then echo 'Does not have the permission to execute {app_exe_path}/vsql' && exit 1; fi; if [ ! -e {app_exe_path}/vb_ctl ]; then echo 'The file {app_exe_path}/vb_ctl does not exist.' && exit 1; fi; if [ ! -e {app_config_path}/postgresql.conf ]; then echo 'The file {app_config_path}/postgresql.conf does not exist.' && exit 1; fi; if [ ! -r {app_config_path}/postgresql.conf ] || [ ! -w {app_config_path} ]; then echo 'Does not have the permission to copy {app_config_path}/postgresql.conf' && exit 1; fi; if [ ! -e {app_data_path} ]; then echo '{app_data_path} is not exist. Please check whether the app_data_path is correct.' && exit 1; fi;
+      host_name: []
+    - cmd: |
+        if [ ! -e {app_config_path}/postgresql.conf_kat ]; then cp -f {app_config_path}/postgresql.conf {app_config_path}/postgresql.conf_kat; fi;
+      host_name: []
+  round_set_up:
+    - cmd: |
+        su - {vb_user} -c "{app_exe_path}/vb_ctl restart -D {app_data_path}" 2>/dev/null || {app_exe_path}/vb_ctl restart -D {app_data_path} 2>/dev/null || echo 'Failed to restart Vastbase' && exit 1;
+      host_name: []
+  run_test:
+    - cmd: |
+        if [[ $({app_exe_path}/vb_ctl -D {app_data_path} status) == *"server is running"* ]]; then {app_exe_path}/vb_ctl -D {app_data_path} -l logfile stop -m fast -t 600; fi
+      host_name: []
+    - cmd: |
+        ipcs -m | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -m $s; done  && ipcs -s | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -s $s; done && ipcs -q | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -q $s; done
+      host_name: []
+    - cmd: |
+        sync && echo 3 > /proc/sys/vm/drop_caches
+      host_name: []
+    - cmd: |
+        if [[ $({app_exe_path}/vb_ctl -D {app_data_path} status) == *"no server running"* ]]; then {app_exe_path}/vb_ctl -D {app_data_path} -l logfile start -t 600; fi
+      host_name: []
+    - cmd: |
+        sleep_time=5; time_out=600; cnt=0; while true; do if [[ $({app_exe_path}/vb_ctl -D {app_data_path} status) == *"server is running"* ]]; then echo "Vastbase started successfully."; break; else echo "Vastbase is being started."; sleep $sleep_time; cnt=$((cnt + sleep_time)); fi; if [ $cnt -ge $time_out ]; then echo "Vastbase service startup timed out"; exit 1; fi; done
+      host_name: []
+  round_tear_down:
+    - cmd: |
+        su - {vb_user} -c "{app_exe_path}/vb_ctl restart -D {app_data_path}" 2>/dev/null || {app_exe_path}/vb_ctl restart -D {app_data_path} 2>/dev/null || true;
+      host_name: []
+  tear_down:
+    - cmd: |
+        rm -f {app_config_path}/postgresql.conf_kat_bak
+      host_name: []

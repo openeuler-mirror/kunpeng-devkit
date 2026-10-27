@@ -1,0 +1,115 @@
+# Hive 应用元信息
+# 用于 KAT 模板生成 skill，定义 Hive 场景所需的变量、参数命令和生命周期命令
+app_name: Hive
+description: Apache Hive 数据仓库基础设施
+tuning_direction: "low"
+performance_info: "latency(s)"
+param_template: param_Hive_System.yaml
+native_benchmark: TPC-DS    # 原生压测工具名
+native_benchmark_extract: |  # 原生压测工具的指标提取命令（含日志累积 + 最终汇总）
+  result=$(echo "$output" | grep -i 'Time taken' | awk -F 'Time taken: ' '{print $2}' | awk -F ' seconds' '{print $1}' | awk '{sum += $1} END {print sum}'); echo "$result" >> /tmp/{test_result_log}; awk '{sum += $1} END {print sum}' /tmp/{test_result_log}
+native_benchmark_command: |
+  eval {hive_home}/bin/hive --database {hive_database} $(tr '\n' ' ' < /tmp/{param_cmd_log}) -f /tmp/{sql_dir}/{query_file}
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: hive_home
+      desc: Hive 安装路径（HIVE_HOME，hive 可执行文件所在目录的上级）
+      search_targets:
+        - hive
+      placeholder: /path/hive
+    - name: hadoop_home
+      desc: Hadoop 安装路径（HADOOP_HOME）
+      env_var: HADOOP_HOME
+      search_targets:
+        - hadoop
+      placeholder: /path/hadoop
+    - name: java_home
+      desc: Java 安装路径（JAVA_HOME）
+      env_var: JAVA_HOME
+      search_targets:
+        - java
+      placeholder: /path/java
+    - name: spark_home
+      desc: Spark 安装路径（SPARK_HOME，当 Hive 使用 Spark 引擎时需要）
+      env_var: SPARK_HOME
+      search_targets:
+        - spark-submit
+      placeholder: /path/spark
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 Hive 参数下发命令所需的变量和模板
+param_group:
+  vars:
+    - name: hive_home
+      desc: Hive 安装路径
+      reuse_from: app_framework
+  command_templates:
+    query: |
+      python3 -c "
+      import xml.etree.ElementTree as ET
+      tree = ET.parse('{hive_home}/conf/hive-site.xml_kat')
+      root = tree.getroot()
+      for prop in root.findall('property'):
+          name = prop.find('name')
+          if name is not None and name.text == '<kat_name>':
+              value = prop.find('value')
+              print(value.text if value is not None else '', end='')
+              break
+      " 2>/dev/null
+    assign: |
+      python3 -c "
+      import xml.etree.ElementTree as ET
+      tree = ET.parse('{hive_home}/conf/hive-site.xml_kat')
+      root = tree.getroot()
+      found = False
+      for prop in root.findall('property'):
+          name = prop.find('name')
+          if name is not None and name.text == '<kat_name>':
+              value = prop.find('value')
+              if value is not None:
+                  value.text = '<kat_value>'
+              found = True
+              break
+      if not found:
+          prop = ET.SubElement(root, 'property')
+          name_elem = ET.SubElement(prop, 'name')
+          name_elem.text = '<kat_name>'
+          value_elem = ET.SubElement(prop, 'value')
+          value_elem.text = '<kat_value>'
+      tree.write('{hive_home}/conf/hive-site.xml_kat', encoding='utf-8', xml_declaration=True)
+      " 2>/dev/null
+    backup: |
+      cp -f {hive_home}/conf/hive-site.xml_kat {hive_home}/conf/hive-site.xml_kat_bak && echo 'The new configuration will be saved to {hive_home}/conf/hive-site.xml_kat. You can load it later if necessary.'
+    recover: |
+      cp -f {hive_home}/conf/hive-site.xml_kat_bak {hive_home}/conf/hive-site.xml_kat && echo 'The {hive_home}/conf/hive-site.xml_kat file has been restored to the initial configuration.'
+    execute_after_assign: ""
+
+# ── 部分3: 生命周期命令（内置场景预定义，复用 KAT 内部 cmd 流程）──
+# 除 run_test 外的所有命令均为预定义模板，LLM 只需替换变量，无需自行生成
+cmd:
+  set_up:
+    - cmd: |
+        if [ ! -e {hive_home}/bin/hive ]; then echo 'The file {hive_home}/bin/hive does not exist. Please check whether hive_home is correct.' && exit 1; fi; if [ ! -r {hive_home}/bin/hive ] || [ ! -x {hive_home}/bin/hive ]; then echo 'Does not have the permission to execute {hive_home}/bin/hive' && exit 1; fi; if [ ! -e {hive_home}/conf/hive-site.xml ]; then echo 'The file {hive_home}/conf/hive-site.xml does not exist.' && exit 1; fi; if [ ! -r {hive_home}/conf/hive-site.xml ] || [ ! -w {hive_home}/conf ]; then echo 'Does not have the permission to copy {hive_home}/conf/hive-site.xml' && exit 1; fi; if [ ! -e {hadoop_home} ]; then echo '{hadoop_home} is not exist. Please check whether hadoop_home is correct.' && exit 1; fi; if [ ! -e {java_home}/bin/java ]; then echo 'Java not found at {java_home}/bin/java. Please check whether java_home is correct.' && exit 1; fi;
+      host_name: []
+    - cmd: |
+        if [ ! -e {hive_home}/conf/hive-site.xml_kat ]; then cp -f {hive_home}/conf/hive-site.xml {hive_home}/conf/hive-site.xml_kat; fi;
+      host_name: []
+  round_set_up:
+    - cmd: |
+        cp -f {hive_home}/conf/hive-site.xml_kat {hive_home}/conf/hive-site.xml;
+      host_name: []
+  run_test:
+    - cmd: |
+        [ ! -s /tmp/kat_java_params.log ] && exit 0 || echo "--hiveconf hive.tez.java.opts=\"$(tr '\n' ' ' < /tmp/kat_java_params.log)\"" >> /tmp/{param_cmd_log}
+      host_name: []
+  round_tear_down:
+    - cmd: |
+        echo 'Hive round tear down completed.'
+      host_name: []
+  tear_down:
+    - cmd: |
+        rm -f {hive_home}/conf/hive-site.xml_kat_bak
+      host_name: []

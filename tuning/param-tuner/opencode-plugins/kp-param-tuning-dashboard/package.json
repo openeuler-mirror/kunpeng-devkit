@@ -1,0 +1,25 @@
+{
+  "name": "kp-param-tuning-dashboard",
+  "version": "1.0.0",
+  "description": "OpenCode 调优过程 TUI 仪表盘插件 — 在终端展示调优曲线图与迭代数据",
+  "type": "module",
+  "scripts": {
+    "viewer": "bun run src/viewer.ts",
+    "viewer:sample": "bun run src/viewer.ts sample/tuning-data.json",
+    "test:render": "bun run src/test-render.ts",
+    "build": "bun run build.mjs",
+    "build:check": "bun run build.mjs --check",
+    "build:plugin": "bun run build.mjs --plugin",
+    "build:deploy": "bun run build.mjs --deploy",
+    "build:deploy:global": "bun run build.mjs --deploy global",
+    "build:watch": "bun run build.mjs --watch"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "latest",
+    "@opentui/solid": "latest",
+    "solid-js": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}
