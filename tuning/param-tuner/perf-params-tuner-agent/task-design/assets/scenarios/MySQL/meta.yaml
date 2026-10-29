@@ -1,0 +1,170 @@
+# MySQL 应用元信息
+# 用于 KAT 模板生成 skill，定义 MySQL 场景所需的变量、参数命令和生命周期命令
+app_name: MySQL
+description: MySQL 关系型数据库
+tuning_direction: "high"
+performance_info: "queries per second"
+param_template: param_MySQL_System.yaml
+native_benchmark: sysbench
+native_benchmark_extract: |
+  grep -iE 'transactions:.*\([0-9.]+ *per sec\.\)' | awk -F'[()]' '{print $2}' | awk '{print $1}'
+native_benchmark_command: |
+  {sysbench_path}/sysbench --db-driver=mysql --test={oltp_lua_path} --threads=32 --time=60 --oltp-tables-count=10 --oltp-table-size=1000 --mysql-db=sbtest --mysql-user={mysql_user} --mysql-host=127.0.0.1 --mysql-port={app_port} --max-requests=0 --forced-shutdown=1 run
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: app_exe_path
+      desc: MySQL 安装路径（mysqld / mysql 二进制所在目录）
+      search_targets:
+        - mysql
+        - mysqld
+        - mysqlslap
+      placeholder: /path/mysql/bin
+    - name: mysqladmin_path
+      desc: mysqladmin 二进制所在目录
+      search_targets:
+        - mysqladmin
+      placeholder: /path/mysql/bin
+    - name: app_config_path
+      desc: MySQL 配置文件路径
+      search_targets:
+        - my.cnf
+      placeholder: /etc/my.cnf
+    - name: mysql_socket
+      desc: MySQL socket 文件路径
+      placeholder: /var/lib/mysql/mysql.sock
+    - name: app_port
+      desc: MySQL 端口
+      default: "3306"
+      placeholder: "3306"
+    - name: mysql_user
+      desc: MySQL 用户名
+      default: "root"
+      placeholder: "root"
+    - name: kat_config_path
+      desc: KAT 调优使用的 cnf 副本路径
+      default: /tmp/kat_MySQL_assign_params.cnf
+      placeholder: /tmp/kat_MySQL_assign_params.cnf
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 MySQL 参数下发命令所需的变量和模板
+param_group:
+  vars:
+    - name: app_config_path
+      desc: my.cnf 所在路径
+      reuse_from: app_framework
+    - name: kat_config_path
+      desc: KAT 调优 cnf 副本路径
+      reuse_from: app_framework
+    - name: mysql_user
+      desc: MySQL 用户名
+      reuse_from: app_framework
+    - name: app_port
+      desc: MySQL 端口号
+      reuse_from: app_framework
+  command_templates:
+    query: |
+      mysql -u{mysql_user} -P{app_port} -e "SHOW VARIABLES LIKE '<kat_name>'" | tail -n1 | awk '{print $2}' | tr -d '\n'
+    assign: |
+      mysql_cnf_bak="{kat_config_path}";
+      if grep -q "^<kat_name>=" "$mysql_cnf_bak"; then
+          sed -i "s|^<kat_name>=.*|<kat_name>=<kat_value><kat_suffix>|" "$mysql_cnf_bak";
+      else
+          if grep -q "^\[mysqld\]" "$mysql_cnf_bak"; then
+              sed -i "/^\[mysqld\]/a <kat_name>=<kat_value><kat_suffix>" "$mysql_cnf_bak";
+          else
+              echo "[mysqld]" >> "$mysql_cnf_bak";
+              echo "<kat_name>=<kat_value><kat_suffix>" >> "$mysql_cnf_bak";
+          fi;
+      fi;
+    backup: |
+      /bin/cp -rfp {app_config_path} {kat_config_path}
+    recover: |
+      /bin/cp -rfp {app_config_path} {kat_config_path}
+    execute_after_assign: |
+      echo "The MySQL configuration file generated during kat tuning is stored in the {kat_config_path} on the server node where MySQL is located."
+
+# ── 部分3: 生命周期命令（内置场景预定义，复用 KAT 内部 cmd 流程）──
+# 除 run_test 末项外，其余命令均为预定义模板，LLM 只需替换变量，禁止自行生成
+cmd:
+  set_up:
+    - cmd: |
+        if pgrep -x 'mysqld' > /dev/null; then
+            {mysqladmin_path}/mysqladmin -u {mysql_user} shutdown -S {mysql_socket} || {
+                echo 'Failed to shut down MySQL using mysqladmin' >&2;
+                exit 1;
+            };
+            timeout=600;
+            while pgrep -x 'mysqld' > /dev/null; do
+                if [ $timeout -le 0 ]; then
+                    echo 'MySQL shutdown timed out after 600 seconds' >&2;
+                    exit 1;
+                fi;
+                sleep 5;
+                timeout=$(( timeout - 5 ));
+            done;
+        fi;
+        if [ "$(id -u)" -eq 0 ]; then
+            ipcs -m | awk '$2 ~ /[0-9]+/ {print $2}' | while read s; do ipcrm -m $s; done;
+            ipcs -s | awk '$2 ~ /[0-9]+/ {print $2}' | while read s; do ipcrm -s $s; done;
+            ipcs -q | awk '$2 ~ /[0-9]+/ {print $2}' | while read s; do ipcrm -q $s; done;
+        fi
+      host_name: []
+  round_set_up:
+    - cmd: |
+        /bin/cp -rfp {app_config_path} {kat_config_path}
+      host_name: []
+  run_test:
+    - cmd: |
+        if {mysqladmin_path}/mysqladmin ping -u {mysql_user} -S {mysql_socket} --silent > /dev/null 2>&1; then
+            :;
+        else
+            if [ "$(id -u)" -eq 0 ]; then
+                sync;
+                echo 3 > /proc/sys/vm/drop_caches;
+            fi;
+            {app_exe_path}/mysqld --defaults-file={kat_config_path} & sleep 2;
+            timeout=600;
+            while (( timeout > 0 )); do
+                if {mysqladmin_path}/mysqladmin ping -u {mysql_user} -S {mysql_socket} --silent > /dev/null 2>&1; then
+                    break;
+                else
+                    sleep 5;
+                    timeout=$(( timeout - 5 ));
+                fi;
+            done;
+            if (( timeout <= 0 )); then
+                echo 'MySQL startup timed out after 600 seconds' >&2;
+                exit 1;
+            fi;
+        fi
+      host_name: []
+  round_tear_down:
+    - cmd: |
+        if pgrep -x 'mysqld' > /dev/null; then
+            {mysqladmin_path}/mysqladmin -u {mysql_user} shutdown -S {mysql_socket} || {
+                echo 'Failed to shut down MySQL using mysqladmin' >&2;
+                exit 1;
+            };
+            timeout=600;
+            while pgrep -x 'mysqld' > /dev/null; do
+                if [ $timeout -le 0 ]; then
+                    echo 'MySQL shutdown timed out after 600 seconds' >&2;
+                    exit 1;
+                fi;
+                sleep 5;
+                timeout=$(( timeout - 5 ));
+            done;
+        fi;
+        if [ "$(id -u)" -eq 0 ]; then
+            ipcs -m | awk '$2 ~ /[0-9]+/ {print $2}' | while read s; do ipcrm -m $s; done;
+            ipcs -s | awk '$2 ~ /[0-9]+/ {print $2}' | while read s; do ipcrm -s $s; done;
+            ipcs -q | awk '$2 ~ /[0-9]+/ {print $2}' | while read s; do ipcrm -q $s; done;
+        fi
+      host_name: []
+  tear_down:
+    - cmd: |
+
+      host_name: []

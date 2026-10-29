@@ -1,0 +1,105 @@
+# PostgreSQL 应用元信息
+# 用于 KAT 模板生成 skill，定义 PostgreSQL 场景所需的变量、参数命令和生命周期命令
+app_name: PostgreSQL
+description: PostgreSQL 关系型数据库
+tuning_direction: "high"
+performance_info: "tpmC"
+param_template: param_PostgreSQL_System.yaml
+native_benchmark: BenchmarkSQL    # 原生压测工具名
+native_benchmark_extract: |          # 原生压测工具的指标提取命令
+  grep -i 'measured tpmc (neworders) =' | grep -oE '[0-9]+(\.[0-9]+)?' | tail -1
+native_benchmark_command: |
+  cd {benchmark_path} && ./runBenchmark.sh {config_path}
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: app_exe_path
+      desc: PostgreSQL 安装路径（pg_ctl/psql 所在目录）
+      search_targets:
+        - pgbench
+        - postgres
+        - psql
+      default: /usr/pgsql-14/bin
+      placeholder: /path/pgsql/bin
+    - name: app_config_path
+      desc: 配置目录（postgresql.conf 所在位置）
+      search_targets:
+        - postgresql.conf
+      default: /var/lib/pgsql/14/data
+      placeholder: /path/pgsql/data
+    - name: app_data_path
+      desc: 数据目录
+      default: /var/lib/pgsql/14/data
+      placeholder: /path/data
+    - name: app_port
+      desc: 端口号
+      default: "5432"
+      placeholder: "5432"
+    - name: pg_user
+      desc: 数据库用户
+      default: "postgres"
+      placeholder: "postgres"
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 PostgreSQL 参数下发命令所需的变量和模板
+param_group:
+  vars:
+    - name: app_exe_path
+      desc: psql 所在路径
+      reuse_from: app_framework
+    - name: app_config_path
+      desc: postgresql.conf 所在目录
+      reuse_from: app_framework
+    - name: app_port
+      desc: PostgreSQL 端口号
+      reuse_from: app_framework
+    - name: pg_user
+      desc: 数据库用户
+      reuse_from: app_framework
+  command_templates:
+    query: |
+      {app_exe_path}/psql -U {pg_user} -p {app_port} -t -c "SHOW <kat_name>" | tr -d ' \n'
+    assign: |
+      output=$(cat {app_config_path}/postgresql.conf_kat | grep -wn "^<kat_name>" | awk -F ":" '{print $1}'); if [ -z "$output" ]; then echo "<kat_name> = <kat_prefix><kat_value><kat_suffix>" >> {app_config_path}/postgresql.conf_kat; else line_nums=($output); for line_num in "${line_nums[@]}"; do if [ -n "$line_num" ]; then sed -i "${line_num}c <kat_name> = <kat_prefix><kat_value><kat_suffix>" {app_config_path}/postgresql.conf_kat; fi; done; fi
+    backup: |
+      cp -f {app_config_path}/postgresql.conf {app_config_path}/postgresql.conf_kat && chown {pg_user}:{pg_user} {app_config_path}/postgresql.conf_kat
+    recover: |
+      cp -f {app_config_path}/postgresql.conf {app_config_path}/postgresql.conf_kat && chown {pg_user}:{pg_user} {app_config_path}/postgresql.conf_kat && echo 'The {app_config_path}/postgresql.conf_kat file has been restored to the initial configuration.'
+    execute_after_assign: |
+      echo 'Parameters have been assigned to {app_config_path}/postgresql.conf_kat:' && grep -vE '^\s*(#|$)' {app_config_path}/postgresql.conf_kat | sed 's/^/  /'
+
+# ── 部分3: 生命周期命令（内置场景预定义，复用 KAT 内部 cmd 流程）──
+# 除 run_test 外的所有命令均为预定义模板，LLM 只需替换变量，无需自行生成
+cmd:
+  set_up:
+    # 权限校验：检查 pg_ctl/psql 可执行、postgresql.conf 可读写、数据目录存在
+    # 不在此处 cp conf_kat；backup_cmd 会在 set_up 后仅执行 1 次创建首份 conf_kat，之后每轮由 round_set_up 覆盖
+    - cmd: |
+        if [ ! -e {app_exe_path}/pg_ctl ]; then echo 'The file {app_exe_path}/pg_ctl does not exist. Please check whether the application execution path is correct.' && exit 1; fi; if [ ! -r {app_exe_path}/pg_ctl ] || [ ! -x {app_exe_path}/pg_ctl ]; then echo 'Does not have the permission to execute {app_exe_path}/pg_ctl' && exit 1; fi; if [ ! -e {app_exe_path}/psql ]; then echo 'The file {app_exe_path}/psql does not exist.' && exit 1; fi; if [ ! -r {app_exe_path}/psql ] || [ ! -x {app_exe_path}/psql ]; then echo 'Does not have the permission to execute {app_exe_path}/psql' && exit 1; fi; if [ ! -e {app_config_path}/postgresql.conf ]; then echo 'The file {app_config_path}/postgresql.conf does not exist.' && exit 1; fi; if [ ! -r {app_config_path}/postgresql.conf ] || [ ! -w {app_config_path} ]; then echo 'Does not have the permission to copy {app_config_path}/postgresql.conf' && exit 1; fi; if [ ! -e {app_data_path} ]; then echo '{app_data_path} is not exist. Please check whether the app_data_path is correct.' && exit 1; fi;
+      host_name: []
+  round_set_up:
+    # 每轮开始：停止上轮残留的 PG + cp 干净副本覆盖 conf_kat 供本轮 assign_cmd 写入
+    # 不在此处启动 PG，因为参数尚未下发，启动需在 run_test 中进行
+    # 注意：pg_ctl 不允许 root 运行，需切换到 pg_user；chown 确保 conf_kat 归 pg_user 所有
+    - cmd: |
+        su - {pg_user} -c "{app_exe_path}/pg_ctl -D {app_data_path} stop -m fast" 2>/dev/null; sleep 2; cp -f {app_config_path}/postgresql.conf {app_config_path}/postgresql.conf_kat && chown {pg_user}:{pg_user} {app_config_path}/postgresql.conf_kat
+      host_name: []
+  run_test:
+    # 前置：清理共享内存/信号量残留 + drop_caches，为 PG 启动准备干净环境（需 root 执行）
+    - cmd: |
+        ipcs -m | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -m $s; done  && ipcs -s | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -s $s; done && ipcs -q | awk '$2 ~/[0-9]+/ {print $2}' | while read s; do ipcrm -q $s; done && sync && echo 3 > /proc/sys/vm/drop_caches
+      host_name: []
+    # 启动 PG：指定 conf_kat 让本轮下发参数生效；-w 阻塞等待启动完成，-t 600 为启动超时
+    # 注意：pg_ctl 不允许 root 运行，需切换到 pg_user
+    - cmd: |
+        su - {pg_user} -c "{app_exe_path}/pg_ctl -D {app_data_path} -l /tmp/pg_kat.log -o \"-c config_file={app_config_path}/postgresql.conf_kat -p {app_port}\" -w -t 600 start"
+      host_name: []
+    # 末项：BenchmarkSQL 压测 + 指标提取（由 LLM 通过包装器模板组装）
+  round_tear_down:
+    # 每轮结束停止 PG，为下轮腾出资源（下轮 backup_cmd 会重新 cp 覆盖 conf_kat）
+    - cmd: |
+        su - {pg_user} -c "{app_exe_path}/pg_ctl -D {app_data_path} stop -m fast"
+      host_name: []
+  tear_down: []

@@ -1,0 +1,29 @@
+System:
+  params:
+    - name: "kernel.sched_latency_ns"  # 参数名称
+      # 参数类型 immutable|uniform_int|uniform_float|categorical
+      # 说明 immutable 固定值 uniform_int 整数范围 uniform_float 浮点数范围 categorical 分类值
+      ptype: "immutable"
+      # 最大值 仅对 uniform_int | uniform_float 生效
+      # 说明 最大值，包含在范围内
+      upper: 24000000
+      # 最小值 仅对 uniform_int | uniform_float 生效
+      # 说明 最小值，包含在范围内
+      lower: 500000
+      # 建议值
+      suggestion: ""
+      # 可选值 仅对 categorical 生效
+      # 说明 可选值，包含在范围内，多个值用数组格式表示
+      # 当 ptype 为 categorical 时，choices 不能为空数组，且每个元素为字符串类型
+      # 当 ptype 为 immutable 时，choices 单个数组元素，且为字符串类型
+      # 其他类型 choices 为空数组[]
+      choices: 
+        - "0"
+      # 是否启用
+      enable: True
+      # 默认值
+      default: ""
+      # 版本范围
+      version:
+        - - "4.0"
+          - "5.12"

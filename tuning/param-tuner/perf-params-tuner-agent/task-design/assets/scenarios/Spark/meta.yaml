@@ -1,0 +1,77 @@
+# Spark 应用元信息
+# 用于 KAT 模板生成 skill，定义 Spark 场景所需的变量、参数命令和生命周期命令
+app_name: Spark
+description: Apache Spark 统一数据分析引擎
+tuning_direction: "low"
+performance_info: "latency(s)"
+param_template: param_Spark_System.yaml
+native_benchmark: TPC-DS    # 原生压测工具名
+native_benchmark_extract: |
+  grep -i 'Time taken' | awk -F 'Time taken: ' '{print $2}' | awk -F ' seconds' '{print $1}' 
+native_benchmark_command: |
+  {spark_home}/bin/spark-sql --master {master} --deploy-mode client --database {database_name} -f {sql_file} 2>&1
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: spark_home
+      desc: Spark 安装路径（SPARK_HOME，spark-sql、spark-submit 所在目录的上级）
+      search_targets:
+        - spark-submit
+        - spark-sql
+      placeholder: /path/spark
+    - name: master
+      desc: Spark 集群 master 地址（如 yarn 或 spark://host:7077）
+      default: yarn
+    - name: database_name
+      type: string
+      desc: TPC-DS 压测数据库名称（spark-sql --database 参数）
+      default: ""
+    - name: sql_file
+      type: path
+      desc: TPC-DS SQL 脚本绝对路径
+      default: ""
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 Spark 参数下发命令所需的变量和模板
+param_group:
+  vars:
+    - name: spark_home
+      desc: Spark 安装路径
+      reuse_from: app_framework
+  command_templates:
+    # 设计说明：
+    #   conf/spark-defaults.conf       = 工作副本（被参数下发、JVM 注入、Spark 启动时直接读取）
+    #   conf/spark-defaults.conf_kat  = 原始配置的备份（保留用户提供的初始内容，用于每轮重置和最终还原）
+    query: |
+      awk -v key="<kat_name>" '($1==key && $2 !~ /^<value/) {print $2}' /tmp/spark_params.txt | tr -d '\n'
+    assign: |
+      output=$(cat {spark_home}/conf/spark-defaults.conf | grep -wn "^<kat_name>" | awk -F ":" '{print $1}'); if [ -z "$output" ]; then echo "<kat_name> <kat_value><kat_suffix>" >> {spark_home}/conf/spark-defaults.conf; else line_nums=($output); for line_num in "${line_nums[@]}"; do if [ -n "$line_num" ]; then sed -i "${line_num}c <kat_name> <kat_value><kat_suffix>" {spark_home}/conf/spark-defaults.conf; fi; done; fi
+    backup: |
+      cp -f {spark_home}/conf/spark-defaults.conf {spark_home}/conf/spark-defaults.conf_kat && echo 'The original configuration has been backed up to {spark_home}/conf/spark-defaults.conf_kat.'
+    recover: |
+      cp -f {spark_home}/conf/spark-defaults.conf_kat {spark_home}/conf/spark-defaults.conf && echo 'The {spark_home}/conf/spark-defaults.conf has been restored from the backup (conf_kat).'
+    execute_after_assign: |
+      if grep -q 'spark.memory.offHeap.size' {spark_home}/conf/spark-defaults.conf && grep -q 'spark.memory.offHeap.enabled' {spark_home}/conf/spark-defaults.conf; then size_value=$(grep -E '^\s*spark.memory.offHeap.size\s+' {spark_home}/conf/spark-defaults.conf | awk '{print $2}' | grep -oE '[0-9]+'); if [ -z "$size_value" ]; then echo 'Can not find value number in knob spark.memory.offHeap.size'; exit 1; elif [ "$size_value" -eq 0 ]; then sed -i 's/^spark.memory.offHeap.enabled\s\+[a-zA-Z]*/spark.memory.offHeap.enabled false/' {spark_home}/conf/spark-defaults.conf; fi; fi; echo "Current configuration in spark-defaults.conf:" && grep -vE '^\s*(#|$)' {spark_home}/conf/spark-defaults.conf | sed 's/^/  /'
+
+cmd:
+  set_up:
+    # 资源准备：获取 Spark 默认参数（spark-sql -e "SET -v"）；SQL 脚本由 native_benchmark_command 直接从 kat_workload_dir 读取，无需中转
+    - cmd: |
+        {spark_home}/bin/spark-sql -e "SET -v" > /tmp/spark_params.txt 2>/dev/null
+      host_name: []
+  round_set_up:
+    # 每轮开头：从 conf_kat（原始备份）恢复 conf 为干净工作副本
+    - cmd: |
+        cp -f {spark_home}/conf/spark-defaults.conf_kat {spark_home}/conf/spark-defaults.conf
+      host_name: []
+  run_test:
+    # 前置：JVM 参数注入到 conf（作为 spark.executor.extraJavaOptions）
+    # 若 /tmp/kat_java_params.log 为空则跳过；否则把 JVM 参数拼为 spark.executor.extraJavaOptions 追加到 conf
+    - cmd: |
+        if [ -s /tmp/kat_java_params.log ]; then jvm_opts=$(tr '\n' ' ' < /tmp/kat_java_params.log); if grep -q '^spark.executor.extraJavaOptions' {spark_home}/conf/spark-defaults.conf; then sed -i "s|^spark.executor.extraJavaOptions\s\+.*|spark.executor.extraJavaOptions $jvm_opts|" {spark_home}/conf/spark-defaults.conf; else echo "spark.executor.extraJavaOptions $jvm_opts" >> {spark_home}/conf/spark-defaults.conf; fi; fi
+      host_name: []
+    # 末项：spark-sql 单条 SQL 压测 + 指标提取（由 LLM 通过包装器模板组装）
+  round_tear_down: []
+  tear_down: []

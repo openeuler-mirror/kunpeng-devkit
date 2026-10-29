@@ -1,0 +1,140 @@
+# 本文件是用于使用鲲鹏自动调优工具对应用进行调优的任务模板文件
+template_type:
+    "custom"
+# [可选修改]服务器的列表，默认为空则是在本机执行
+hosts_list:
+    -
+        # [可选修改]服务器的别名，用于在后续的host_name中进行服务器的指定。为空默认为本机
+        name:
+            ""
+        # [可选修改]服务器的ip地址
+        ip:
+            ""
+        # [可选修改]在使用ssh进行远程服务器连接时，所使用的用户名
+        username:
+            ""
+        # [可选修改]在使用ssh进行远程服务器连接时，所使用的端口号
+        port:
+            "22"
+configs:
+    # [可选修改]总的调优轮次，根据所使能参数空间进行调整，推荐尽可能调大
+    rounds:
+        50
+    # [可选修改]最大连续失败次数，当连续失败次数到达此设定值时会自动停止调优
+    maximum_consecutive_failures:
+        10
+    # [不可修改]调优算法，目前仅支持HPO算法
+    algorithm:
+        "HPO"
+    # [可选修改]随机轮次在总轮次中占比，rounds * random_initial_ratio则得到随机轮次数目。如果希望有更多的寻优轮次可调低此参数
+    random_initial_ratio:
+        0.5
+    performance_info:
+        ""
+    tuning_direction:
+        "high"
+# [可选修改]将参数中的enable设置为True表明会调优该部分参数
+assign_params:
+    -
+        # [不可修改]数组的名称，分为应用参数（应用名）、系统参数（System）与微架构（uarch）参数
+        name:
+            "Custom"
+        enable:
+            True
+        # 查询参数初始值的命令，获取后用于在后续的使用中进行展示。
+        query_cmd:
+            -
+                cmd:
+                    ""
+                host_name:
+                    []
+        # 下发参数的命令，用于训练时将算法给出的参数值进行下发，使得应用在新参数下进行基准测试
+        assign_cmd:
+            -
+                cmd:
+                    ""
+                host_name:
+                    []
+        # 备份命令，用于在use的使用场景下对原始的参数进行备份。
+        backup_cmd:
+            -
+                cmd:
+                    ""
+                host_name:
+                    []
+        # 恢复命令，用于退出use时对之前备份的参数进行恢复。
+        recover_cmd:
+            -
+                cmd:
+                    ""
+                host_name:
+                    []
+        # 所有参数下发完成后，仍需要执行的命令：因为下发命令为循环执行，若有需要在下发后处理的命令，请维护此字段
+        execute_after_assign:
+            -
+                cmd:
+                    ""
+                host_name:
+                    []
+        vars:
+            -
+                name:
+                    ""
+                partition:
+                    ""
+                separator:
+                    ""
+    -
+        # [不可修改]数组的名称，分为应用参数（应用名）、系统参数（System）与微架构（uarch）参数
+        name:
+            "System"
+        enable:
+            True
+        # [可选修改]与hosts_list中的name对应，用于指定下发参数的服务器。为空默认为本机
+        host_name:
+            ""
+    -
+        # [不可修改]数组的名称，分为应用参数（应用名）、系统参数（System）与微架构（uarch）参数
+        name:
+            "Kunpeng uarch"
+        enable:
+            False
+        # [可选修改]与hosts_list中的name对应，用于指定下发参数的服务器。为空默认为本机
+        host_name:
+            ""
+# 初始启动命令
+set_up:
+    -
+        cmd:
+            ""
+        host_name:
+            []
+# 每轮训练时的启动命令，用于启动应用准备进行基准测试。
+round_set_up:
+    -
+        cmd:
+            ""
+        host_name:
+            []
+# 每轮训练时测试命令，用于对应用进行基准测试以获取测试结果。该命令的回显需要为一浮点数
+run_test:
+    -
+        cmd:
+            ""
+        host_name:
+            -
+                ""
+# 每轮训练后的清理动作，用于在单轮测试结束后恢复环境。
+round_tear_down:
+    -
+        cmd:
+            ""
+        host_name:
+            []
+# 完整流程结束后的清理动作，用于在所有训练结束后恢复环境与原始参数。
+tear_down:
+    -
+        cmd:
+            ""
+        host_name:
+            []

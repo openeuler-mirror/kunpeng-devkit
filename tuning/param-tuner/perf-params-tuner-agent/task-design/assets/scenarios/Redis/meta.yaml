@@ -1,0 +1,88 @@
+# Redis 应用元信息
+# 用于 任务模板生成 skill，定义 Redis 场景所需的变量、参数命令和生命周期命令
+app_name: Redis
+description: Redis 内存数据库
+tuning_direction: "high"
+performance_info: "requests per second"
+native_benchmark: redis-benchmark    # 原生压测工具名
+native_benchmark_extract: |          # 原生压测工具的指标提取命令
+  grep -oP '\d+\.\d+(?=\s+requests per second)' | awk '{sum += $1} END {print sum}'
+native_benchmark_command: |
+  {app_exe_path}/redis-benchmark -p {app_port} -c 50 -n 100000 -t set,get -q
+
+# ── 部分1: 应用执行框架（内置场景时使用）──
+# 定义内置场景需要收集的变量，用于填充 cmd 模板
+app_framework:
+  vars:
+    - name: app_exe_path
+      desc: Redis 安装路径（redis-server/redis-cli/redis-benchmark 所在目录）
+      search_targets:
+        - redis-server
+        - redis-cli
+        - redis-benchmark
+      placeholder: /path/redis/bin
+    - name: app_config_path
+      desc: Redis 配置文件所在目录（redis.conf 所在位置）
+      search_targets:
+        - redis.conf
+      placeholder: /path/redis
+    - name: app_data_path
+      desc: Redis 数据文件目录
+      default: /tmp/redis-data
+      placeholder: /path/data
+    - name: app_port
+      desc: Redis 端口号
+      default: "6379"
+      placeholder: "6379"
+
+# ── 部分2: 应用参数组（任何场景均可使用）──
+# 定义 Redis 参数下发命令所需的变量和模板
+param_group:
+  vars:
+    - name: app_exe_path
+      desc: redis-cli 所在路径
+      reuse_from: app_framework
+    - name: app_config_path
+      desc: redis.conf 所在目录
+      reuse_from: app_framework
+    - name: app_port
+      desc: Redis 端口号
+      reuse_from: app_framework
+  command_templates:
+    query: |
+      {app_exe_path}/redis-cli -p {app_port} CONFIG GET <kat_name> | tail -n1 | tr -d '\n'
+    assign: |
+      output=$(cat {app_config_path}/redis.conf_kat | grep -wn "^<kat_name>"| grep -vE '^[0-9]+:#' | awk -F ":" '{print $1}'); if [ -z "$output" ]; then echo "<kat_name> <kat_value>" >> {app_config_path}/redis.conf_kat; else line_nums=($output); for line_num in "${line_nums[@]}"; do if [ -n "$line_num" ]; then sed -i "${line_num}c <kat_name> <kat_value>" {app_config_path}/redis.conf_kat; fi; done; fi
+    backup: |
+      cp -f {app_config_path}/redis.conf_kat {app_config_path}/redis.conf_kat_bak && echo 'The new configuration will be saved to {app_config_path}/redis.conf_kat. You can load it later if necessary.'
+    recover: |
+      cp -f {app_config_path}/redis.conf_kat_bak {app_config_path}/redis.conf_kat && echo 'The {app_config_path}/redis.conf_kat file has been restored to the initial configuration.'
+    execute_after_assign: ""
+
+# ── 部分3: 生命周期命令（内置场景预定义，复用 KAT 内部 cmd 流程）──
+# 所有命令均为预定义模板，LLM 只需替换变量，无需自行生成
+# run_test 中定义前置命令（如应用启动），压测命令+指标提取作为末项由 LLM 在 Step D 中拼接
+cmd:
+  set_up:
+    - cmd: |
+        if [ ! -e {app_exe_path}/redis-server ]; then echo 'The file {app_exe_path}/redis-server does not exist. Please check whether the application execution path is correct.' && exit 1; fi; if [ ! -r {app_exe_path}/redis-server ] || [ ! -x {app_exe_path}/redis-server ]; then echo 'Does not have the permission to execute {app_exe_path}/redis-server' && exit 1; fi; if [ ! -e {app_exe_path}/redis-cli ]; then echo 'The file {app_exe_path}/redis-cli does not exist.' && exit 1; fi; if [ ! -r {app_exe_path}/redis-cli ] || [ ! -x {app_exe_path}/redis-cli ]; then echo 'Does not have the permission to execute {app_exe_path}/redis-cli' && exit 1; fi; if [ ! -e {app_config_path}/redis.conf ]; then echo 'The file {app_config_path}/redis.conf does not exist.' && exit 1; fi; if [ ! -r {app_config_path}/redis.conf ] || [ ! -w {app_config_path} ]; then echo 'Does not have the permission to copy {app_config_path}/redis.conf' && exit 1; fi; if [ ! -e {app_data_path} ]; then echo '{app_data_path} is not exist. Please check whether the app_data_path is correct.' && exit 1; fi;
+      host_name: []
+    - cmd: |
+        if [ ! -e {app_config_path}/redis.conf_kat ]; then cp -f {app_config_path}/redis.conf {app_config_path}/redis.conf_kat; fi;
+      host_name: []
+  round_set_up:
+    - cmd: |
+        if [[ "$( {app_exe_path}/redis-cli -p {app_port} ping | tr -d '\n' )" == "PONG" ]]; then {app_exe_path}/redis-cli -p {app_port} shutdown; fi
+      host_name: []
+  run_test:
+    - cmd: |
+        {app_exe_path}/redis-server {app_config_path}/redis.conf_kat --dir {app_data_path} --port {app_port} --daemonize yes
+      host_name: []
+  round_tear_down:
+    - cmd: |
+        if [[ "$( {app_exe_path}/redis-cli -p {app_port} ping | tr -d '\n' )" == "PONG" ]]; then {app_exe_path}/redis-cli -p {app_port} shutdown; fi
+      host_name: []
+  tear_down:
+    - cmd: |
+        rm -f {app_config_path}/redis.conf_kat_bak
+      host_name: []

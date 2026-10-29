@@ -1,0 +1,25 @@
+{
+    // ==================== 应用基本信息 ====================
+    "application": {
+        // 应用名称
+        "name": "string",
+        // 应用版本, 需要细化到开源版本中最小粒度。
+        // 禁止输入6.X等版本号，当需要收集用户输入时，给出当前LTS版本供用户选择，其他通过用户输入。
+        "version": "string",
+        "deployment": {
+            // 部署模式：standalone / cluster / active-active / active-standby
+            "mode": "string",
+            // 节点数量
+            "nodeCount": "string"
+        }
+    },
+    // ==================== 应用场景信息 ====================
+    "scenario": {
+        // 应用场景名称
+        // 如数据库 OLTP(在线事务处理) / OLAP(在线分析查询处理) / RT(实时数据) 等
+        // Spark 应用场景 Batch / Streaming / SQL / MLlib / GraphX / Spark SQL / Spark Streaming / Spark SQL / Spark GraphX / Spark MLlib
+        "name": "string",
+        // 应用场景描述, 用户输入的调优场景进行提炼
+        "description": "string"
+    }
+}

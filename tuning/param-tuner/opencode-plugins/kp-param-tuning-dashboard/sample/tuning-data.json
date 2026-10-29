@@ -1,0 +1,273 @@
+{
+  "task": "Kunpeng PostgreSQL Parameter Tuning",
+  "status": "running",
+  "startTime": "2026-08-27T10:00:00Z",
+  "totalRounds": 10,
+  "currentRound": 8,
+  "bestRound": 5,
+  "bestScore": 95.8,
+  "baseScore": 72.3,
+  "iterations": [
+    {
+      "round": 1,
+      "score": 72.3,
+      "improvement": 0.0,
+      "params": { "shared_buffers": "2GB", "work_mem": "64MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 8500, "latency_ms": 12.5, "cpu_usage": 45, "memory_usage": 60 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:05:00Z"
+    },
+    {
+      "round": 2,
+      "score": 78.1,
+      "improvement": 5.8,
+      "params": { "shared_buffers": "4GB", "work_mem": "128MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 9200, "latency_ms": 11.2, "cpu_usage": 52, "memory_usage": 65 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:10:00Z"
+    },
+    {
+      "round": 3,
+      "score": 82.5,
+      "improvement": 4.4,
+      "params": { "shared_buffers": "4GB", "work_mem": "128MB", "wal_buffers": "32MB", "max_connections": "150" },
+      "metrics": { "tps": 9800, "latency_ms": 10.5, "cpu_usage": 55, "memory_usage": 68 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:15:00Z"
+    },
+    {
+      "round": 4,
+      "score": 88.0,
+      "improvement": 5.5,
+      "params": { "shared_buffers": "6GB", "work_mem": "256MB", "wal_buffers": "32MB", "max_connections": "150" },
+      "metrics": { "tps": 10500, "latency_ms": 9.8, "cpu_usage": 58, "memory_usage": 72 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:20:00Z"
+    },
+    {
+      "round": 5,
+      "score": 95.8,
+      "improvement": 7.8,
+      "params": { "shared_buffers": "8GB", "work_mem": "256MB", "wal_buffers": "64MB", "max_connections": "200" },
+      "metrics": { "tps": 12500, "latency_ms": 8.1, "cpu_usage": 62, "memory_usage": 78 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:25:00Z"
+    },
+    {
+      "round": 6,
+      "score": 93.2,
+      "improvement": -2.6,
+      "params": { "shared_buffers": "8GB", "work_mem": "512MB", "wal_buffers": "64MB", "max_connections": "200" },
+      "metrics": { "tps": 11800, "latency_ms": 8.9, "cpu_usage": 70, "memory_usage": 85 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:30:00Z"
+    },
+    {
+      "round": 7,
+      "score": 91.5,
+      "improvement": -1.7,
+      "params": { "shared_buffers": "8GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 11200, "latency_ms": 9.5, "cpu_usage": 75, "memory_usage": 88 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:35:00Z"
+    },
+    {
+      "round": 8,
+      "score": 89.7,
+      "improvement": -1.8,
+      "params": { "shared_buffers": "10GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 10800, "latency_ms": 10.2, "cpu_usage": 80, "memory_usage": 92 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:40:00Z"
+    },
+    {
+      "round": 9,
+      "score": 89.7,
+      "improvement": -1.8,
+      "params": { "shared_buffers": "10GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 10800, "latency_ms": 10.2, "cpu_usage": 80, "memory_usage": 92 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:40:00Z"
+    },
+    {
+      "round": 10,
+      "score": 72.3,
+      "improvement": 0.0,
+      "params": { "shared_buffers": "2GB", "work_mem": "64MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 8500, "latency_ms": 12.5, "cpu_usage": 45, "memory_usage": 60 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:05:00Z"
+    },
+    {
+      "round": 11,
+      "score": 72.3,
+      "improvement": 0.0,
+      "params": { "shared_buffers": "2GB", "work_mem": "64MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 8500, "latency_ms": 12.5, "cpu_usage": 45, "memory_usage": 60 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:05:00Z"
+    },
+    {
+      "round": 12,
+      "score": 78.1,
+      "improvement": 5.8,
+      "params": { "shared_buffers": "4GB", "work_mem": "128MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 9200, "latency_ms": 11.2, "cpu_usage": 52, "memory_usage": 65 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:10:00Z"
+    },
+    {
+      "round": 13,
+      "score": 82.5,
+      "improvement": 4.4,
+      "params": { "shared_buffers": "4GB", "work_mem": "128MB", "wal_buffers": "32MB", "max_connections": "150" },
+      "metrics": { "tps": 9800, "latency_ms": 10.5, "cpu_usage": 55, "memory_usage": 68 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:15:00Z"
+    },
+    {
+      "round": 14,
+      "score": 88.0,
+      "improvement": 5.5,
+      "params": { "shared_buffers": "6GB", "work_mem": "256MB", "wal_buffers": "32MB", "max_connections": "150" },
+      "metrics": { "tps": 10500, "latency_ms": 9.8, "cpu_usage": 58, "memory_usage": 72 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:20:00Z"
+    },
+    {
+      "round": 15,
+      "score": 95.8,
+      "improvement": 7.8,
+      "params": { "shared_buffers": "8GB", "work_mem": "256MB", "wal_buffers": "64MB", "max_connections": "200" },
+      "metrics": { "tps": 12500, "latency_ms": 8.1, "cpu_usage": 62, "memory_usage": 78 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:25:00Z"
+    },
+    {
+      "round": 16,
+      "score": 93.2,
+      "improvement": -2.6,
+      "params": { "shared_buffers": "8GB", "work_mem": "512MB", "wal_buffers": "64MB", "max_connections": "200" },
+      "metrics": { "tps": 11800, "latency_ms": 8.9, "cpu_usage": 70, "memory_usage": 85 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:30:00Z"
+    },
+    {
+      "round": 17,
+      "score": 91.5,
+      "improvement": -1.7,
+      "params": { "shared_buffers": "8GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 11200, "latency_ms": 9.5, "cpu_usage": 75, "memory_usage": 88 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:35:00Z"
+    },
+    {
+      "round": 18,
+      "score": 89.7,
+      "improvement": -1.8,
+      "params": { "shared_buffers": "10GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 10800, "latency_ms": 10.2, "cpu_usage": 80, "memory_usage": 92 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:40:00Z"
+    },
+    {
+      "round": 19,
+      "score": 89.7,
+      "improvement": -1.8,
+      "params": { "shared_buffers": "10GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 10800, "latency_ms": 10.2, "cpu_usage": 80, "memory_usage": 92 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:40:00Z"
+    },
+    {
+      "round": 20,
+      "score": 72.3,
+      "improvement": 0.0,
+      "params": { "shared_buffers": "2GB", "work_mem": "64MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 8500, "latency_ms": 12.5, "cpu_usage": 45, "memory_usage": 60 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:05:00Z"
+    },
+    {
+      "round": 21,
+      "score": 72.3,
+      "improvement": 0.0,
+      "params": { "shared_buffers": "2GB", "work_mem": "64MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 8500, "latency_ms": 12.5, "cpu_usage": 45, "memory_usage": 60 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:05:00Z"
+    },
+    {
+      "round": 22,
+      "score": 78.1,
+      "improvement": 5.8,
+      "params": { "shared_buffers": "4GB", "work_mem": "128MB", "wal_buffers": "16MB", "max_connections": "100" },
+      "metrics": { "tps": 9200, "latency_ms": 11.2, "cpu_usage": 52, "memory_usage": 65 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:10:00Z"
+    },
+    {
+      "round": 23,
+      "score": 82.5,
+      "improvement": 4.4,
+      "params": { "shared_buffers": "4GB", "work_mem": "128MB", "wal_buffers": "32MB", "max_connections": "150" },
+      "metrics": { "tps": 9800, "latency_ms": 10.5, "cpu_usage": 55, "memory_usage": 68 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:15:00Z"
+    },
+    {
+      "round": 24,
+      "score": 88.0,
+      "improvement": 5.5,
+      "params": { "shared_buffers": "6GB", "work_mem": "256MB", "wal_buffers": "32MB", "max_connections": "150" },
+      "metrics": { "tps": 10500, "latency_ms": 9.8, "cpu_usage": 58, "memory_usage": 72 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:20:00Z"
+    },
+    {
+      "round": 25,
+      "score": 95.8,
+      "improvement": 7.8,
+      "params": { "shared_buffers": "8GB", "work_mem": "256MB", "wal_buffers": "64MB", "max_connections": "200" },
+      "metrics": { "tps": 12500, "latency_ms": 8.1, "cpu_usage": 62, "memory_usage": 78 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:25:00Z"
+    },
+    {
+      "round": 26,
+      "score": 93.2,
+      "improvement": -2.6,
+      "params": { "shared_buffers": "8GB", "work_mem": "512MB", "wal_buffers": "64MB", "max_connections": "200" },
+      "metrics": { "tps": 11800, "latency_ms": 8.9, "cpu_usage": 70, "memory_usage": 85 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:30:00Z"
+    },
+    {
+      "round": 27,
+      "score": 91.5,
+      "improvement": -1.7,
+      "params": { "shared_buffers": "8GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 11200, "latency_ms": 9.5, "cpu_usage": 75, "memory_usage": 88 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:35:00Z"
+    },
+    {
+      "round": 28,
+      "score": 89.7,
+      "improvement": -1.8,
+      "params": { "shared_buffers": "10GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 10800, "latency_ms": 10.2, "cpu_usage": 80, "memory_usage": 92 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:40:00Z"
+    },
+    {
+      "round": 29,
+      "score": 89.7,
+      "improvement": -1.8,
+      "params": { "shared_buffers": "10GB", "work_mem": "512MB", "wal_buffers": "128MB", "max_connections": "250" },
+      "metrics": { "tps": 10800, "latency_ms": 10.2, "cpu_usage": 80, "memory_usage": 92 },
+      "status": "completed",
+      "timestamp": "2026-08-27T10:40:00Z"
+    }
+  ]
+}

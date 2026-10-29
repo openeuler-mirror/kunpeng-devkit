@@ -1,0 +1,52 @@
+
+			{
+				// IPv4 地址
+				"ip": "{{ip}}",
+				// 节点角色：master（主节点）/ slave（备节点）/ worker（工作节点）/ proxy（代理节点）
+				"role": "{{role}}",
+				"hardware": {
+					"cpu": {
+						// CPU 架构类型：x86_64 / arm64 / aarch64 / ppc64le
+						"architecture": "{{architecture}}",
+						// 物理核心数（非超线程逻辑核）
+						"cores": "{{cores}}",
+						// 每核心超线程数，通常为 1 或 2
+						"threadsPerCore": "{{threadsPerCore}}",
+						// CPU 主频，单位 MHz
+						"frequencyMHz": "{{frequencyMHz}}",
+						// 各级缓存容量
+						"cache": {
+							"l1dKB": "{{l1dKB}}",	// L1 数据缓存，单位 KB
+							"l1iKB": "{{l1iKB}}",	// L1 指令缓存，单位 KB
+							"l2KB": "{{l2KB}}",	// L2 缓存，单位 KB
+							"l3MB": "{{l3MB}}"	// L3 缓存，单位 MB
+						}
+					},
+					"memory": {
+						"totalGB": "{{totalGB}}",	// 物理内存总容量，单位 GB
+						"type": "{{memType}}"	// 内存类型：DDR4 / DDR5 / LPDDR4 / HBM
+					},
+					"storage": [
+							{{storageItems}}
+					],
+					"network": {
+						// 网络接口列表
+						"interfaces": [
+							{{networkInterfaces}}
+						],
+						// 网络总带宽，单位 Mbps（主链路带宽）
+						"bandwidthMbps": "{{bandwidthMbps}}",
+						// 网络平均延迟，单位 ms（集群内部）
+						"latencyMs": "{{latencyMs}}"	
+					}
+				},
+				"system": {
+					"os": {
+						"name": "{{osName}}", //  操作系统发行版名称,如 "Ubuntu", "CentOS", "OpenEuler"
+						"version": "{{osVersion}}",	// 发行版版本号
+						"kernel": "{{kernel}}"	// 内核版本，如5.15.0-91-generic
+					},
+					"containerRuntime": "{{containerRuntime}}",	// 容器运行时 e.g., "docker", "containerd" // docker / containerd / cri-o / 空表示无容器
+					"orchestrator": "{{orchestrator}}"	// 容器场景 e.g., // kubernetes / swarm / nomad / 空表示无编排
+				}
+			}

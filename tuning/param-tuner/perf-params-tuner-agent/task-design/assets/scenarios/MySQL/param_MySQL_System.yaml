@@ -1,0 +1,5103 @@
+# 本文件是用于使用鲲鹏自动调优工具对应用进行调优的参数模板文件
+MySQL:
+    params:
+        - name: "innodb_adaptive_flushing_lwm"
+          ptype: "uniform_int"
+          upper: 70
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          des: "Defines the low water mark representing percentage of redo log capacity at which adaptive flushing is enabled."
+        - name: "innodb_adaptive_max_sleep_delay"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_max_dirty_pages_pct_lwm"
+          ptype: "uniform_int"
+          upper: 99
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          des: "Defines a low water mark representing the percentage of dirty pages at which preflushing is enabled to control the dirty page ratio. A value of 0 disables the pre-flushing behavior entirely. "
+        - name: "thread_cache_size"
+          ptype: "uniform_int"
+          upper: 16384
+          lower: 2000
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          des: "default -1,def func: 8 + (max_connections / 100)"
+        - name: "innodb_io_capacity_max"
+          ptype: "uniform_int"
+          upper: 160000
+          lower: 10000
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_io_capacity"
+          ptype: "uniform_int"
+          upper: 160000
+          lower: 28000
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_flushing_avg_loops"
+          ptype: "uniform_int"
+          upper: 60
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_sync_spin_loops"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          des: "The number of times a thread waits for an InnoDB mutex to be freed before the thread is suspended."
+        - name: "innodb_spin_wait_delay"
+          ptype: "uniform_int"
+          upper: 50
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_spin_wait_pause_multiplier"
+          ptype: "uniform_int"
+          upper: 50
+          lower: 5
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "8.0.16"
+                - "8.0.28"
+              - - "8.0.30"
+                - "8.0.34"
+        - name: "query_alloc_block_size"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "4096"
+              - "5120"
+              - "6144"
+              - "7168"
+              - "8192"
+              - "9216"
+              - "10240"
+              - "11264"
+              - "12288"
+              - "13312"
+              - "14336"
+              - "15360"
+              - "16384"
+              - "17408"
+              - "18432"
+              - "19456"
+              - "20480"
+              - "21504"
+              - "22528"
+              - "23552"
+              - "24576"
+              - "25600"
+              - "26624"
+              - "27648"
+              - "28672"
+              - "29696"
+              - "30720"
+              - "31744"
+              - "32768"
+              - "33792"
+              - "34816"
+              - "35840"
+              - "36864"
+              - "37888"
+              - "38912"
+              - "39936"
+              - "40960"
+              - "41984"
+              - "43008"
+              - "44032"
+              - "45056"
+              - "46080"
+              - "47104"
+              - "48128"
+              - "49152"
+              - "50176"
+              - "51200"
+              - "52224"
+              - "53248"
+              - "54272"
+              - "55296"
+              - "56320"
+              - "57344"
+              - "58368"
+              - "59392"
+              - "60416"
+              - "61440"
+              - "62464"
+              - "63488"
+              - "64512"
+              - "65536"
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_max_purge_lag"
+          ptype: "uniform_int"
+          upper: 300
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          des: "Defines the desired maximum purge lag. If this value is exceeded, a delay is imposed on INSERT, UPDATE, and DELETE operations to allow time for purge to catch up. The default value is 0, which means there is no maximum purge lag and no delay."
+        - name: "key_cache_block_size"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "1024"
+              - "2048"
+              - "3072"
+              - "4096"
+              - "5120"
+              - "6144"
+              - "7168"
+              - "8192"
+              - "9216"
+              - "10240"
+              - "11264"
+              - "12288"
+              - "13312"
+              - "14336"
+              - "15360"
+              - "16384"
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "binlog_order_commits"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_flush_method"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "fsync"
+              - "O_DSYNC"
+              - "O_DIRECT"
+              - "O_DIRECT_NO_FSYNC"
+          enable: True
+          version:
+              - - "8.0.14"
+                - "latest"
+        - name: "innodb_adaptive_hash_index_parts"
+          ptype: "uniform_int"
+          upper: 512
+          lower: 8
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          des: "Partitions the adaptive hash index search system. Each index is bound to a specific partition, with each partition protected by a separate latch."
+        - name: "innodb_ft_cache_size"
+          ptype: "uniform_int"
+          upper: 80000000
+          lower: 1600000
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_buffer_pool_instances"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 8
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_buffer_pool_size"
+          ptype: "uniform_int"
+          upper: 3000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          suffix: "GB"
+        - name: "innodb_change_buffering"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "none"
+              - "inserts"
+              - "deletes"
+              - "changes"
+              - "purges"
+              - "all"
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_log_file_size"
+          ptype: "uniform_int"
+          upper: 5000
+          lower: 128
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.7.22"
+                - "5.7.43"
+              - - "8.0.11"
+                - "8.0.28"
+          suffix: "MB"
+          des: "Generally, the combined size of the log files should be large enough that the server can smooth out peaks and troughs in workload activity, which often means that there is enough redo log space to handle more than an hour of write activity. The larger the value, the less checkpoint flush activity is required in the buffer pool, saving disk I/O. Larger log files also make crash recovery slower."
+        - name: "innodb_max_dirty_pages_pct"
+          ptype: "uniform_int"
+          upper: 99
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_sync_array_size"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          des: "Defines the size of the mutex/lock wait array. Increasing the value splits the internal data structure used to coordinate threads, for higher concurrency in workloads with large numbers of waiting threads.This setting must be configured when the MySQL instance is starting up, and cannot be changed afterward. Increasing the value is recommended for workloads that frequently produce a large number of waiting threads, typically greater than 768."
+        - name: "max_heap_table_size"
+          ptype: "uniform_int"
+          upper: 4096
+          lower: 16
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          suffix: "MB"
+        - name: "tmp_table_size"
+          ptype: "uniform_int"
+          upper: 4096
+          lower: 32
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          suffix: "MB"
+        - name: "table_open_cache"
+          ptype: "uniform_int"
+          upper: 50000
+          lower: 30000
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "table_open_cache_instances"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "sync_binlog"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "0"
+              - "1"
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_lock_wait_timeout"
+          ptype: "uniform_int"
+          upper: 200
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "key_buffer_size"
+          ptype: "uniform_int"
+          upper: 2048
+          lower: 8
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          suffix: "MB"
+        - name: "binlog_cache_size"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+          suffix: "MB"
+        - name: "innodb_write_io_threads"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_read_io_threads"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_purge_threads"
+          ptype: "uniform_int"
+          upper: 32
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "innodb_page_cleaners"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.0"
+                - "latest"
+        - name: "max_relay_log_size"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "relay_log_purge"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "relay_log_space_limit"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "skip_slave_start"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "log_slow_slave_statements"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "master_info_repository"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "FILE"
+              - "TABLE"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "relay_log_info_repository"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "FILE"
+              - "TABLE"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "relay_log_recovery"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "replication_optimize_for_static_plugin_config"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.33"
+                - "latest"
+        - name: "replication_sender_observe_commit_only"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.33"
+                - "latest"
+        - name: "rpl_semi_sync_slave_enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_semi_sync_slave_trace_level"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_stop_slave_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_checkpoint_group"
+          ptype: "uniform_int"
+          upper: 524280
+          lower: 32
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_checkpoint_period"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_compressed_protocol"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_max_allowed_packet"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_net_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_parallel_type"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "DATABASE"
+              - "LOGICAL_CLOCK"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_parallel_workers"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_pending_jobs_size_max"
+          ptype: "uniform_int"
+          upper: 65536
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_preserve_commit_order"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_sql_verify_checksum"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slave_transaction_retries"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "sync_relay_log"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "sync_relay_log_info"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "flush"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "skip_show_database"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "audit_log_buffer_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 4096
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "audit_log_compression"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "NONE"
+              - "GZIP"
+          enable: False
+          version:
+              - - "5.7.21"
+                - "latest"
+        - name: "audit_log_connection_policy"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ALL"
+              - "ERRORS"
+              - "NONE"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "audit_log_disable"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.37"
+                - "latest"
+        - name: "audit_log_encryption"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "NONE"
+              - "AES"
+          enable: False
+          version:
+              - - "5.7.21"
+                - "latest"
+        - name: "audit_log_format_unix_timestamp"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.35"
+                - "latest"
+        - name: "audit_log_policy"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ALL"
+              - "LOGINS"
+              - "QUERIES"
+              - "NONE"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "audit_log_rotate_on_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "audit_log_statement_policy"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ALL"
+              - "ERRORS"
+              - "NONE"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "audit_log_strategy"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ASYNCHRONOUS"
+              - "PERFORMANCE"
+              - "SEMISYNCHRONOUS"
+              - "SYNCHRONOUS"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "authentication_ldap_sasl_init_pool_size"
+          ptype: "uniform_int"
+          upper: 32767
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.19"
+                - "latest"
+        - name: "authentication_ldap_sasl_log_status"
+          ptype: "uniform_int"
+          upper: 5
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.19"
+                - "latest"
+        - name: "authentication_ldap_sasl_max_pool_size"
+          ptype: "uniform_int"
+          upper: 32767
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.19"
+                - "latest"
+        - name: "authentication_ldap_sasl_tls"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.19"
+                - "latest"
+        - name: "keep_files_on_create"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "key_cache_age_threshold"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "key_cache_division_limit"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "local_infile"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "lock_wait_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "log_queries_not_using_indexes"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "log_slow_admin_statements"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "log_throttle_queries_not_using_indexes"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "long_query_time"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "low_priority_updates"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_allowed_packet"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_connect_errors"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_connections"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 151
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_digest_length"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_error_count"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_join_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 214748364
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_length_for_sort_data"
+          ptype: "uniform_int"
+          upper: 8388608
+          lower: 4
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_points_in_geometry"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 3
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_prepared_stmt_count"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_sort_length"
+          ptype: "uniform_int"
+          upper: 8388608
+          lower: 4
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_sp_recursion_depth"
+          ptype: "uniform_int"
+          upper: 255
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_user_connections"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "min_examined_row_limit"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "authentication_ldap_simple_init_pool_size"
+          ptype: "uniform_int"
+          upper: 32767
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.19"
+                - "latest"
+        - name: "authentication_ldap_simple_max_pool_size"
+          ptype: "uniform_int"
+          upper: 32767
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.19"
+                - "latest"
+        - name: "authentication_ldap_simple_tls"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.19"
+                - "latest"
+        - name: "autocommit"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "automatic_sp_privileges"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "back_log"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: True
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "big_tables"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "bulk_insert_buffer_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "completion_type"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "NO_CHAIN"
+              - "CHAIN"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "concurrent_insert"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "NEVER"
+              - "AUTO"
+              - "ALWAYS"
+              - "0"
+              - "1"
+              - "2"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "connect_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "default_week_format"
+          ptype: "uniform_int"
+          upper: 7
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "delay_key_write"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "OFF"
+              - "ON"
+              - "ALL"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "div_precision_increment"
+          ptype: "uniform_int"
+          upper: 30
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "end_markers_in_json"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "eq_range_index_dive_limit"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "event_scheduler"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "OFF"
+              - "ON"
+              - "DISABLED"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "flush_time"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "ft_query_expansion_limit"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "group_concat_max_len"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 4
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "host_cache_size"
+          ptype: "uniform_int"
+          upper: 65536
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "interactive_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "internal_tmp_disk_storage_engine"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "MYISAM"
+              - "INNODB"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "join_buffer_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 128
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "myisam_data_pointer_size"
+          ptype: "uniform_int"
+          upper: 7
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "myisam_recover_options"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "OFF"
+              - "DEFAULT"
+              - "BACKUP"
+              - "FORCE"
+              - "QUICK"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "myisam_sort_buffer_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 4096
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "myisam_stats_method"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "nulls_unequal"
+              - "nulls_equal"
+              - "nulls_ignored"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "myisam_use_mmap"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "net_buffer_length"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "net_read_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "net_retry_count"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "net_write_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "ngram_token_size"
+          ptype: "uniform_int"
+          upper: 10
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "offline_mode"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "old_alter_table"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "optimizer_trace_limit"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "optimizer_trace_max_mem_size"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "optimizer_trace_offset"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: -2147483647
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "preload_buffer_size"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "query_prealloc_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 8192
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "range_alloc_block_size"
+          ptype: "uniform_int"
+          upper: 4294966272
+          lower: 4096
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "read_buffer_size"
+          ptype: "uniform_int"
+          upper: 2147479552
+          lower: 8192
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "read_rnd_buffer_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "session_track_gtids"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "OFF"
+              - "OWN_GTID"
+              - "ALL_GTIDS"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "session_track_schema"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "session_track_state_change"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "session_track_transaction_info"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "OFF"
+              - "STATE"
+              - "CHARACTERISTICS"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "skip_name_resolve"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "skip_networking"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slow_launch_time"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "slow_query_log"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "sort_buffer_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 32768
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "stored_program_cache"
+          ptype: "uniform_int"
+          upper: 524288
+          lower: 16
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "table_definition_cache"
+          ptype: "uniform_int"
+          upper: 524288
+          lower: 400
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "thread_handling"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "no-threads"
+              - "one-thread-per-connection"
+              - "loaded-dynamically"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "thread_pool_algorithm"
+          ptype: "uniform_int"
+          upper: 1
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "thread_pool_high_priority_connection"
+          ptype: "uniform_int"
+          upper: 1
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "thread_pool_max_unused_threads"
+          ptype: "uniform_int"
+          upper: 4096
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "thread_pool_prio_kickup_timer"
+          ptype: "uniform_int"
+          upper: 4294967294
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "thread_pool_size"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "thread_pool_stall_limit"
+          ptype: "uniform_int"
+          upper: 600
+          lower: 4
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "transaction_alloc_block_size"
+          ptype: "uniform_int"
+          upper: 131072
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "transaction_prealloc_size"
+          ptype: "uniform_int"
+          upper: 131072
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "updatable_views_with_limit"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "1"
+              - "0"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "wait_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "auto_increment_increment"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "auto_increment_offset"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_semi_sync_master_enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_semi_sync_master_timeout"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 10000
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_semi_sync_master_trace_level"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 32
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_semi_sync_master_wait_for_slave_count"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_semi_sync_master_wait_no_slave"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "rpl_semi_sync_master_wait_point"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "AFTER_SYNC"
+              - "AFTER_COMMIT"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_checksum"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "NONE"
+              - "CRC32"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_direct_non_transactional_updates"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_error_action"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "IGNORE_ERROR"
+              - "ABORT_SERVER"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_format"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "MIXED"
+              - "STATEMENT"
+              - "ROW"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_group_commit_sync_delay"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_group_commit_sync_no_delay_count"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_row_image"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "full"
+              - "minimal"
+              - "noblob"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_rows_query_log_events"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_stmt_cache_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 4096
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "binlog_transaction_dependency_history_size"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.22"
+                - "latest"
+        - name: "master_verify_checksum"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_binlog_size"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 4096
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "max_binlog_stmt_cache_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 4096
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "transaction_write_set_extraction"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "MURMUR32"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "binlog_gtid_simple_recovery"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "enforce_gtid_consistency"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "OFF"
+              - "ON"
+              - "WARN"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "gtid_executed_compression_period"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "gtid_mode"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "OFF"
+              - "OFF_PERMISSIVE"
+              - "ON_PERMISSIVE"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "daemon_memcached_enable_binlog"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "daemon_memcached_r_batch_size"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "daemon_memcached_w_batch_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "innodb_adaptive_flushing"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_adaptive_hash_index"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: True
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_api_bk_commit_interval"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "innodb_api_disable_rowlock"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "innodb_api_enable_binlog"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "innodb_api_enable_mdl"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "innodb_autoextend_increment"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_autoinc_lock_mode"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "0"
+              - "1"
+              - "2"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_background_drop_list_empty"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.10"
+                - "latest"
+        - name: "innodb_buffer_pool_chunk_size"
+          ptype: "uniform_int"
+          upper: 1342177280
+          lower: 1048576
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_buffer_pool_dump_now"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_buffer_pool_dump_pct"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_buffer_pool_load_abort"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_buffer_pool_load_at_startup"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_buffer_pool_load_now"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_change_buffer_max_size"
+          ptype: "uniform_int"
+          upper: 50
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_checksum_algorithm"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "crc32"
+              - "strict_crc32"
+              - "innodb"
+              - "strict_innodb"
+              - "none"
+              - "strict_none"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_cmp_per_index_enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_commit_concurrency"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_compress_debug"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "none"
+              - "zlib"
+              - "lz4"
+              - "lz4hc"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_compression_failure_threshold_pct"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_compression_level"
+          ptype: "uniform_int"
+          upper: 9
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_compression_pad_pct_max"
+          ptype: "uniform_int"
+          upper: 75
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_concurrency_tickets"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_deadlock_detect"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.15"
+                - "latest"
+        - name: "innodb_default_row_format"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "REDUNDANT"
+              - "COMPACT"
+              - "DYNAMIC"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_disable_sort_file_cache"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_disable_resize_buffer_pool_debug"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "5.7.43"
+        - name: "innodb_doublewrite"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_fast_shutdown"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "0"
+              - "1"
+              - "2"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_file_per_table"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_fill_factor"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_flush_log_at_timeout"
+          ptype: "uniform_int"
+          upper: 2700
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_flush_log_at_trx_commit"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "0"
+              - "1"
+              - "2"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_flush_neighbors"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "0"
+              - "1"
+              - "2"
+          enable: True
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_flush_sync"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_force_load_corrupted"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_force_recovery"
+          ptype: "uniform_int"
+          upper: 6
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_enable_diag_print"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_enable_stopword"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_max_token_size"
+          ptype: "uniform_int"
+          upper: 84
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_min_token_size"
+          ptype: "uniform_int"
+          upper: 16
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_num_word_optimize"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_result_cache_limit"
+          ptype: "uniform_int"
+          upper: 20000000000
+          lower: 1000000
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_sort_pll_degree"
+          ptype: "uniform_int"
+          upper: 16
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_ft_total_cache_size"
+          ptype: "uniform_int"
+          upper: 1600000000
+          lower: 32000000
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_limit_optimistic_insert_debug"
+          ptype: "uniform_int"
+          upper: 65536
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_log_buffer_size"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 1048576
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_log_checkpoint_now"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_log_checksums"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_log_compressed_pages"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_log_files_in_group"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_log_write_ahead_size"
+          ptype: "uniform_int"
+          upper: 32768
+          lower: 512
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_lru_scan_depth"
+          ptype: "uniform_int"
+          upper: 102400
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_max_purge_lag_delay"
+          ptype: "uniform_int"
+          upper: 10000000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_max_undo_log_size"
+          ptype: "uniform_int"
+          upper: 10737418240
+          lower: 10485760
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_merge_threshold_set_all_debug"
+          ptype: "uniform_int"
+          upper: 50
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_monitor_reset"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "counter"
+              - "module"
+              - "pattern"
+              - "all"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_monitor_reset_all"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "counter"
+              - "module"
+              - "pattern"
+              - "all"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_numa_interleave"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_old_blocks_pct"
+          ptype: "uniform_int"
+          upper: 95
+          lower: 5
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_old_blocks_time"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_online_alter_log_max_size"
+          ptype: "uniform_int"
+          upper: 1342177280
+          lower: 65536
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_open_files"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_optimize_fulltext_only"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_page_size"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "4096"
+              - "8192"
+              - "16384"
+              - "32768"
+              - "65536"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_print_all_deadlocks"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_purge_batch_size"
+          ptype: "uniform_int"
+          upper: 5000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_purge_rseg_truncate_frequency"
+          ptype: "uniform_int"
+          upper: 128
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_random_read_ahead"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_read_ahead_threshold"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_read_only"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_replication_delay"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_rollback_on_timeout"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_rollback_segments"
+          ptype: "uniform_int"
+          upper: 128
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_saved_page_number_debug"
+          ptype: "uniform_int"
+          upper: 65536
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_sort_buffer_size"
+          ptype: "uniform_int"
+          upper: 67108864
+          lower: 65536
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_stats_auto_recalc"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_stats_include_delete_marked"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.17"
+                - "latest"
+        - name: "innodb_stats_method"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "nulls_equal"
+              - "nulls_unequal"
+              - "nulls_ignored"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_stats_on_metadata"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_stats_persistent"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_stats_persistent_sample_pages"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_stats_transient_sample_pages"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_status_output"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_status_output_locks"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_strict_mode"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_sync_debug"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_table_locks"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_thread_concurrency"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_thread_sleep_delay"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_trx_purge_view_update_only_debug"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_trx_rseg_n_slots_debug"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_undo_log_truncate"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "innodb_use_native_aio"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.0"
+                - "latest"
+        - name: "mysqlx_connect_timeout"
+          ptype: "uniform_int"
+          upper: 1000000000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.12"
+                - "8.0.34"
+        - name: "mysqlx_idle_worker_thread_timeout"
+          ptype: "uniform_int"
+          upper: 3600
+          lower: 60
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.12"
+                - "8.0.34"
+        - name: "mysqlx_max_allowed_packet"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 512
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.12"
+                - "8.0.34"
+        - name: "mysqlx_max_connections"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.12"
+                - "8.0.34"
+        - name: "mysqlx_min_worker_threads"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.12"
+                - "8.0.34"
+        - name: "performance_schema"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: True
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_accounts_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_digests_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_stages_history_long_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_stages_history_size"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_statements_history_long_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_statements_history_size"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_transactions_history_long_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_transactions_history_size"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_waits_history_long_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_events_waits_history_size"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_hosts_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_file_instances"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_index_stat"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_metadata_locks"
+          ptype: "uniform_int"
+          upper: 10485760
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_mutex_instances"
+          ptype: "uniform_int"
+          upper: 104857600
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_prepared_statements_instances"
+          ptype: "uniform_int"
+          upper: 4194304
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_program_instances"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_rwlock_instances"
+          ptype: "uniform_int"
+          upper: 104857600
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_socket_instances"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_table_handles"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_table_instances"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_table_lock_stat"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_thread_instances"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_session_connect_attrs_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          Unit: "bytes"
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_setup_actors_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_setup_objects_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_users_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_cond_instances"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: -1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_cond_classes"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 80
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_digest_length"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_file_classes"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 80
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_file_handles"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 32768
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_memory_classes"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: 320
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_mutex_classes"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 200
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_socket_classes"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_sql_text_length"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_stage_classes"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 150
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_statement_stack"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_max_thread_classes"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 50
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.0"
+                - "8.0.34"
+        - name: "performance_schema_show_processlist"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "5.7.39"
+                - "8.0.34"
+        - name: "connection_control_failed_connections_threshold"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 3
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.17"
+                - "latest"
+        - name: "connection_control_max_connection_delay"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.17"
+                - "latest"
+        - name: "connection_control_min_connection_delay"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "5.7.17"
+                - "latest"
+        - name: "replica_checkpoint_group"
+          ptype: "uniform_int"
+          upper: 524280
+          lower: 32
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "replica_checkpoint_period"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "replica_compressed_protocol"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "replica_max_allowed_packet"
+          ptype: "uniform_int"
+          upper: 1073741824
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "replica_net_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "replica_pending_jobs_size_max"
+          ptype: "uniform_int"
+          upper: 524288
+          lower: 1024
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "replica_sql_verify_checksum"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "replica_transaction_retries"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_read_size"
+          ptype: "uniform_int"
+          upper: 4294959104
+          lower: 8192
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "rpl_semi_sync_replica_enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_semi_sync_replica_trace_level"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_stop_replica_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "sync_source_info"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "terminology_use_previous"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "NONE"
+              - "BEFORE_8_0_26"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "activate_all_roles_on_login"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "caching_sha2_password_digest_rounds"
+          ptype: "uniform_int"
+          upper: 4095000
+          lower: 5000
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.24"
+                - "latest"
+        - name: "caching_sha2_password_auto_generate_rsa_keys"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "component_scheduler.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.34"
+                - "latest"
+        - name: "connection_memory_limit"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 2097152
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.28"
+                - "latest"
+        - name: "create_admin_listener_thread"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.14"
+                - "latest"
+        - name: "cte_max_recursion_depth"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "syseventlog.include_pid"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.13"
+                - "latest"
+        - name: "table_encryption_privilege_check"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.16"
+                - "latest"
+        - name: "tablespace_definition_cache"
+          ptype: "uniform_int"
+          upper: 524288
+          lower: 256
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "temptable_max_mmap"
+          ptype: "uniform_int"
+          upper: 107374182400
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.23"
+                - "latest"
+        - name: "temptable_max_ram"
+          ptype: "uniform_int"
+          upper: 107374182400
+          lower: 2097152
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "thread_pool_dedicated_listeners"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.23"
+                - "latest"
+        - name: "thread_pool_max_active_query_threads"
+          ptype: "uniform_int"
+          upper: 512
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.19"
+                - "latest"
+        - name: "thread_pool_max_transactions_limit"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.23"
+                - "latest"
+        - name: "thread_pool_query_threads_per_group"
+          ptype: "uniform_int"
+          upper: 4096
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.31"
+                - "latest"
+        - name: "thread_pool_transaction_delay"
+          ptype: "uniform_int"
+          upper: 300000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.31"
+                - "latest"
+        - name: "transaction_isolation"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "READ-UNCOMMITTED"
+              - "READ-COMMITTED"
+              - "REPEATABLE-READ"
+              - "SERIALIZABLE"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "transaction_read_only"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "windowing_use_high_precision"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "xa_detach_on_prepare"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.29"
+                - "latest"
+        - name: "audit_log_max_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "audit_log_prune_seconds"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.24"
+                - "latest"
+        - name: "authentication_ldap_sasl_referral"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.20"
+                - "latest"
+        - name: "authentication_ldap_simple_referral"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.20"
+                - "latest"
+        - name: "rpl_semi_sync_source_enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_semi_sync_source_timeout"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_semi_sync_source_trace_level"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_semi_sync_source_wait_for_replica_count"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_semi_sync_source_wait_no_replica"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "rpl_semi_sync_source_wait_point"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "AFTER_SYNC"
+              - "AFTER_COMMIT"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "binlog_encryption"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.14"
+                - "latest"
+        - name: "binlog_expire_logs_seconds"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "binlog_expire_logs_auto_purge"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.29"
+                - "latest"
+        - name: "binlog_rotate_encryption_master_key_at_startup"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.14"
+                - "latest"
+        - name: "binlog_row_metadata"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "FULL"
+              - "MINIMAL"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "binlog_transaction_compression"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.20"
+                - "latest"
+        - name: "binlog_transaction_compression_level_zstd"
+          ptype: "uniform_int"
+          upper: 22
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "latest"
+        - name: "log_replica_updates"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "source_verify_checksum"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "clone_autotune_concurrency"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "latest"
+        - name: "clone_buffer_size"
+          ptype: "uniform_int"
+          upper: 268435456
+          lower: 1048576
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.17"
+                - "latest"
+        - name: "clone_block_ddl"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.27"
+                - "latest"
+        - name: "clone_delay_after_data_drop"
+          ptype: "uniform_int"
+          upper: 3600
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.29"
+                - "latest"
+        - name: "clone_ddl_timeout"
+          ptype: "uniform_int"
+          upper: 2592000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.17"
+                - "latest"
+        - name: "clone_donor_timeout_after_network_failure"
+          ptype: "uniform_int"
+          upper: 30
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.24"
+                - "latest"
+        - name: "clone_enable_compression"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "latest"
+        - name: "clone_max_concurrency"
+          ptype: "uniform_int"
+          upper: 128
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.17"
+                - "latest"
+        - name: "clone_max_data_bandwidth"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.17"
+                - "latest"
+        - name: "clone_max_network_bandwidth"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.17"
+                - "latest"
+        - name: "innodb_buffer_pool_debug"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_buffer_pool_in_core_file"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.14"
+                - "latest"
+        - name: "innodb_checkpoint_disabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_ddl_buffer_size"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 65536
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.27"
+                - "latest"
+        - name: "innodb_ddl_log_crash_reset_debug"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_ddl_threads"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.27"
+                - "latest"
+        - name: "innodb_dedicated_server"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_doublewrite_batch_size"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "latest"
+        - name: "innodb_doublewrite_files"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "latest"
+        - name: "innodb_doublewrite_pages"
+          ptype: "uniform_int"
+          upper: 512
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "latest"
+        - name: "innodb_extend_and_initialize"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.22"
+                - "latest"
+        - name: "innodb_fsync_threshold"
+          ptype: "uniform_int"
+          upper: 65536
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.13"
+                - "latest"
+        - name: "innodb_idle_flush_pct"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.18"
+                - "latest"
+        - name: "innodb_log_checkpoint_fuzzy_now"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.13"
+                - "latest"
+        - name: "innodb_log_spin_cpu_abs_lwm"
+          ptype: "uniform_int"
+          upper: 4294967295
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_log_spin_cpu_pct_hwm"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_log_wait_for_flush_spin_hwm"
+          ptype: "uniform_int"
+          upper: 40000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_log_writer_threads"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.22"
+                - "latest"
+        - name: "innodb_parallel_read_threads"
+          ptype: "uniform_int"
+          upper: 256
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.14"
+                - "latest"
+        - name: "innodb_print_ddl_logs"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_redo_log_capacity"
+          ptype: "uniform_int"
+          upper: 137438953472
+          lower: 8388608
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.30"
+                - "latest"
+        - name: "innodb_redo_log_encrypt"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_segment_reserve_factor"
+          ptype: "uniform_int"
+          upper: 40
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "innodb_undo_log_encrypt"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "latest"
+        - name: "innodb_use_fdatasync"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.26"
+                - "latest"
+        - name: "keyring_hashicorp_caching"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.18"
+                - "8.0.34"
+        - name: "lock_order"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_debug_loop"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_debug_missing_arc"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_debug_missing_key"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_debug_missing_unlock"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_print_txt"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_trace_loop"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_trace_missing_arc"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_trace_missing_key"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "lock_order_trace_missing_unlock"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.17"
+                - "8.0.34"
+        - name: "mysqlx_document_id_unique_prefix"
+          ptype: "uniform_int"
+          upper: 65535
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "mysqlx_enable_hello_notice"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "mysqlx_interactive_timeout"
+          ptype: "uniform_int"
+          upper: 2147483
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "mysqlx_lz4_default_compression_level"
+          ptype: "uniform_int"
+          upper: 16
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "8.0.34"
+        - name: "mysqlx_lz4_max_client_compression_level"
+          ptype: "uniform_int"
+          upper: 16
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "8.0.34"
+        - name: "mysqlx_read_timeout"
+          ptype: "uniform_int"
+          upper: 2147483
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "mysqlx_wait_timeout"
+          ptype: "uniform_int"
+          upper: 2147483
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "mysqlx_write_timeout"
+          ptype: "uniform_int"
+          upper: 2147483
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "mysqlx_zstd_default_compression_level"
+          ptype: "uniform_int"
+          upper: 22
+          lower: -131072
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "8.0.34"
+        - name: "mysqlx_zstd_max_client_compression_level"
+          ptype: "uniform_int"
+          upper: 22
+          lower: -131072
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.20"
+                - "8.0.34"
+        - name: "performance_schema_error_size"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "performance_schema_max_digest_sample_age"
+          ptype: "uniform_int"
+          upper: 1048576
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.0.0"
+                - "8.0.34"
+        - name: "explain_json_format_version"
+          ptype: "uniform_int"
+          upper: 2
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"
+        - name: "log_raw"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "ON"
+              - "OFF"
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"
+        - name: "authentication_ldap_sasl_connect_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"
+        - name: "authentication_ldap_sasl_response_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"
+        - name: "authentication_ldap_simple_connect_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"
+        - name: "authentication_ldap_simple_response_timeout"
+          ptype: "uniform_int"
+          upper: 31536000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"
+        - name: "binlog_row_event_max_size"
+          ptype: "uniform_int"
+          upper: 2147483647
+          lower: 256
+          suggestion: ""
+          choices: []
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"
+        - name: "ndb_mgm_tls"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "relaxed"
+              - "strict"
+          enable: False
+          version:
+              - - "8.3.0"
+                - "latest"

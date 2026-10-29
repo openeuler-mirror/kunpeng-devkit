@@ -1,0 +1,2059 @@
+# 本文件是用于使用鲲鹏自动调优工具对应用进行调优的参数模板文件
+
+Spark:
+    params:
+        - name: "spark.driver.cores"
+          ptype: "uniform_int"
+          upper: 32
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.driver.memory"
+          ptype: "uniform_int"
+          upper: 64
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: "g"
+        - name: "spark.executor.instances"
+          ptype: "uniform_int"
+          upper: 48
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.executor.cores"
+          ptype: "uniform_int"
+          upper: 32
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.executor.memory"
+          ptype: "uniform_int"
+          upper: 32
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: "g"
+        - name: "spark.executorEnv.MALLOC_CONF"
+          ptype: "immutable"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "narenas: 2"
+          enable: True
+        - name: "spark.default.parallelism"
+          ptype: "uniform_int"
+          upper: 1600
+          lower: 200
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.memory.offHeap.size"
+          ptype: "uniform_int"
+          upper: 20
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: "GB"
+        - name: "spark.sql.adaptive.advisoryPartitionSizeInBytes"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: "KB"
+        - name: "spark.driver.memoryOverhead"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.executor.memoryOverhead"
+          ptype: "uniform_int"
+          upper: 1024
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.broadcast.blockSize"
+          ptype: "uniform_int"
+          upper: 32
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: "m"
+        - name: "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
+          ptype: "uniform_int"
+          upper: 2000
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.adaptive.skewJoin.skewedPartitionFactor"
+          ptype: "uniform_int"
+          upper: 8
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.adaptive.skewJoin.skewedPartitionThresholdInBytes"
+          ptype: "uniform_int"
+          upper: 5000
+          lower: 50
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: "MB"
+        - name: "spark.sql.cbo.joinReorder.dp.threshold"
+          ptype: "uniform_int"
+          upper: 32
+          lower: 4
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.locality.wait"
+          ptype: "uniform_int"
+          upper: 32
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.inMemoryColumnarStorage.batchSize"
+          ptype: "uniform_int"
+          upper: 500000
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.files.maxPartitionBytes"
+          ptype: "uniform_int"
+          upper: 1342177280
+          lower: 13421772
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.files.openCostInBytes"
+          ptype: "uniform_int"
+          upper: 41943040
+          lower: 419430
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.broadcastTimeout"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.shuffle.partitions"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.sources.parallelPartitionDiscovery.threshold"
+          ptype: "uniform_int"
+          upper: 128
+          lower: 8
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.sources.parallelPartitionDiscovery.parallelism"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.memory.offHeap.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: True
+        - name: "spark.sql.adaptive.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: True
+        - name: "spark.sql.autoBroadcastJoinThreshold"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "0"
+              - "10485760"
+              - "52428800"
+              - "104857600"
+              - "209715200"
+              - "314572800"
+              - "524288000"
+              - "1048576000"
+          enable: True
+        - name: "spark.sql.cbo.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: True
+        - name: "spark.memory.fraction"
+          ptype: "uniform_float"
+          upper: 0.9
+          lower: 0.3
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.memory.storageFraction"
+          ptype: "uniform_float"
+          upper: 0.8
+          lower: 0.2
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.speculation"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: True
+        - name: "spark.speculation.multiplier"
+          ptype: "uniform_float"
+          upper: 1.9
+          lower: 1.1
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.speculation.quantile"
+          ptype: "uniform_float"
+          upper: 0.9
+          lower: 0.3
+          suggestion: ""
+          choices: []
+          enable: True
+          prefix: ""
+          suffix: ""
+        - name: "spark.sql.adaptive.coalescePartitions.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: True
+        - name: "spark.sql.adaptive.skewJoin.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: True
+        - name: "spark.sql.cbo.joinReorder.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: True
+        - name: "spark.sql.hive.convertMetastoreOrc"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.convertMetastoreParquet"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.convertInsertingPartitionedTable"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.convertMetastoreCtas"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.logConf"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.executor.logs.rolling.enableCompression"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.python.worker.reuse"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.shuffle.compress"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.shuffle.spill.compress"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.shuffle.service.fetch.rdd.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.eventLog.longForm.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.eventLog.compress"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.eventLog.compression.codec"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "lz4"
+              - "lzf"
+              - "snappy"
+              - "zstd"
+          enable: False
+        - name: "spark.eventLog.erasureCoding.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.ui.reverseProxy"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.checkpoint.compress"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.io.compression.codec"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "lz4"
+              - "lzf"
+              - "snappy"
+              - "zstd"
+          enable: False
+        - name: "spark.kryo.registrationRequired"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.rdd.compress"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.storage.replication.proactive"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.hadoop.validateOutputSpecs"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.network.io.preferDirectBufs"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.excludeOnFailure.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.excludeOnFailure.application.fetchFailure.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.task.reaper.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.task.reaper.threadDump"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.dynamicAllocation.shuffleTracking.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.adaptive.optimizeSkewsInRebalancePartitions.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.adaptive.rebalancePartitionsSmallPartitionFactor"
+          ptype: "uniform_float"
+          upper: 1.0
+          lower: 0.1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.ansi.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.avro.compression.codec"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "uncompressed"
+              - "deflate"
+              - "snappy"
+              - "bzip2"
+              - "xz"
+          enable: False
+        - name: "spark.sql.avro.deflate.level"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - -1
+              - 1
+              - 2
+              - 3
+              - 4
+              - 5
+              - 6
+              - 7
+              - 8
+              - 9
+          enable: False
+        - name: "spark.sql.bucketing.coalesceBucketsInJoin.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.cbo.joinReorder.dp.star.filter"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.charAsVarchar"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.cli.print.header"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.execution.arrow.fallback.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.execution.arrow.pyspark.selfDestruct.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.execution.arrow.sparkr.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.execution.pyspark.udf.simplifiedTraceback.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.files.ignoreCorruptFiles"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.function.concatBinaryAsString"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.function.eltOutputAsString"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.groupByAliases"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.groupByOrdinal"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.convertMetastoreParquet.mergeSchema"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.manageFilesourcePartitions"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.metastorePartitionPruning"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.metastorePartitionPruningFallbackOnException"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.metastorePartitionPruningFastFallback"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.thriftServer.async"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.verifyPartitionPath"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.inMemoryColumnarStorage.compressed"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.inMemoryColumnarStorage.enableVectorizedReader"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.json.filterPushdown.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.jsonGenerator.ignoreNullFields"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.optimizer.collapseProjectAlwaysInline"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.optimizer.dynamicPartitionPruning.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.optimizer.enableCsvExpressionOptimization"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.optimizer.enableJsonExpressionOptimization"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.optimizer.runtime.bloomFilter.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.optimizer.runtimeFilter.semiJoinReduction.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.orc.aggregatePushdown"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.orc.compression.codec"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "lzo"
+              - "snappy"
+              - "none"
+              - "uncompressed"
+              - "zlib"
+          enable: False
+        - name: "spark.sql.orc.enableNestedColumnVectorizedReader"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.orc.enableVectorizedReader"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.orc.filterPushdown"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.orc.mergeSchema"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.orderByOrdinal"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.aggregatePushdown"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.binaryAsString"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.compression.codec"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "lzo"
+              - "snappy"
+              - "none"
+              - "uncompressed"
+              - "gzip"
+          enable: False
+        - name: "spark.sql.parquet.enableNestedColumnVectorizedReader"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.enableVectorizedReader"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.fieldId.read.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.fieldId.read.ignoreMissing"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.fieldId.write.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.filterPushdown"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.int96AsTimestamp"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.int96TimestampConversion"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.mergeSchema"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.recordLevelFilter.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.respectSummaryFiles"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parquet.writeLegacyFormat"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.parser.quotedRegexColumnNames"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.pyspark.inferNestedDictAsStruct.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.pyspark.jvmStacktrace.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.repl.eagerEval.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.sources.bucketing.autoBucketedScan.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.sources.bucketing.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.sources.partitionColumnTypeInference.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.sources.v2.bucketing.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.statistics.fallBackToHdfs"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.statistics.histogram.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.statistics.size.autoUpdate.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.streaming.forceDeleteTempCheckpointLocation"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.streaming.metricsEnabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.streaming.multipleWatermarkPolicy"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "min"
+              - "max"
+          enable: False
+        - name: "spark.sql.streaming.noDataMicroBatches.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.streaming.sessionWindow.merge.sessions.in.local.partition"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.streaming.stateStore.stateSchemaCheck"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.streaming.stopActiveRunOnRestart"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.thriftServer.interruptOnCancel"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.ui.explainMode"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "formatted"
+              - "simple"
+              - "extended"
+              - "codegen"
+              - "cost"
+          enable: False
+        - name: "spark.sql.variable.substitute"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.hive.thriftServer.singleSession"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.streaming.ui.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.streaming.backpressure.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.streaming.receiver.writeAheadLog.enable"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.streaming.unpersist"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.streaming.stopGracefullyOnShutdown"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.streaming.driver.writeAheadLog.closeFileAfterWrite"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.streaming.receiver.writeAheadLog.closeFileAfterWrite"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.shuffle.push.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.shuffle.push.mergersMinThresholdRatio"
+          ptype: "uniform_float"
+          upper: 1.0
+          lower: 0.01
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.shuffle.push.minCompletedPushRatio"
+          ptype: "uniform_float"
+          upper: 1.0
+          lower: 0.01
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.legacy.allowHashOnMapType"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.sql.legacy.sessionInitWithConfigDefaults"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.blacklist.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.blacklist.killBlacklistedExecutors"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.blacklist.application.fetchFailure.enabled"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.memory.useLegacyMode"
+          ptype: "categorical"
+          upper: ""
+          lower: ""
+          suggestion: ""
+          choices:
+              - "false"
+              - "true"
+          enable: False
+        - name: "spark.reducer.maxSizeInFlight"
+          ptype: "uniform_int"
+          upper: 4800
+          lower: 4
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.shuffle.file.buffer"
+          ptype: "uniform_int"
+          upper: 3200
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "k"
+        - name: "spark.shuffle.io.numConnectionsPerPeer"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.shuffle.service.index.cache.size"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.shuffle.accurateBlockThreshold"
+          ptype: "uniform_int"
+          upper: 10485760000
+          lower: 10485760
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.shuffle.registration.timeout"
+          ptype: "uniform_int"
+          upper: 500000
+          lower: 500
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.shuffle.registration.maxAttempts"
+          ptype: "uniform_int"
+          upper: 300
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.ui.retainedTasks"
+          ptype: "uniform_int"
+          upper: 10000000
+          lower: 10000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.worker.ui.retainedExecutors"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.worker.ui.retainedDrivers"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.ui.retainedExecutions"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.ui.timeline.executors.maximum"
+          ptype: "uniform_int"
+          upper: 25000
+          lower: 25
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.ui.timeline.jobs.maximum"
+          ptype: "uniform_int"
+          upper: 50000
+          lower: 50
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.ui.timeline.stages.maximum"
+          ptype: "uniform_int"
+          upper: 50000
+          lower: 50
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.ui.timeline.tasks.maximum"
+          ptype: "uniform_int"
+          upper: 100000
+          lower: 100
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.io.compression.lz4.blockSize"
+          ptype: "uniform_int"
+          upper: 3200
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "k"
+        - name: "spark.kryoserializer.buffer.max"
+          ptype: "uniform_int"
+          upper: 2047
+          lower: 6
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.cleaner.periodicGC.interval"
+          ptype: "uniform_int"
+          upper: 3000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "min"
+        - name: "spark.executor.heartbeatInterval"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.files.fetchTimeout"
+          ptype: "uniform_int"
+          upper: 6000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.files.maxPartitionBytes"
+          ptype: "uniform_int"
+          upper: 13421772800
+          lower: 13421772
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.files.openCostInBytes"
+          ptype: "uniform_int"
+          upper: 419430400
+          lower: 419430
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.storage.memoryMapThreshold"
+          ptype: "uniform_int"
+          upper: 200
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.rpc.message.maxSize"
+          ptype: "uniform_int"
+          upper: 2047
+          lower: 12
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.rpc.io.backLog"
+          ptype: "uniform_int"
+          upper: 6400
+          lower: 6
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.network.timeout"
+          ptype: "uniform_int"
+          upper: 12000
+          lower: 60
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.port.maxRetries"
+          ptype: "uniform_int"
+          upper: 1600
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.scheduler.maxRegisteredResourcesWaitingTime"
+          ptype: "uniform_int"
+          upper: 3000
+          lower: 3
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.scheduler.revive.interval"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.scheduler.listenerbus.eventqueue.capacity"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.excludeOnFailure.stage.maxFailedTasksPerExecutor"
+          ptype: "uniform_int"
+          upper: 200
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.excludeOnFailure.application.maxFailedTasksPerExecutor"
+          ptype: "uniform_int"
+          upper: 200
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.excludeOnFailure.application.maxFailedExecutorsPerNode"
+          ptype: "uniform_int"
+          upper: 200
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.task.reaper.pollingInterval"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.stage.maxConsecutiveAttempts"
+          ptype: "uniform_int"
+          upper: 400
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.scheduler.barrier.maxConcurrentTasksCheck.interval"
+          ptype: "uniform_int"
+          upper: 1500
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.scheduler.barrier.maxConcurrentTasksCheck.maxFailures"
+          ptype: "uniform_int"
+          upper: 4000
+          lower: 4
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.adaptive.coalescePartitions.minPartitionSize"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "MB"
+        - name: "spark.sql.debug.maxToStringFields"
+          ptype: "uniform_int"
+          upper: 2500
+          lower: 2
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.execution.arrow.maxRecordsPerBatch"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.files.maxRecordsPerFile"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.hive.filesourcePartitionFileCacheSize"
+          ptype: "uniform_int"
+          upper: 26214400000
+          lower: 26214400
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.maxMetadataStringLength"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.optimizer.runtime.bloomFilter.applicationSideScanSizeThreshold"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "GB"
+        - name: "spark.sql.optimizer.runtime.bloomFilter.creationSideThreshold"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "MB"
+        - name: "spark.sql.optimizer.runtime.bloomFilter.expectedNumItems"
+          ptype: "uniform_int"
+          upper: 100000000
+          lower: 100000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.optimizer.runtime.bloomFilter.maxNumBits"
+          ptype: "uniform_int"
+          upper: 6710886400
+          lower: 6710886
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.optimizer.runtime.bloomFilter.maxNumItems"
+          ptype: "uniform_int"
+          upper: 400000000
+          lower: 400000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.optimizer.runtime.bloomFilter.numBits"
+          ptype: "uniform_int"
+          upper: 838860800
+          lower: 838860
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.optimizer.runtimeFilter.number.threshold"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.orc.columnarReaderBatchSize"
+          ptype: "uniform_int"
+          upper: 409600
+          lower: 409
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.parquet.columnarReaderBatchSize"
+          ptype: "uniform_int"
+          upper: 409600
+          lower: 409
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.repl.eagerEval.maxNumRows"
+          ptype: "uniform_int"
+          upper: 2000
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.repl.eagerEval.truncate"
+          ptype: "uniform_int"
+          upper: 2000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.shuffledHashJoinFactor"
+          ptype: "uniform_int"
+          upper: 300
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.pivotMaxValues"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.sources.bucketing.maxBuckets"
+          ptype: "uniform_int"
+          upper: 10000000
+          lower: 10000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.streaming.continuous.epochBacklogQueueSize"
+          ptype: "uniform_int"
+          upper: 1000000
+          lower: 1000
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.streaming.fileSource.cleaner.numThreads"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.streaming.numRecentProgressUpdates"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.thriftServer.queryTimeout"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "ms"
+        - name: "spark.sql.thriftserver.ui.retainedSessions"
+          ptype: "uniform_int"
+          upper: 20000
+          lower: 20
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.thriftserver.ui.retainedStatements"
+          ptype: "uniform_int"
+          upper: 20000
+          lower: 20
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.streaming.stopTimeout"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 0
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.streaming.ui.retainedProgressUpdates"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.sql.streaming.ui.retainedQueries"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.streaming.kafka.minRatePerPartition"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.r.numRBackendThreads"
+          ptype: "uniform_int"
+          upper: 200
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.r.backendConnectionTimeout"
+          ptype: "uniform_int"
+          upper: 600000
+          lower: 600
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.r.heartBeatInterval"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.shuffle.push.server.minChunkSizeInMergedShuffleFile"
+          ptype: "uniform_int"
+          upper: 200
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.shuffle.push.server.mergedIndexCacheSize"
+          ptype: "uniform_int"
+          upper: 10000
+          lower: 10
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.shuffle.push.mergersMinStaticThreshold"
+          ptype: "uniform_int"
+          upper: 500
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.shuffle.push.maxBlockSizeToPush"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.shuffle.push.maxBlockBatchSize"
+          ptype: "uniform_int"
+          upper: 300
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.shuffle.push.minShuffleSizeToWait"
+          ptype: "uniform_int"
+          upper: 50000
+          lower: 50
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "m"
+        - name: "spark.shuffle.push.finalize.timeout"
+          ptype: "uniform_int"
+          upper: 1000
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.shuffle.push.maxRetainedMergerLocations"
+          ptype: "uniform_int"
+          upper: 50000
+          lower: 50
+          suggestion: ""
+          choices: []
+          enable: False
+        - name: "spark.scheduler.blacklist.unschedulableTaskSetTimeout"
+          ptype: "uniform_int"
+          upper: 12000
+          lower: 12
+          suggestion: ""
+          choices: []
+          enable: False
+          prefix: ""
+          suffix: "s"
+        - name: "spark.streaming.kafka.maxRetries"
+          ptype: "uniform_int"
+          upper: 100
+          lower: 1
+          suggestion: ""
+          choices: []
+          enable: False
