@@ -152,7 +152,7 @@ endif
 3. **无需修改函数调用**：参考案例 2，仅切换链接库
 4. **按 `MKL_STRATEGY` 应用案例 3**：KML 或 OpenBLAS 对应构建系统配置
 5. **检查 MKL 专有扩展**：若代码使用 `mkl_malloc` 等扩展，按上表替换
-6. **验证**：双架构编译通过（参考 [source-migration-scan.md](source-migration-scan.md) 4.3 节）
+6. **验证**：双架构编译通过（参考 [source-migration-scan.md](../source-migration-scan.md) 4.3 节）
 
 ## 失败处置
 

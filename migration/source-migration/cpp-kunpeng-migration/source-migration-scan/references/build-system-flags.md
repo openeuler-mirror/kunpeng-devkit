@@ -122,7 +122,7 @@ endif()
    - `disable`：**不添加** avx2ki 链接
 3. **移除 x86 AVX/SSE 选项**（Rule 级别，必须）：在 aarch64 配置段中过滤掉 `-mavx*` / `-mavx512*` / `-msse*`
 4. **添加基础兼容选项**（Suggestion）：`-fsigned-char` / `-march=armv8.5-a`（或 `armv8-a`）/ `-Werror=conversion`
-5. **验证**：双架构编译通过（参考 [source-migration-scan.md](source-migration-scan.md) 4.3 节）
+5. **验证**：双架构编译通过（参考 [source-migration-scan.md](../source-migration-scan.md) 4.3 节）
 
 ## 失败处置
 
