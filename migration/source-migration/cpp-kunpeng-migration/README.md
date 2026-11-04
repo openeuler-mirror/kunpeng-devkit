@@ -322,5 +322,5 @@ cpp-kunpeng-migration/
 ## 参考资源
 
 - [鲲鹏 DevKit](https://www.hikunpeng.com/developer/devkit) — 获取 DevKit 工具
-- [SKILL.md](cpp-kunpeng-migration/SKILL.md) — 完整的六阶段流程编排文档
+- [SKILL.md](SKILL.md) — 完整的六阶段流程编排文档
 - [prompt.md](prompt.md) — 使用提示词模板
