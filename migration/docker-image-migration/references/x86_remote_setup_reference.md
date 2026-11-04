@@ -2,9 +2,9 @@
 
 本文档是 SKILL.md「操作准备 > x86_64 远程采集机准备」的详细操作参考，包含环境检查、自动配置、工具包定位与验证的完整步骤。
 
-- 工具定位与命令前缀约定见 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「通用约定」
-- ARM64 + 远程 x86_64 拆分采集流程见 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「拆分采集流程」
-- 远程采集配置参数（`X86_HOST`、`X86_AI_MIGRATION_DIR`）见 [config_reference.md](references/config_reference.md) 第 8 节
+- 工具定位与命令前缀约定见 [image_collector_cli_reference.md](image_collector_cli_reference.md)「通用约定」
+- ARM64 + 远程 x86_64 拆分采集流程见 [image_collector_cli_reference.md](image_collector_cli_reference.md)「拆分采集流程」
+- 远程采集配置参数（`X86_HOST`、`X86_AI_MIGRATION_DIR`）见 [config_reference.md](config_reference.md) 第 8 节
 
 ## 目录
 
@@ -205,7 +205,7 @@ ssh <user>@<host> "df -m /tmp | tail -1 | awk '{print \$4}'"
 | ------------------ | ------------------------------------------------------------ |
 | ✓ 可用 ≥ 2048 MB   | 继续步骤 6                                                   |
 | ⚠ 可用 500–2048 MB | 警告：磁盘空间偏低，大镜像采集可能失败。询问用户是否继续或指定其他传输路径 |
-| ✗ 可用 < 500 MB    | 建议清理 `/tmp` 或将 x86 工具包安装到其他路径（见 [config_reference.md](references/config_reference.md) 第 8 节）。暂停等待用户处理 |
+| ✗ 可用 < 500 MB    | 建议清理 `/tmp` 或将 x86 工具包安装到其他路径（见 [config_reference.md](config_reference.md) 第 8 节）。暂停等待用户处理 |
 
 ### 步骤 6：目标镜像存在性检查
 

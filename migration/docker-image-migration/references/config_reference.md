@@ -131,12 +131,12 @@
 
 ## 8. x86_64 远程采集配置
 
-> 仅当当前机器为 ARM64 且需要远程 x86_64 采集机时生效。完整环境检查流程见 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md)。
+> 仅当当前机器为 ARM64 且需要远程 x86_64 采集机时生效。完整环境检查流程见 [x86_remote_setup_reference.md](x86_remote_setup_reference.md)。
 
 | 配置                   | 默认值     | 说明                                                         |
 | ---------------------- | ---------- | ------------------------------------------------------------ |
 | `X86_HOST`             | 无（必填） | x86_64 采集机 SSH 地址，格式 `<user>@<host>`                 |
-| `X86_AI_MIGRATION_DIR` | 无（必填） | x86_64 采集机上 ai-migration 工具包目录的绝对路径（优先为 DevKit 安装目录 `/opt/huawei/devkit` 下，如 `/opt/huawei/devkit/DevKit-AI-Migration-Tool-<version>-Linux-x86-64`；无则工作目录下，如 `<工作目录>/DevKit-AI-Migration-Tool-<version>-Linux-x86-64`；工具包获取方式见 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 步骤 2/2.1） |
+| `X86_AI_MIGRATION_DIR` | 无（必填） | x86_64 采集机上 ai-migration 工具包目录的绝对路径（优先为 DevKit 安装目录 `/opt/huawei/devkit` 下，如 `/opt/huawei/devkit/DevKit-AI-Migration-Tool-<version>-Linux-x86-64`；无则工作目录下，如 `<工作目录>/DevKit-AI-Migration-Tool-<version>-Linux-x86-64`；工具包获取方式见 [x86_remote_setup_reference.md](x86_remote_setup_reference.md) 步骤 2/2.1） |
 
 **使用示例**：
 
@@ -168,7 +168,7 @@ curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TO
 curl -LO ${AI_MIGRATION_TOOL_DOWNLOAD_BASE}/Kunpeng%20DevKit%20${AI_MIGRATION_TOOL_VERSION}/DevKit-AI-Migration-Tool-${AI_MIGRATION_TOOL_VERSION}-Linux-x86-64.tar.gz
 ```
 
-> 定位与获取的完整优先级（`/opt/huawei/devkit` → 工作目录 → 下载 → 跨机传输 → 请求用户）见 SKILL.md「工具定位」与 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 步骤 2/2.1。下载属系统环境变更，执行前须按 SKILL.md「系统环境变更确认」请求用户确认。若上述直链失效（如版本目录调整），可在 DevKit 下载门户 `https://kunpeng-community.rnd.huawei.com/zh/developer/devkit/downloadNew` 手动查找对应架构与版本的工具包。
+> 定位与获取的完整优先级（`/opt/huawei/devkit` → 工作目录 → 下载 → 跨机传输 → 请求用户）见 SKILL.md「工具定位」与 [x86_remote_setup_reference.md](x86_remote_setup_reference.md) 步骤 2/2.1。下载属系统环境变更，执行前须按 SKILL.md「系统环境变更确认」请求用户确认。若上述直链失效（如版本目录调整），可在 DevKit 下载门户 `https://kunpeng-community.rnd.huawei.com/zh/developer/devkit/downloadNew` 手动查找对应架构与版本的工具包。
 
 ---
 
