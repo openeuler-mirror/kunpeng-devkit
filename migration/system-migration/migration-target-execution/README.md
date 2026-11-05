@@ -58,10 +58,11 @@ migration-target-execution/
 │   ├── migration-precheck.md
 │   └── scripts/run-precheck.sh
 ├── database-migration/               # 数据库迁移子Skill
-│   ├── information-collection/
+│   ├── database-migration.md
 │   ├── database-deploy/
 │   └── data-migration/
 ├── middleware-migration/             # 中间件迁移子Skill
+│   └── middleware-migration.md
 └── java-application-migration/        # JAR/WAR无源码应用迁移
     └── java-application-migration.md
 ```
