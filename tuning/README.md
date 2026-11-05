@@ -15,7 +15,7 @@
 本 Skill 集面向鲲鹏平台，提供从**系统级瓶颈识别**到**应用级优化落地**的全链路调优能力。Skill 包含如下调优场景：
 
 - **核心调优 (core)**：系统静态配置分析、微架构瓶颈诊断、NUMA 访问分析、伪共享检测、CPU 频率/功耗分析、场景化瓶颈分析、CRC/64K 页检测等，共 16 个 Skill
-- **Java 调优 (java)**：面向鲲鹏+ BishengJDK 的 8 条实战优化规则，覆盖 fastutil 容器替换、ITLB miss 降低、分代 ZGC、NUMA-aware 分配、KAE 加解密/压缩加速等
+- **Java 调优 (java)**：面向鲲鹏 + BishengJDK 的 8 条实战优化规则，覆盖 fastutil 容器替换、ITLB miss 降低、分代 ZGC、NUMA-aware 分配、KAE 加解密/压缩加速等
 
 ---
 
@@ -46,7 +46,7 @@
 
 | Skill | 说明 |
 |-------|------|
-| `kunpeng-java-tuning` | 面向鲲鹏+ BishengJDK 的 8 条实战优化规则 |
+| `kunpeng-java-tuning` | 面向鲲鹏 + BishengJDK 的 8 条实战优化规则 |
 
 ---
 
@@ -69,11 +69,15 @@ bash check_install.sh --install
 
 使用 `server_data_collect.sh` 执行采集。
 
+```bash
+bash server_data_collect.sh -d 60    # 持续采集 60 秒，其余参数见 -h
+```
+
 采集完成后会生成打包文件（默认命名 `profiling_data_aarch64_<时间戳>.tar.gz`），包含性能数据文件。
 
 ### 步骤三：触发 Skill 分析
 
-对话指引agent读取性能数据文件，触发 Skill 进行调优分析
+对话指引 agent 读取性能数据文件，触发 Skill 进行调优分析
 
 ```text
 读取 profiling_data_aarch64_<时间戳>.tar.gz 中的性能数据文件，给出调优建议
