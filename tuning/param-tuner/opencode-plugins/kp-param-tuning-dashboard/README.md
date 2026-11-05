@@ -99,7 +99,7 @@ bun run viewer:sample
 
 ## 构建脚本
 
-使用 [build.mjs](file:///src/build.mjs) 进行类型检查和编译：
+使用 [build.mjs](build.mjs) 进行类型检查和编译：
 
 ```bash
 # 完整构建（类型检查 + 编译到 dist/）
@@ -196,7 +196,7 @@ bun run build:watch
 | `status` | string | 否 | 本轮状态，默认 "unknown" |
 | `timestamp` | string | 否 | 本轮完成时间（ISO 格式） |
 
-完整示例见 [sample/tuning-data.json](file:///sample/tuning-data.json)。
+完整示例见 [sample/tuning-data.json](sample/tuning-data.json)。
 
 ## 项目结构
 
