@@ -50,6 +50,7 @@ migration-source-collector/
 │   └── remote-hosts-template.conf
 ├── references/
 │   ├── collector-guide.md
+│   ├── migration-plan-filling-rules.md
 │   ├── migration-plan-guide.md
 │   └── migration-route-reference.md
 └── scripts/
