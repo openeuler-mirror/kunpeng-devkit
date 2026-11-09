@@ -1,6 +1,6 @@
 ---
 name: devkit-topdown-analysis
-description: Top-down微架构分析技能。分析devkit_topdown.txt数据文件，或对话里有topdown指标相关信息时（比如memory bound、frontend bount、L1 bound等）触发，提取微架构瓶颈指标、识别Frontend/Backend Bound、生成微架构级调优建议。当用户需要微架构分析或编译器优化时触发此技能。
+description: Top-down微架构分析技能。分析devkit_topdown.txt数据文件，或对话里有topdown指标相关信息时（比如memory bound、frontend bound、L1 bound等）触发，提取微架构瓶颈指标、识别Frontend/Backend Bound、生成微架构级调优建议。当用户需要微架构分析或编译器优化时触发此技能。
 ---
 
 ## 适用场景
