@@ -59,7 +59,7 @@ COLLECTED_DATA:
 若缺少数据，根据当前机器架构和环境决定采集方式。
 
 > 采集工具：`./ai-migration image-migration collect`。manifest 与 history 均从 registry 获取（buildx/skopeo，跨架构可用，不依赖本地镜像）；layer 需要运行容器，可能触发本地 pull。ARM64 主机上 `collect` 跳过 layer 采集。
-> 以下命令中的 `./ai-migration` 是简写，执行前需替换为 `ai-migration` 的实际绝对路径，或先 `cd` 到安装目录。定位方法、工具说明与采集边界见 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「工具定位」「采集边界」。
+> 以下命令中的 `./ai-migration` 是简写，执行前需替换为 `ai-migration` 的实际绝对路径，或先 `cd` 到安装目录。定位方法、工具说明与采集边界见 [image_collector_cli_reference.md](image_collector_cli_reference.md)「工具定位」「采集边界」。
 >
 > ⚠️ **所有机器禁止 `python3` 直接调用采集/分析脚本**：不存在可直接运行的 `collect.py`、`analyze.py` 等 Python 脚本，ARM64 主控端和 x86_64 采集机均必须使用 `${AI_MIGRATION_DIR}/ai-migration image-migration <subcommand>` 调用。
 
@@ -126,7 +126,7 @@ ARM64 主机无法运行 x86_64 容器，因此无法本地采集 layer。
               4. 远程执行采集命令（collect-x86 采 manifest+history，env 采 layer）；
               5. 回传并校验采集产物；
               6. 解压后进入 1.5。
-              详细步骤见 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md)。
+              详细步骤见 [x86_remote_setup_reference.md](x86_remote_setup_reference.md)。
 
 无远程 x86_64 采集机 → 环境 C：ARM64 无远程采集机，无法采集 layer，也无法对 x86_64 镜像采集本地 history。
             → 必须先交互式提示用户（提示语同 1.1）：
@@ -236,7 +236,7 @@ ${AI_MIGRATION_DIR}/ai-migration image-migration analyze \
 
 **环境 B（ARM64 + 远程 x86_64 采集机）**：
 
-> ARM64 + 远程 x86_64 采集机环境下必须采用拆分采集流程（见阶段 1.4 环境 B 说明和 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「拆分采集流程」）。
+> ARM64 + 远程 x86_64 采集机环境下必须采用拆分采集流程（见阶段 1.4 环境 B 说明和 [image_collector_cli_reference.md](image_collector_cli_reference.md)「拆分采集流程」）。
 
 ```bash
 # ────────────── 基础镜像 ──────────────
@@ -319,7 +319,7 @@ ${AI_MIGRATION_DIR}/ai-migration image-migration analyze \
 4. `layer.json` 缺失但 `got_layer=false` → 记录 `LAYER_NOT_COLLECTED`，按 1.1 的降级流程继续；
 5. `manifest.json` 或 `history.json` 缺失/不可解析 → 回到 1.2 重新采集。
 
-> 详细字段说明见 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「collect-x86 / collect 子命令」与「analyze 子命令」参数表。
+> 详细字段说明见 [image_collector_cli_reference.md](image_collector_cli_reference.md)「collect-x86 / collect 子命令」与「analyze 子命令」参数表。
 
 ---
 
@@ -356,7 +356,7 @@ docker manifest inspect <BASE_IMAGE>
 ```
 
 - 有 `linux/arm64`：保存 tag/digest 与命令输出，进入 1.6.2。
-- 明确无 `linux/arm64`：先检索 [build_knowledge_reference.md](references/build_knowledge_reference.md) 的替代或版本升级方案；无方案时使用 `FAILED(NO_ARM64_SUPPORT)`。
+- 明确无 `linux/arm64`：先检索 [build_knowledge_reference.md](build_knowledge_reference.md) 的替代或版本升级方案；无方案时使用 `FAILED(NO_ARM64_SUPPORT)`。
 - 认证失败、超时或 Registry 不可达：属于证据缺失，不得等同于“不支持 ARM64”。
 
 官方镜像族的最小构建探测边界统一见 `references/build_knowledge_reference.md`；最终报告仍需 manifest 或等价平台证据。
@@ -369,7 +369,7 @@ docker manifest inspect <BASE_IMAGE>
 | ---------------------------------------- | --------------- | ------------------------------------------------------------ |
 | 明确出现 `FROM <image>`                  | 基础镜像候选    | 记录为补充证据，并按 1.6.1 验证；不要假定 history 必然含 FROM |
 | `apt-get install -y <pkgs>`              | 系统包          | 提取包名，构建时替换 apt 源后重建                            |
-| `pip install <pkgs>`                     | Python 包       | 提取版本，查 [build_knowledge_reference.md](references/build_knowledge_reference.md) 检查兼容性 |
+| `pip install <pkgs>`                     | Python 包       | 提取版本，查 [build_knowledge_reference.md](build_knowledge_reference.md) 检查兼容性 |
 | `git clone <url>`                        | 源码下载        | 按 `GIT_HOSTS`、主 Skill 全局执行红线中的启动门禁第 4 项（软件包源）和 `AIRGAP_MODE` 决定重新拉取；不可达时再进入 阶段 3 提取 |
 | `WORKDIR` / `ENV` / `CMD` / `ENTRYPOINT` | 元信息          | 记录，完整还原                                               |
 | `COPY / ADD <src> <dst>`                 | 文件拷贝        | 标记来源，需从 x86 镜像提取或重新获取                        |
@@ -470,7 +470,7 @@ ${AI_MIGRATION_DIR}/ai-migration image-migration layout \
 
 > `--depth` 默认 3，扫描根目录默认 `/app /opt /home /etc /srv /data /workspace /code /project`，可按镜像实际 WORKDIR 调整 `--scan-dirs`。
 > 仅需 OS/运行时/系统包/配置（无需文件树）时可用 `--mode rebuild`，文件小速度快，但不含 `directory_tree`。
-> 工具详细参数见 [image_collector_cli_reference.md](references/image_collector_cli_reference.md)「子命令速查表」`layout` 行。
+> 工具详细参数见 [image_collector_cli_reference.md](image_collector_cli_reference.md)「子命令速查表」`layout` 行。
 
 **报告记录**：执行 `inspect` 后，将实际使用的 `--mode` 值（`rebuild` / `normal` / `full`）记录到报告的 `reconstruction_info.layout_mode_used` 字段；未执行 `inspect` 时该字段留空。
 
@@ -480,7 +480,7 @@ ${AI_MIGRATION_DIR}/ai-migration image-migration layout \
 
 完成 阶段 1 后，按模板逐项填写决策矩阵，**所有条目必须填写完毕再进入 阶段 3**：
 
-- 模板位置：[`asserts/decision_matrix.md`](asserts/decision_matrix.md)
+- 模板位置：[`asserts/decision_matrix.md`](../asserts/decision_matrix.md)
 
 ---
 
@@ -503,7 +503,7 @@ docker rm $CID
 
 **提取后必做：so 兼容性扫描**
 
-> 统一按 [references/devkit_pkg_mig_reference.md](references/devkit_pkg_mig_reference.md) 执行工具检查、结构化扫描或 fallback。DevKit 不可用时必须注明“手动初筛”，不得把 fallback 结果写成工具判定。
+> 统一按 [references/devkit_pkg_mig_reference.md](devkit_pkg_mig_reference.md) 执行工具检查、结构化扫描或 fallback。DevKit 不可用时必须注明“手动初筛”，不得把 fallback 结果写成工具判定。
 
 | 扫描结果                      | 处理                                                         |
 | ----------------------------- | ------------------------------------------------------------ |
@@ -699,10 +699,10 @@ docker stop test-<project>
 
 ### 6.2 运行失败与增量 patch
 
-按 [dockerfile_migration.md](references/dockerfile_migration.md) 第 5.2 节和主 Skill 的失败处理规则执行；涉及基础镜像、系统包或构建参数时回到 阶段 4/5。
+按 [dockerfile_migration.md](dockerfile_migration.md) 第 5.2 节和主 Skill 的失败处理规则执行；涉及基础镜像、系统包或构建参数时回到 阶段 4/5。
 
 ### 6.3 写报告
 
-> 报告 JSON 格式见 [templates/image_reconstruction_report_template.md](templates/image_reconstruction_report_template.md)。本场景 `migration_mode = "IMAGE_RECONSTRUCTION"`，额外含 `source_image` 和 `reconstruction_info` 字段（见模板 2.2 节）。
+> 报告 JSON 格式见 [templates/image_reconstruction_report_template.md](../templates/image_reconstruction_report_template.md)。本场景 `migration_mode = "IMAGE_RECONSTRUCTION"`，额外含 `source_image` 和 `reconstruction_info` 字段（见模板 2.2 节）。
 
-`_summary.json` 格式同 [templates/image_reconstruction_report_template.md](templates/image_reconstruction_report_template.md) 的“总览报告”部分，`migration_mode` 改为 `IMAGE_RECONSTRUCTION`。
+`_summary.json` 格式同 [templates/image_reconstruction_report_template.md](../templates/image_reconstruction_report_template.md) 的“总览报告”部分，`migration_mode` 改为 `IMAGE_RECONSTRUCTION`。

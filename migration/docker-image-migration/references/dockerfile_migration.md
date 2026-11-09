@@ -94,7 +94,7 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 处理顺序：
 
 1. **松散文件**（未打包的 `.so` / `.a` / `.o` / ELF 二进制）：执行 `file`，其输出即为判定证据。
-2. **归档/JAR/RPM**：**必须**按 [references/devkit_pkg_mig_reference.md](references/devkit_pkg_mig_reference.md) 第 1 节留档工具可用性结论后，执行第 2 节 `devkit porting pkg-mig ... -r json` 结构化扫描并保存 JSON；工具不可用时按第 3 节 fallback 执行（先解压、再对 ELF 逐个 `file`）并留档证据。
+2. **归档/JAR/RPM**：**必须**按 [references/devkit_pkg_mig_reference.md](devkit_pkg_mig_reference.md) 第 1 节留档工具可用性结论后，执行第 2 节 `devkit porting pkg-mig ... -r json` 结构化扫描并保存 JSON；工具不可用时按第 3 节 fallback 执行（先解压、再对 ELF 逐个 `file`）并留档证据。
 3. **未取得合法判定证据（pkg-mig JSON 或解压后 ELF 的 `file` 输出）前，不得对归档内文件给出兼容/不兼容结论，不得写 `[WARN-X86-NATIVE-SO]` / `[FIXED-SO-REPLACED-AARCH64]` 标记，也不得进入 1.7 分类。**
 4. 证据确认 x86_64 后，进入 1.7 的功能影响分类。
 5. 功能无关且有证据时可注释原命令，并记录 `[WARN-X86-NATIVE-SO]`。
@@ -133,7 +133,7 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 
 ### 1.6 COPY / ADD / wget 外部资源获取
 
-> 当当前机器为 ARM64 且需要从 x86 镜像提取资源时（下方路径 (2)），需先按 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 完成环境检查。`docker pull --platform linux/amd64` 和 `docker cp` 操作需在 x86_64 采集机上通过 SSH 远程执行。**`docker pull` 属于系统环境变更（可能占用大量磁盘空间），须按 SKILL.md「系统环境变更确认」原则请求用户确认后方可执行，不得自行静默拉取。**
+> 当当前机器为 ARM64 且需要从 x86 镜像提取资源时（下方路径 (2)），需先按 [x86_remote_setup_reference.md](x86_remote_setup_reference.md) 完成环境检查。`docker pull --platform linux/amd64` 和 `docker cp` 操作需在 x86_64 采集机上通过 SSH 远程执行。**`docker pull` 属于系统环境变更（可能占用大量磁盘空间），须按 SKILL.md「系统环境变更确认」原则请求用户确认后方可执行，不得自行静默拉取。**
 
 ```text
 待检查源：src 路径不在当前构建上下文，或 wget/curl 拉取非公开地址
@@ -162,7 +162,7 @@ E. 构建上下文中的 JAR/WAR/EAR、.tar.gz/.zip 归档、RPM 包（无论文
 
 ### 1.7 资源原生库兼容性检查（进入决策表前必做）
 
-> **适用范围**：凡 1.4 命中的 native 候选——无论文件来自构建上下文（COPY/ADD 的 src）还是 1.6 的外部资源获取——进入阶段 2 决策表前都必须完成本节检查。使用 Kunpeng DevKit `pkg-mig` 工具进行结构化扫描，工具参考：[references/devkit_pkg_mig_reference.md](references/devkit_pkg_mig_reference.md)。
+> **适用范围**：凡 1.4 命中的 native 候选——无论文件来自构建上下文（COPY/ADD 的 src）还是 1.6 的外部资源获取——进入阶段 2 决策表前都必须完成本节检查。使用 Kunpeng DevKit `pkg-mig` 工具进行结构化扫描，工具参考：[references/devkit_pkg_mig_reference.md](devkit_pkg_mig_reference.md)。
 
 **执行方式**：
 
@@ -273,7 +273,7 @@ RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirrors.aliyun.com/ubuntu-
 
 ### 3.3 FORCE_VERSION_OVERRIDES 追加层
 
-若 [references/config_reference.md](references/config_reference.md) 有配置，在 Dockerfile **末尾**追加：
+若 [references/config_reference.md](config_reference.md) 有配置，在 Dockerfile **末尾**追加：
 
 ```dockerfile
 # [FORCE-VERSION-OVERRIDES] 强制覆盖被依赖树拖回旧版本的包
@@ -379,10 +379,10 @@ docker build --platform linux/arm64 \
 
 ### 5.3 写报告
 
-> 报告 JSON 格式见 [templates/dockerfile_migration_report_template.md](templates/dockerfile_migration_report_template.md)。本场景 `migration_mode = "IMAGE_MIG_SKILLSET"`，无 mode 特有字段。
+> 报告 JSON 格式见 [templates/dockerfile_migration_report_template.md](../templates/dockerfile_migration_report_template.md)。本场景 `migration_mode = "IMAGE_MIG_SKILLSET"`，无 mode 特有字段。
 
 提交前自检：报告内所有 native 相关标记（`WARN-X86-NATIVE-SO` / `FIXED-SO-REPLACED-AARCH64`）的条目必须带非空 `evidence_source`；缺失任何一条即回到 1.4/1.7 补齐证据后重写，不得提交。
 
 ### 5.4 主 Agent 总览报告（`_summary.json`）
 
-> 格式见 [templates/dockerfile_migration_report_template.md](templates/dockerfile_migration_report_template.md) 总览报告。
+> 格式见 [templates/dockerfile_migration_report_template.md](../templates/dockerfile_migration_report_template.md) 总览报告。

@@ -2,8 +2,8 @@
 
 本文档定义 `./ai-migration image-migration` 各子命令的参数、输出格式与字段说明。
 
-- 采集流程与执行环境选择见 [image_reconstruction.md](references/image_reconstruction.md) 阶段 1.4
-- x86_64 远程采集机环境准备见 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md)
+- 采集流程与执行环境选择见 [image_reconstruction.md](image_reconstruction.md) 阶段 1.4
+- x86_64 远程采集机环境准备见 [x86_remote_setup_reference.md](x86_remote_setup_reference.md)
 - 采集边界、环境依赖与 Registry 读取优先级见本文「采集边界」「环境依赖」「Registry 读取优先级与 history 采集来源」节
 
 ## 目录
@@ -45,7 +45,7 @@ ls <工作目录>/DevKit-AI-Migration-Tool-*/ai-migration
 2. **从另一台机器下载后传输**：本机网络不可用时，由网络正常的另一台机器下载后 scp 传到本机工作目录；
 3. **请求用户上传或提供路径**：两台机器网络均不可用、且 `/opt/huawei/devkit` 与工作目录均无工具包时，**暂停并交互式请求用户**上传工具包或提供已有路径，未确认前不得继续执行。
 
-> x86_64 采集机的工具包获取详细步骤见 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md) 步骤 2/2.1。下载属系统环境变更，执行前须按 SKILL.md「系统环境变更确认」原则请求用户确认。
+> x86_64 采集机的工具包获取详细步骤见 [x86_remote_setup_reference.md](x86_remote_setup_reference.md) 步骤 2/2.1。下载属系统环境变更，执行前须按 SKILL.md「系统环境变更确认」原则请求用户确认。
 
 ---
 
@@ -97,7 +97,7 @@ ls <工作目录>/DevKit-AI-Migration-Tool-*/ai-migration
 
 ### x86_64 采集机（仅远程采集时需要）
 
-完整的环境要求表和自动配置流程见 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md)。
+完整的环境要求表和自动配置流程见 [x86_remote_setup_reference.md](x86_remote_setup_reference.md)。
 
 需要 `layer.json` 时，须在可运行源镜像的 x86_64 主机通过 `ai-migration image-migration env` 执行。
 
@@ -381,7 +381,7 @@ ARM64 + 远程 x86_64 采集机环境下采用"采集→回传→分析"的流�
 > - 若 ARM 端 buildx/skopeo 已能返回完整 history、且无需本地 history（如只需 manifest + registry history 即可推进迁移），可省略步骤 1 的 `collect-x86` 跨机采集，直接在 ARM64 主控端用 `collect` 采集 manifest + registry history（更轻、不触发 x86 的 `docker pull`），仅步骤 2 的 layer 仍须在 x86 采集。
 > - 判定依据：先在 ARM 端 `collect` 试采，若 `_status.json` 的 `got_history=true` 且后续阶段不依赖本地 history，即满足省略条件；若 `got_history=false` 且迁移需要 history，再回退到 `collect-x86`。
 
-> 远程采集机环境准备（SSH/Docker 检查、工具包定位）见 [x86_remote_setup_reference.md](references/x86_remote_setup_reference.md)。
+> 远程采集机环境准备（SSH/Docker 检查、工具包定位）见 [x86_remote_setup_reference.md](x86_remote_setup_reference.md)。
 > 下例中 `${X86_AI_MIGRATION_DIR}` 为 x86_64 采集机上的工具包目录，`${AI_MIGRATION_DIR}` 为 ARM64 主控端的工具包目录。
 
 ```bash
