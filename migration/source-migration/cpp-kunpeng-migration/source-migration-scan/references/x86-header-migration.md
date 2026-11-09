@@ -42,7 +42,7 @@
 
 > **说明**：上方代码示例同时展示了两种策略的写法，实际执行时按 `AVX_STRATEGY` 取值二选一：
 > - `AVX_STRATEGY=ksl`：鲲鹏侧引入 `<avx2ki.h>`，原有 `_mm*` 调用无需修改
-> - `AVX_STRATEGY=neon`：鲲鹏侧引入 `<arm_neon.h>`，需将 `_mm*` 调用手动改写为 NEON `v*` intrinsics（详见 [intrinsics-migration.md](references/intrinsics-migration.md)）
+> - `AVX_STRATEGY=neon`：鲲鹏侧引入 `<arm_neon.h>`，需将 `_mm*` 调用手动改写为 NEON `v*` intrinsics（详见 [intrinsics-migration.md](intrinsics-migration.md)）
 
 ### 案例 2：整个源文件整体保护（整个文件都是 x86 专属 SIMD）
 
@@ -62,7 +62,7 @@
 3. **应用案例**：
    - 整文件都是 x86 SIMD → 案例 2
    - 局部 include → 案例 1，按 `AVX_STRATEGY` 二选一
-4. **验证**：双架构编译通过（参考 [source-migration-scan.md](source-migration-scan.md) 4.3 节）
+4. **验证**：双架构编译通过（参考 [source-migration-scan.md](../source-migration-scan.md) 4.3 节）
 
 ## 失败处置
 

@@ -99,7 +99,7 @@ inline uint64_t get_timestamp() {
    - 次选：ARM 汇编指令（性能最优）
    - 最后：跨平台标准库函数（兼容性最好）
 4. **架构宏隔离**：保留 x86 实现，aarch64 侧提供新实现
-5. **验证**：双架构编译通过（参考 [source-migration-scan.md](source-migration-scan.md) 4.3 节）
+5. **验证**：双架构编译通过（参考 [source-migration-scan.md](../source-migration-scan.md) 4.3 节）
 
 ## 失败处置
 
